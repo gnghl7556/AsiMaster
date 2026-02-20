@@ -88,9 +88,18 @@ npx web-push generate-vapid-keys
 
 출력된 Public/Private 키를 Railway 환경변수에 설정합니다.
 
+## 현재 배포 정보
+
+| 서비스 | URL |
+|--------|-----|
+| Frontend | https://shop-asimaster.vercel.app |
+| Backend API | https://asimaster-production.up.railway.app/api/v1 |
+| GitHub | https://github.com/gnghl7556/AsiMaster |
+
 ## 주의사항
 
 - Railway 무료 플랜: 월 $5 크레딧, Playwright + Chromium이 포함된 이미지는 메모리 사용량이 높음
 - Railway PostgreSQL: 무료 플랜 500MB 제한
 - Vercel 무료 플랜: 상업용 사용 시 Pro 플랜 필요
 - `DATABASE_URL`은 Railway 내부 네트워크 URL 사용 권장 (`railway.internal` 접미사)
+- 코드 수정 후 `git push`만 하면 Railway/Vercel 자동 재배포
