@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -8,6 +9,7 @@ import {
   Unlock,
   RefreshCw,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -32,8 +34,10 @@ export default function ProductDetailPage({
 }) {
   const { id } = use(params);
   const productId = Number(id);
+  const router = useRouter();
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -61,6 +65,17 @@ export default function ProductDetailPage({
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success(product?.is_price_locked ? "가격고정 해제" : "가격고정 설정");
     },
+  });
+
+  // 상품 삭제
+  const deleteMutation = useMutation({
+    mutationFn: () => productsApi.delete(userId!, productId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("상품이 삭제되었습니다");
+      router.push("/products");
+    },
+    onError: () => toast.error("상품 삭제에 실패했습니다"),
   });
 
   // 마진 시뮬레이션
@@ -182,12 +197,53 @@ export default function ProductDetailPage({
             </>
           )}
         </button>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          삭제
+        </button>
         {product.last_crawled_at && (
           <span className="flex items-center text-xs text-[var(--muted-foreground)] ml-auto">
             {timeAgo(product.last_crawled_at)}
           </span>
         )}
       </div>
+
+      {/* 삭제 확인 모달 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-lg font-bold">상품 삭제</h3>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              <strong>{product.name}</strong>을(를) 삭제하시겠습니까?
+              <br />
+              등록된 키워드와 순위 데이터가 모두 삭제됩니다.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 가격고정 알림 */}
       {product.is_price_locked && (
