@@ -10,39 +10,26 @@ from app.models.user import User
 from app.schemas.product import (
     PriceLockUpdate,
     ProductCreate,
+    ProductListItem,
     ProductResponse,
     ProductUpdate,
 )
+from app.services.product_service import get_product_list_items
 
 router = APIRouter(tags=["products"])
 
 
-@router.get("/users/{user_id}/products", response_model=list[ProductResponse])
+@router.get("/users/{user_id}/products", response_model=list[ProductListItem])
 async def get_products(
     user_id: int,
     category: str | None = None,
     search: str | None = None,
-    price_locked: bool | None = None,
     sort: str | None = Query(None, description="urgency|margin|rank_drop|category"),
-    page: int = Query(1, ge=1),
-    size: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Product).where(Product.user_id == user_id, Product.is_active == True)
-    if category:
-        query = query.where(Product.category == category)
-    if search:
-        query = query.where(Product.name.ilike(f"%{search}%"))
-    if price_locked is not None:
-        query = query.where(Product.is_price_locked == price_locked)
-    if sort == "category":
-        query = query.order_by(Product.category, Product.name)
-    else:
-        query = query.order_by(Product.created_at.desc())
-    offset = (page - 1) * size
-    query = query.offset(offset).limit(size)
-    result = await db.execute(query)
-    return result.scalars().all()
+    return await get_product_list_items(
+        db, user_id, sort_by=sort or "urgency", category=category, search=search,
+    )
 
 
 @router.post("/users/{user_id}/products", response_model=ProductResponse, status_code=201)
