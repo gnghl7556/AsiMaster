@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+.next/
+out/
+dist/
+*.egg-info/
+
+# IDE / Tools
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+.obsidian/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.pytest_cache/
+
+# bkit / PDCA internal
+.bkit-memory.json
+.pdca-status.json
+
+# Playwright
+playwright-report/
+test-results/

@@ -1,0 +1,117 @@
+"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Lock } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { formatPrice, timeAgo } from "@/lib/utils/format";
+import { STATUS_CONFIG } from "@/lib/utils/constants";
+import { StatusBadge } from "./StatusBadge";
+import { PriceGap } from "./PriceGap";
+import { MarginBar } from "./MarginBar";
+import { SparklineChart } from "./SparklineChart";
+import type { ProductListItem } from "@/types";
+
+interface ProductCardProps {
+  product: ProductListItem;
+}
+
+export function ProductCard({ product }: ProductCardProps) {
+  const config = STATUS_CONFIG[product.status];
+
+  if (product.is_price_locked) {
+    return (
+      <motion.div layout layoutId={`product-${product.id}`}>
+        <Link
+          href={`/products/${product.id}`}
+          className={cn(
+            "glass-card block p-4 border border-gray-500/20 transition-all hover:border-gray-500/40"
+          )}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">{product.name}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <PriceGap gap={product.price_gap} gapPercent={product.price_gap_percent} status={product.status} size="sm" />
+              <MarginBar percent={product.margin_percent} compact />
+            </div>
+          </div>
+          {product.price_lock_reason && (
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              사유: {product.price_lock_reason}
+            </p>
+          )}
+        </Link>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div layout layoutId={`product-${product.id}`}>
+      <Link
+        href={`/products/${product.id}`}
+        className={cn("glass-card block p-4 transition-all hover:scale-[1.01]", config.glow)}
+      >
+        <div className="flex items-center justify-between gap-3">
+          {/* 좌: 상태 + 상품명 */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <StatusBadge status={product.status} />
+            <div className="min-w-0">
+              <h3 className="font-medium truncate">{product.name}</h3>
+              {product.category && (
+                <span className="text-xs text-[var(--muted-foreground)]">{product.category}</span>
+              )}
+            </div>
+          </div>
+
+          {/* 중: 가격 정보 (PC만) */}
+          <div className="hidden lg:flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-sm text-[var(--muted-foreground)]">내 가격</div>
+              <div className="font-semibold tabular-nums">{formatPrice(product.selling_price)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-[var(--muted-foreground)]">최저가</div>
+              <div className="font-semibold tabular-nums">
+                {formatPrice(product.lowest_price)}
+              </div>
+              {product.lowest_platform && (
+                <div className="text-xs text-[var(--muted-foreground)]">{product.lowest_platform}</div>
+              )}
+            </div>
+          </div>
+
+          {/* 우: Gap + 마진 + Sparkline */}
+          <div className="flex items-center gap-4">
+            <PriceGap
+              gap={product.price_gap}
+              gapPercent={product.price_gap_percent}
+              status={product.status}
+            />
+            <div className="hidden sm:block">
+              <MarginBar percent={product.margin_percent} />
+            </div>
+            <div className="hidden md:flex flex-col items-center gap-0.5">
+              {product.ranking && (
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {product.ranking}위{product.total_sellers ? ` / ${product.total_sellers}명` : ""}
+                </span>
+              )}
+              <SparklineChart data={product.sparkline} />
+            </div>
+          </div>
+        </div>
+
+        {/* 모바일: 추가 정보 */}
+        <div className="mt-2 flex items-center justify-between sm:hidden">
+          <MarginBar percent={product.margin_percent} />
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {timeAgo(product.last_crawled_at)}
+          </span>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
