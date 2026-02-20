@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +57,7 @@ class CrawlManager:
             db.add(history)
 
             # 경쟁사 상태 업데이트
-            competitor.last_crawled_at = datetime.now(timezone.utc)
+            competitor.last_crawled_at = datetime.utcnow()
             competitor.crawl_status = "success"
             if result.seller_name:
                 competitor.seller_name = result.seller_name

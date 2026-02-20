@@ -20,12 +20,7 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
 
-    import traceback
-    try:
-        results = await manager.crawl_product(db, product_id)
-    except Exception as e:
-        return {"error": str(e), "traceback": traceback.format_exc()}
-
+    results = await manager.crawl_product(db, product_id)
     return [
         CrawlResultResponse(
             competitor_id=0,
@@ -64,9 +59,9 @@ async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
     total = total_q.scalar_one()
 
     # 최근 24시간 성공/실패
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    since = datetime.utcnow() - timedelta(hours=24)
     log_q = await db.execute(
         select(CrawlLog.status, func.count())
         .join(Competitor, CrawlLog.competitor_id == Competitor.id)

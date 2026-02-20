@@ -23,7 +23,7 @@ async def get_price_history(
     db: AsyncSession = Depends(get_db),
 ):
     days = PERIOD_DAYS[period]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.utcnow() - timedelta(days=days)
 
     query = (
         select(PriceHistory)

@@ -72,7 +72,7 @@ async def get_product_list_items(
     products = result.scalars().unique().all()
 
     items = []
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     seven_days_ago = now - timedelta(days=7)
 
     for product in products:
