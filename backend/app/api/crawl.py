@@ -20,7 +20,12 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
 
-    results = await manager.crawl_product(db, product_id)
+    import traceback
+    try:
+        results = await manager.crawl_product(db, product_id)
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
     return [
         CrawlResultResponse(
             competitor_id=0,
