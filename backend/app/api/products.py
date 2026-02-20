@@ -10,11 +10,12 @@ from app.models.user import User
 from app.schemas.product import (
     PriceLockUpdate,
     ProductCreate,
+    ProductDetail,
     ProductListItem,
     ProductResponse,
     ProductUpdate,
 )
-from app.services.product_service import get_product_list_items
+from app.services.product_service import get_product_detail, get_product_list_items
 
 router = APIRouter(tags=["products"])
 
@@ -58,12 +59,12 @@ async def create_product(user_id: int, data: ProductCreate, db: AsyncSession = D
     return product
 
 
-@router.get("/users/{user_id}/products/{product_id}", response_model=ProductResponse)
+@router.get("/users/{user_id}/products/{product_id}", response_model=ProductDetail)
 async def get_product(user_id: int, product_id: int, db: AsyncSession = Depends(get_db)):
-    product = await db.get(Product, product_id)
-    if not product or product.user_id != user_id:
+    detail = await get_product_detail(db, user_id, product_id)
+    if not detail:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    return product
+    return detail
 
 
 @router.put("/users/{user_id}/products/{product_id}", response_model=ProductResponse)

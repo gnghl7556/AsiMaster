@@ -170,3 +170,110 @@ async def get_product_list_items(
         items.sort(key=lambda x: (x["category"] or "", STATUS_ORDER.get(x["status"], 3)))
 
     return items
+
+
+async def get_product_detail(
+    db: AsyncSession,
+    user_id: int,
+    product_id: int,
+) -> dict | None:
+    query = (
+        select(Product)
+        .options(selectinload(Product.competitors).selectinload(Competitor.platform))
+        .options(selectinload(Product.competitors).selectinload(Competitor.price_history))
+        .options(selectinload(Product.cost_items))
+        .where(Product.id == product_id, Product.user_id == user_id)
+    )
+    result = await db.execute(query)
+    product = result.scalars().unique().first()
+    if not product:
+        return None
+
+    # 경쟁사별 최신 가격 및 상세 정보
+    competitor_details = []
+    latest_prices = []
+    last_crawled = None
+
+    for comp in product.competitors:
+        if not comp.is_active:
+            continue
+
+        sorted_history = sorted(comp.price_history, key=lambda h: h.crawled_at, reverse=True)
+        if sorted_history:
+            latest = sorted_history[0]
+            latest_prices.append({
+                "comp": comp,
+                "total_price": latest.total_price,
+                "price": latest.price,
+                "shipping_fee": latest.shipping_fee,
+                "ranking": latest.ranking,
+                "total_sellers": latest.total_sellers,
+                "crawled_at": latest.crawled_at,
+            })
+            if last_crawled is None or latest.crawled_at > last_crawled:
+                last_crawled = latest.crawled_at
+
+    # 최저가 계산
+    lowest_total = None
+    if latest_prices:
+        lowest_total = min(p["total_price"] for p in latest_prices)
+
+    lowest = min(latest_prices, key=lambda x: x["total_price"]) if latest_prices else None
+    lowest_price = lowest["total_price"] if lowest else None
+    lowest_platform = lowest["comp"].platform.display_name if lowest else None
+
+    price_gap = (product.selling_price - lowest_price) if lowest_price else None
+    price_gap_pct = round((price_gap / lowest_price) * 100, 1) if price_gap and lowest_price else None
+
+    status = calculate_status(product.selling_price, lowest_price)
+
+    # 경쟁사 상세 목록 구성
+    for p in latest_prices:
+        comp = p["comp"]
+        is_lowest = (p["total_price"] == lowest_total) if lowest_total else False
+        gap = (p["total_price"] - lowest_total) if lowest_total else 0
+        competitor_details.append({
+            "id": comp.id,
+            "platform": comp.platform.display_name,
+            "seller_name": comp.seller_name,
+            "price": p["price"] or 0,
+            "shipping_fee": p["shipping_fee"] or 0,
+            "total_price": p["total_price"] or 0,
+            "ranking": p["ranking"],
+            "is_lowest": is_lowest,
+            "gap_from_lowest": gap,
+            "crawled_at": p["crawled_at"],
+        })
+
+    competitor_details.sort(key=lambda x: x["total_price"])
+
+    # 마진 계산
+    cost_items_data = [
+        {"name": ci.name, "type": ci.type, "value": float(ci.value)}
+        for ci in product.cost_items
+    ]
+    margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
+
+    ranking = lowest["ranking"] if lowest else None
+    total_sellers = lowest["total_sellers"] if lowest else None
+
+    return {
+        "id": product.id,
+        "name": product.name,
+        "category": product.category,
+        "selling_price": product.selling_price,
+        "cost_price": product.cost_price,
+        "image_url": product.image_url,
+        "is_price_locked": product.is_price_locked,
+        "price_lock_reason": product.price_lock_reason,
+        "status": status,
+        "lowest_price": lowest_price,
+        "lowest_platform": lowest_platform,
+        "price_gap": price_gap,
+        "price_gap_percent": price_gap_pct,
+        "ranking": ranking,
+        "total_sellers": total_sellers,
+        "last_crawled_at": last_crawled,
+        "competitors": competitor_details,
+        "margin": margin,
+    }
