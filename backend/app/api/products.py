@@ -3,6 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.models.competitor import Competitor
+from app.models.platform import Platform
 from app.models.product import Product
 from app.models.user import User
 from app.schemas.product import (
@@ -51,6 +53,20 @@ async def create_product(user_id: int, data: ProductCreate, db: AsyncSession = D
     product = Product(user_id=user_id, **data.model_dump())
     db.add(product)
     await db.flush()
+
+    # 네이버 Competitor 자동 생성
+    naver_platform = (
+        await db.execute(select(Platform).where(Platform.name == "naver"))
+    ).scalars().first()
+    if naver_platform:
+        competitor = Competitor(
+            product_id=product.id,
+            platform_id=naver_platform.id,
+            url="",
+        )
+        db.add(competitor)
+        await db.flush()
+
     await db.refresh(product)
     return product
 

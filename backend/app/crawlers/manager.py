@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.crawlers.base import CrawlResult
 from app.crawlers.registry import CrawlerRegistry
@@ -25,8 +24,13 @@ class CrawlManager:
         if not crawler:
             return CrawlResult(success=False, error=f"크롤러 없음: {platform.name}")
 
+        # 상품명으로 검색
+        product = await db.get(Product, competitor.product_id)
+        if not product:
+            return CrawlResult(success=False, error="상품 없음")
+
         start_time = time.time()
-        result = await crawler.fetch(competitor.url)
+        result = await crawler.search(product.name)
         duration_ms = int((time.time() - start_time) * 1000)
 
         # 크롤링 로그 기록
@@ -59,14 +63,11 @@ class CrawlManager:
                 competitor.seller_name = result.seller_name
 
             # 알림 체크
-            product = await db.get(Product, competitor.product_id)
-            if product:
-                await check_and_create_alerts(db, product, competitor, total_price)
+            await check_and_create_alerts(db, product, competitor, total_price)
         else:
             competitor.crawl_status = "failed"
 
         await db.flush()
-        await crawler.delay()
         return result
 
     async def crawl_product(self, db: AsyncSession, product_id: int) -> list[CrawlResult]:

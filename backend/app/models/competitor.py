@@ -17,7 +17,7 @@ class Competitor(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"), nullable=False)
-    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    url: Mapped[str | None] = mapped_column(String(1000), nullable=True, default="")
     seller_name: Mapped[str | None] = mapped_column(String(200))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_crawled_at: Mapped[datetime | None] = mapped_column()

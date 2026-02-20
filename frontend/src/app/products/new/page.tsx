@@ -99,6 +99,9 @@ export default function NewProductPage() {
             placeholder="https://..."
           />
         </div>
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-sm text-blue-600 dark:text-blue-400">
+          상품을 등록하면 네이버 쇼핑 최저가가 자동으로 모니터링됩니다.
+        </div>
         <div className="flex gap-3 pt-2">
           <button
             type="button"

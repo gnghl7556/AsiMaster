@@ -1,58 +1,46 @@
-from bs4 import BeautifulSoup
+import logging
 
+import httpx
+
+from app.core.config import settings
 from app.crawlers.base import BaseCrawler, CrawlResult
+
+logger = logging.getLogger(__name__)
 
 
 class NaverCrawler(BaseCrawler):
     platform_name = "naver"
-    url_patterns = ["shopping.naver.com", "smartstore.naver.com", "naver.com"]
 
-    async def fetch(self, url: str) -> CrawlResult:
+    async def search(self, product_name: str) -> CrawlResult:
+        if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
+            return CrawlResult(success=False, error="네이버 API 키가 설정되지 않았습니다")
+
         try:
-            html = await self._get_page_html(url)
-            soup = BeautifulSoup(html, "html.parser")
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://openapi.naver.com/v1/search/shop.json",
+                    params={"query": product_name, "display": 1, "sort": "asc"},
+                    headers={
+                        "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
+                        "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET,
+                    },
+                )
+                resp.raise_for_status()
 
-            price = self._extract_price(soup)
-            shipping_fee = self._extract_shipping(soup)
+            data = resp.json()
+            items = data.get("items", [])
+            if not items:
+                return CrawlResult(success=False, error=f"검색 결과 없음: {product_name}")
 
-            if price is None:
-                return CrawlResult(success=False, error="가격 추출 실패")
-
+            item = items[0]
             return CrawlResult(
-                price=price,
-                shipping_fee=shipping_fee,
+                price=int(item["lprice"]),
+                seller_name=item.get("mallName", ""),
+                product_url=item.get("link", ""),
             )
+        except httpx.HTTPStatusError as e:
+            logger.error(f"네이버 API 오류: {e.response.status_code} - {e.response.text}")
+            return CrawlResult(success=False, error=f"네이버 API 오류: {e.response.status_code}")
         except Exception as e:
+            logger.error(f"네이버 검색 실패: {e}")
             return CrawlResult(success=False, error=str(e))
-
-    def _extract_price(self, soup: BeautifulSoup) -> int | None:
-        # 네이버 쇼핑 상품 페이지 가격 셀렉터들
-        selectors = [
-            "span.lowestPrice_num__A5gM9",
-            "em.prc_t",
-            "span._1LY7DqCnwR",
-            "span.price_num__S2p_v",
-            "em.spi_price",
-        ]
-        for selector in selectors:
-            el = soup.select_one(selector)
-            if el:
-                return self.parse_price(el.get_text())
-        return None
-
-    def _extract_shipping(self, soup: BeautifulSoup) -> int:
-        selectors = [
-            "span.lowestPrice_delivery__eRMBo",
-            "span.shp_fee",
-            "span._2LvuaEki6N",
-        ]
-        for selector in selectors:
-            el = soup.select_one(selector)
-            if el:
-                text = el.get_text()
-                if "무료" in text:
-                    return 0
-                parsed = self.parse_price(text)
-                if parsed:
-                    return parsed
-        return 0

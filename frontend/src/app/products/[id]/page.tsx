@@ -18,10 +18,8 @@ import { StatusBadge } from "@/components/products/StatusBadge";
 import { PriceGap } from "@/components/products/PriceGap";
 import { MarginDetail } from "@/components/products/MarginDetail";
 import { CompetitorRanking } from "@/components/products/CompetitorRanking";
-import { CompetitorForm } from "@/components/competitors/CompetitorForm";
 import { SparklineChart } from "@/components/products/SparklineChart";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
-import { useAddCompetitor } from "@/lib/hooks/useCompetitors";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import type { ProductDetail, MarginDetail as MarginDetailType } from "@/types";
 
@@ -44,9 +42,6 @@ export default function ProductDetailPage({
 
   // 크롤링
   const crawlMutation = useCrawlProduct();
-
-  // 경쟁사 추가
-  const addCompetitor = useAddCompetitor(productId);
 
   // 가격고정 토글
   const lockMutation = useMutation({
@@ -245,13 +240,12 @@ export default function ProductDetailPage({
         myPrice={product.selling_price}
       />
 
-      {/* 경쟁사 추가 */}
+      {/* 네이버 모니터링 안내 */}
       <div className="glass-card p-4">
-        <h3 className="font-medium mb-3">경쟁사 추가</h3>
-        <CompetitorForm
-          onSubmit={(url) => addCompetitor.mutate(url)}
-          isLoading={addCompetitor.isPending}
-        />
+        <h3 className="font-medium mb-2">네이버 최저가 모니터링</h3>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          상품명으로 네이버 쇼핑 최저가를 자동 검색합니다. &quot;가격 새로고침&quot; 버튼을 눌러 최신 가격을 확인하세요.
+        </p>
       </div>
     </div>
   );

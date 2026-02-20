@@ -25,7 +25,7 @@ async def create_competitor(
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    competitor = Competitor(product_id=product_id, platform_id=data.platform_id, url=data.url)
+    competitor = Competitor(product_id=product_id, platform_id=data.platform_id, url=data.url or "")
     db.add(competitor)
     await db.flush()
     await db.refresh(competitor)
