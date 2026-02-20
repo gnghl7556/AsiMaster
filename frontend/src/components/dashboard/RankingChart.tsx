@@ -24,8 +24,8 @@ export function RankingChart() {
   if (isLoading) return <div className="skeleton h-48" />;
 
   const rankedProducts = products
-    .filter((p) => p.ranking != null && !p.is_price_locked)
-    .sort((a, b) => (a.ranking ?? 99) - (b.ranking ?? 99))
+    .filter((p) => p.my_rank != null && !p.is_price_locked)
+    .sort((a, b) => (a.my_rank ?? 99) - (b.my_rank ?? 99))
     .slice(0, 8);
 
   if (rankedProducts.length === 0) {
@@ -41,7 +41,7 @@ export function RankingChart() {
 
   const chartData = rankedProducts.map((p) => ({
     name: p.name.length > 8 ? p.name.slice(0, 8) + "..." : p.name,
-    순위: p.ranking,
+    순위: p.my_rank,
     status: p.status,
   }));
 

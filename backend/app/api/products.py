@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.models.competitor import Competitor
-from app.models.platform import Platform
 from app.models.product import Product
+from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.schemas.product import (
     PriceLockUpdate,
@@ -42,18 +40,14 @@ async def create_product(user_id: int, data: ProductCreate, db: AsyncSession = D
     db.add(product)
     await db.flush()
 
-    # 네이버 Competitor 자동 생성
-    naver_platform = (
-        await db.execute(select(Platform).where(Platform.name == "naver"))
-    ).scalars().first()
-    if naver_platform:
-        competitor = Competitor(
-            product_id=product.id,
-            platform_id=naver_platform.id,
-            url="",
-        )
-        db.add(competitor)
-        await db.flush()
+    # 상품명으로 기본 키워드 자동 등록
+    keyword = SearchKeyword(
+        product_id=product.id,
+        keyword=product.name,
+        is_primary=True,
+    )
+    db.add(keyword)
+    await db.flush()
 
     await db.refresh(product)
     return product

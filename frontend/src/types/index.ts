@@ -1,6 +1,7 @@
 export interface User {
   id: number;
   name: string;
+  naver_store_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,29 +34,36 @@ export interface ProductListItem {
   price_lock_reason: string | null;
   status: ProductStatus;
   lowest_price: number | null;
-  lowest_platform: string | null;
-  lowest_shipping_fee: number | null;
+  lowest_seller: string | null;
   price_gap: number | null;
   price_gap_percent: number | null;
-  ranking: number | null;
-  total_sellers: number | null;
+  my_rank: number | null;
+  keyword_count: number;
   margin_amount: number | null;
   margin_percent: number | null;
   sparkline: number[];
   last_crawled_at: string | null;
 }
 
-export interface CompetitorDetail {
+export interface RankingItem {
   id: number;
-  platform: string;
-  seller_name: string | null;
+  rank: number;
+  product_name: string;
   price: number;
-  shipping_fee: number;
-  total_price: number;
-  ranking: number | null;
-  is_lowest: boolean;
-  gap_from_lowest: number;
-  crawled_at: string | null;
+  mall_name: string;
+  product_url: string | null;
+  image_url: string | null;
+  is_my_store: boolean;
+  crawled_at: string;
+}
+
+export interface KeywordDetail {
+  id: number;
+  keyword: string;
+  is_primary: boolean;
+  crawl_status: string;
+  last_crawled_at: string | null;
+  rankings: RankingItem[];
 }
 
 export interface MarginDetail {
@@ -85,40 +93,20 @@ export interface ProductDetail {
   price_lock_reason: string | null;
   status: ProductStatus;
   lowest_price: number | null;
-  lowest_platform: string | null;
+  lowest_seller: string | null;
   price_gap: number | null;
   price_gap_percent: number | null;
-  ranking: number | null;
-  total_sellers: number | null;
+  my_rank: number | null;
   last_crawled_at: string | null;
-  competitors: CompetitorDetail[];
+  keywords: KeywordDetail[];
   margin: MarginDetail | null;
 }
 
-export interface Platform {
-  id: number;
-  name: string;
-  display_name: string;
-  base_url: string | null;
-  is_default: boolean;
-}
-
-export interface UserPlatform {
-  id: number;
-  user_id: number;
-  platform_id: number;
-  platform_name: string;
-  platform_display_name: string;
-  is_active: boolean;
-  crawl_interval_min: number;
-}
-
-export interface Competitor {
+export interface SearchKeyword {
   id: number;
   product_id: number;
-  platform_id: number;
-  url: string;
-  seller_name: string | null;
+  keyword: string;
+  is_primary: boolean;
   is_active: boolean;
   last_crawled_at: string | null;
   crawl_status: string;

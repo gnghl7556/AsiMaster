@@ -11,7 +11,8 @@ export function useCrawlProduct() {
     mutationFn: (productId: number) => crawlApi.crawlProduct(productId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["keywords"] });
       queryClient.invalidateQueries({ queryKey: ["price-snapshot"] });
       toast.success("크롤링이 완료되었습니다");
     },

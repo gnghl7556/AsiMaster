@@ -77,8 +77,8 @@ export function ProductCard({ product }: ProductCardProps) {
               <div className="font-semibold tabular-nums">
                 {formatPrice(product.lowest_price)}
               </div>
-              {product.lowest_platform && (
-                <div className="text-xs text-[var(--muted-foreground)]">{product.lowest_platform}</div>
+              {product.lowest_seller && (
+                <div className="text-xs text-[var(--muted-foreground)]">{product.lowest_seller}</div>
               )}
             </div>
           </div>
@@ -94,9 +94,9 @@ export function ProductCard({ product }: ProductCardProps) {
               <MarginBar percent={product.margin_percent} />
             </div>
             <div className="hidden md:flex flex-col items-center gap-0.5">
-              {product.ranking && (
+              {product.my_rank && (
                 <span className="text-xs text-[var(--muted-foreground)]">
-                  {product.ranking}위{product.total_sellers ? ` / ${product.total_sellers}명` : ""}
+                  내 순위: {product.my_rank}위
                 </span>
               )}
               <SparklineChart data={product.sparkline} />

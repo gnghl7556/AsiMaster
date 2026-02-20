@@ -40,10 +40,13 @@ async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "사업체를 찾을 수 없습니다.")
-    existing = await db.execute(select(User).where(User.name == data.name, User.id != user_id))
-    if existing.scalar_one_or_none():
-        raise HTTPException(400, "이미 존재하는 사업체 이름입니다.")
-    user.name = data.name
+    if data.name is not None:
+        existing = await db.execute(select(User).where(User.name == data.name, User.id != user_id))
+        if existing.scalar_one_or_none():
+            raise HTTPException(400, "이미 존재하는 사업체 이름입니다.")
+        user.name = data.name
+    if data.naver_store_name is not None:
+        user.naver_store_name = data.naver_store_name
     await db.flush()
     await db.refresh(user)
     return user

@@ -1,92 +1,113 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import async_session, engine, Base
 from app.models import *  # noqa: F401, F403 - ensure all models are registered
-from app.models.competitor import Competitor
-from app.models.platform import Platform, UserPlatform
 from app.models.product import Product
+from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.scheduler.setup import init_scheduler, shutdown_scheduler
 
-
-async def seed_platforms(session):
-    """기본 플랫폼 4개 시드 데이터"""
-    result = await session.execute(select(Platform))
-    if result.scalars().first():
-        return
-
-    platforms = [
-        Platform(name="naver", display_name="네이버", base_url="https://shopping.naver.com"),
-        Platform(name="coupang", display_name="쿠팡", base_url="https://www.coupang.com"),
-        Platform(name="gmarket", display_name="지마켓", base_url="https://www.gmarket.co.kr"),
-        Platform(name="auction", display_name="옥션", base_url="https://www.auction.co.kr"),
-    ]
-    session.add_all(platforms)
-    await session.commit()
+logger = logging.getLogger(__name__)
 
 
-async def migrate_to_naver_api(session):
-    """기존 상품에 네이버 Competitor 자동 생성, 쿠팡/지마켓/옥션 비활성화"""
-    import logging
-    logger = logging.getLogger(__name__)
-
-    # 네이버 플랫폼 조회
-    naver = (await session.execute(
-        select(Platform).where(Platform.name == "naver")
-    )).scalars().first()
-    if not naver:
-        return
-
-    # 쿠팡/지마켓/옥션 Competitor 비활성화
-    non_naver_platforms = (await session.execute(
-        select(Platform).where(Platform.name.in_(["coupang", "gmarket", "auction"]))
-    )).scalars().all()
-    non_naver_ids = [p.id for p in non_naver_platforms]
-
-    if non_naver_ids:
-        result = await session.execute(
-            select(Competitor).where(
-                Competitor.platform_id.in_(non_naver_ids),
-                Competitor.is_active == True,
-            )
-        )
-        for comp in result.scalars().all():
-            comp.is_active = False
-
-    # 네이버 Competitor가 없는 상품에 자동 생성
-    all_products = (await session.execute(select(Product))).scalars().all()
-    for product in all_products:
-        existing = (await session.execute(
-            select(Competitor).where(
-                Competitor.product_id == product.id,
-                Competitor.platform_id == naver.id,
-            )
-        )).scalars().first()
-        if not existing:
-            session.add(Competitor(
-                product_id=product.id,
-                platform_id=naver.id,
-                url="",
+async def apply_schema_changes(session):
+    """기존 테이블에 새 컬럼 추가 (create_all로 불가능한 ALTER TABLE)."""
+    is_sqlite = "sqlite" in str(engine.url)
+    try:
+        if is_sqlite:
+            # SQLite: pragma로 컬럼 존재 확인 후 추가
+            result = await session.execute(text("PRAGMA table_info(users)"))
+            columns = [row[1] for row in result.fetchall()]
+            if "naver_store_name" not in columns:
+                await session.execute(text(
+                    "ALTER TABLE users ADD COLUMN naver_store_name VARCHAR(200)"
+                ))
+        else:
+            await session.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS naver_store_name VARCHAR(200)"
             ))
-            logger.info(f"네이버 Competitor 자동 생성: {product.name} (ID: {product.id})")
+        await session.commit()
+        logger.info("스키마 변경 적용 완료: users.naver_store_name")
+    except Exception as e:
+        await session.rollback()
+        logger.warning(f"스키마 변경 스킵 (이미 적용됨): {e}")
 
+
+async def migrate_to_keyword_system(session):
+    """기존 Product에 기본 SearchKeyword 자동 생성."""
+    try:
+        all_products = (await session.execute(select(Product))).scalars().all()
+        created = 0
+        for product in all_products:
+            existing = (await session.execute(
+                select(SearchKeyword).where(
+                    SearchKeyword.product_id == product.id,
+                    SearchKeyword.is_primary == True,
+                )
+            )).scalars().first()
+            if not existing:
+                session.add(SearchKeyword(
+                    product_id=product.id,
+                    keyword=product.name,
+                    is_primary=True,
+                ))
+                created += 1
+                logger.info(f"기본 키워드 생성: {product.name} (ID: {product.id})")
+
+        if created > 0:
+            await session.commit()
+            logger.info(f"키워드 시스템 마이그레이션 완료: {created}개 기본 키워드 생성")
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"키워드 마이그레이션 실패: {e}")
+
+
+async def cleanup_old_tables(session):
+    """기존 competitors, price_history, platforms 관련 테이블 drop (존재하면)."""
+    tables_to_drop = [
+        "price_history",
+        "competitors",
+        "user_platforms",
+        "platforms",
+    ]
+    is_sqlite = "sqlite" in str(engine.url)
+    for table in tables_to_drop:
+        try:
+            if is_sqlite:
+                await session.execute(text(f"DROP TABLE IF EXISTS {table}"))
+            else:
+                await session.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+            logger.info(f"기존 테이블 삭제: {table}")
+        except Exception as e:
+            logger.warning(f"테이블 삭제 실패 ({table}): {e}")
     await session.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 새 테이블 생성
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # 스키마 변경 적용
     async with async_session() as session:
-        await seed_platforms(session)
+        await apply_schema_changes(session)
+
+    # 기존 데이터 마이그레이션
     async with async_session() as session:
-        await migrate_to_naver_api(session)
+        await migrate_to_keyword_system(session)
+
+    # 기존 테이블 정리
+    async with async_session() as session:
+        await cleanup_old_tables(session)
+
     init_scheduler()
     yield
     shutdown_scheduler()

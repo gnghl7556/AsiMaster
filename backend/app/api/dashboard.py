@@ -36,7 +36,7 @@ async def export_csv(user_id: int, db: AsyncSession = Depends(get_db)):
             item["lowest_price"] or "",
             item["price_gap"] or "",
             item["price_gap_percent"] or "",
-            item["ranking"] or "",
+            item["my_rank"] or "",
             item["margin_amount"] or "",
             item["margin_percent"] or "",
             item["status"],

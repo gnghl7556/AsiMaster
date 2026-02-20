@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -6,11 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
-from app.models.competitor import Competitor
-from app.models.price_history import PriceHistory
+from app.models.keyword_ranking import KeywordRanking
+from app.models.search_keyword import SearchKeyword
 
 router = APIRouter(tags=["prices"])
-
 
 PERIOD_DAYS = {"1d": 1, "7d": 7, "30d": 30}
 
@@ -19,66 +18,70 @@ PERIOD_DAYS = {"1d": 1, "7d": 7, "30d": 30}
 async def get_price_history(
     product_id: int,
     period: str = Query("7d", pattern="^(1d|7d|30d)$"),
-    platform_id: int | None = None,
+    keyword_id: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     days = PERIOD_DAYS[period]
     since = datetime.utcnow() - timedelta(days=days)
 
     query = (
-        select(PriceHistory)
-        .join(Competitor)
+        select(KeywordRanking)
+        .join(SearchKeyword)
         .where(
-            Competitor.product_id == product_id,
-            Competitor.is_active == True,
-            PriceHistory.crawled_at >= since,
+            SearchKeyword.product_id == product_id,
+            SearchKeyword.is_active == True,
+            KeywordRanking.crawled_at >= since,
         )
     )
-    if platform_id:
-        query = query.where(Competitor.platform_id == platform_id)
+    if keyword_id:
+        query = query.where(SearchKeyword.id == keyword_id)
 
-    query = query.order_by(PriceHistory.crawled_at)
+    query = query.order_by(KeywordRanking.crawled_at)
     result = await db.execute(query)
-    history = result.scalars().all()
+    rankings = result.scalars().all()
 
     return [
         {
-            "competitor_id": h.competitor_id,
-            "price": h.price,
-            "shipping_fee": h.shipping_fee,
-            "total_price": h.total_price,
-            "ranking": h.ranking,
-            "crawled_at": h.crawled_at,
+            "keyword_id": r.keyword_id,
+            "rank": r.rank,
+            "product_name": r.product_name,
+            "price": r.price,
+            "mall_name": r.mall_name,
+            "is_my_store": r.is_my_store,
+            "crawled_at": r.crawled_at,
         }
-        for h in history
+        for r in rankings
     ]
 
 
 @router.get("/products/{product_id}/price-snapshot")
 async def get_price_snapshot(product_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Competitor)
-        .options(selectinload(Competitor.platform))
-        .options(selectinload(Competitor.price_history))
-        .where(Competitor.product_id == product_id, Competitor.is_active == True)
+        select(SearchKeyword)
+        .options(selectinload(SearchKeyword.rankings))
+        .where(
+            SearchKeyword.product_id == product_id,
+            SearchKeyword.is_active == True,
+        )
     )
-    competitors = result.scalars().unique().all()
+    keywords = result.scalars().unique().all()
 
     snapshot = []
-    for comp in competitors:
-        sorted_history = sorted(comp.price_history, key=lambda h: h.crawled_at, reverse=True)
-        latest = sorted_history[0] if sorted_history else None
-        snapshot.append({
-            "competitor_id": comp.id,
-            "platform": comp.platform.display_name,
-            "seller_name": comp.seller_name,
-            "url": comp.url,
-            "price": latest.price if latest else None,
-            "shipping_fee": latest.shipping_fee if latest else None,
-            "total_price": latest.total_price if latest else None,
-            "ranking": latest.ranking if latest else None,
-            "crawled_at": latest.crawled_at if latest else None,
-        })
+    for kw in keywords:
+        if not kw.rankings:
+            continue
+        latest_time = max(r.crawled_at for r in kw.rankings)
+        latest = [r for r in kw.rankings if r.crawled_at == latest_time]
+        for r in sorted(latest, key=lambda x: x.rank):
+            snapshot.append({
+                "keyword_id": kw.id,
+                "keyword": kw.keyword,
+                "rank": r.rank,
+                "product_name": r.product_name,
+                "price": r.price,
+                "mall_name": r.mall_name,
+                "is_my_store": r.is_my_store,
+                "crawled_at": r.crawled_at,
+            })
 
-    snapshot.sort(key=lambda x: x["total_price"] or float("inf"))
     return snapshot

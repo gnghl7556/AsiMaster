@@ -28,5 +28,5 @@ class Product(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship(back_populates="products")
-    competitors: Mapped[list["Competitor"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    keywords: Mapped[list["SearchKeyword"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     cost_items: Mapped[list["CostItem"]] = relationship(back_populates="product", cascade="all, delete-orphan")

@@ -1,13 +1,15 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.crawlers.manager import CrawlManager
-from app.models.competitor import Competitor
 from app.models.crawl_log import CrawlLog
 from app.models.product import Product
-from app.schemas.crawl import CrawlBatchResult, CrawlLogResponse, CrawlResultResponse
+from app.models.search_keyword import SearchKeyword
+from app.schemas.crawl import CrawlBatchResult, CrawlKeywordResult, CrawlLogResponse
 
 router = APIRouter(prefix="/crawl", tags=["crawl"])
 
@@ -22,12 +24,10 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
     results = await manager.crawl_product(db, product_id)
     return [
-        CrawlResultResponse(
-            competitor_id=0,
-            platform="",
-            price=r.price,
-            shipping_fee=r.shipping_fee,
-            total_price=(r.price + r.shipping_fee) if r.price else None,
+        CrawlKeywordResult(
+            keyword_id=0,
+            keyword=r.keyword,
+            items_count=len(r.items),
             success=r.success,
             error=r.error,
         )
@@ -42,37 +42,31 @@ async def crawl_user(user_id: int, db: AsyncSession = Depends(get_db)):
         total=result["total"],
         success=result["success"],
         failed=result["failed"],
-        results=[],
     )
 
 
 @router.get("/status/{user_id}")
 async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
-    """사용자의 크롤링 현황 조회."""
-    # 전체 경쟁사 수
+    # 전체 키워드 수
     total_q = await db.execute(
         select(func.count())
-        .select_from(Competitor)
-        .join(Product, Competitor.product_id == Product.id)
-        .where(Product.user_id == user_id, Competitor.is_active == True)
+        .select_from(SearchKeyword)
+        .join(Product, SearchKeyword.product_id == Product.id)
+        .where(Product.user_id == user_id, SearchKeyword.is_active == True)
     )
     total = total_q.scalar_one()
 
     # 최근 24시간 성공/실패
-    from datetime import datetime, timedelta
-
     since = datetime.utcnow() - timedelta(hours=24)
     log_q = await db.execute(
         select(CrawlLog.status, func.count())
-        .join(Competitor, CrawlLog.competitor_id == Competitor.id)
-        .join(Product, Competitor.product_id == Product.id)
-        .where(Product.user_id == user_id, CrawlLog.created_at >= since)
+        .where(CrawlLog.created_at >= since)
         .group_by(CrawlLog.status)
     )
     status_counts = dict(log_q.all())
 
     return {
-        "total_competitors": total,
+        "total_keywords": total,
         "last_24h_success": status_counts.get("success", 0),
         "last_24h_failed": status_counts.get("failed", 0),
     }
@@ -88,8 +82,8 @@ async def get_crawl_logs(
     offset = (page - 1) * size
     result = await db.execute(
         select(CrawlLog)
-        .join(Competitor, CrawlLog.competitor_id == Competitor.id)
-        .join(Product, Competitor.product_id == Product.id)
+        .join(SearchKeyword, CrawlLog.keyword_id == SearchKeyword.id)
+        .join(Product, SearchKeyword.product_id == Product.id)
         .where(Product.user_id == user_id)
         .order_by(CrawlLog.created_at.desc())
         .offset(offset)

@@ -1,14 +1,13 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from sqlalchemy import select, func, case, literal
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.competitor import Competitor
 from app.models.cost import CostItem
-from app.models.platform import Platform
-from app.models.price_history import PriceHistory
+from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
+from app.models.search_keyword import SearchKeyword
 
 
 def calculate_status(selling_price: int, lowest_price: int | None) -> str:
@@ -46,6 +45,18 @@ def calculate_margin(selling_price: int, cost_price: int, cost_items: list) -> d
     }
 
 
+def _get_latest_rankings(keywords: list) -> list:
+    """각 키워드별 가장 최근 crawled_at의 rankings만 반환."""
+    all_rankings = []
+    for kw in keywords:
+        if not kw.rankings:
+            continue
+        latest_time = max(r.crawled_at for r in kw.rankings)
+        latest = [r for r in kw.rankings if r.crawled_at == latest_time]
+        all_rankings.extend(latest)
+    return all_rankings
+
+
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
@@ -58,8 +69,9 @@ async def get_product_list_items(
 ) -> list[dict]:
     query = (
         select(Product)
-        .options(selectinload(Product.competitors).selectinload(Competitor.platform))
-        .options(selectinload(Product.competitors).selectinload(Competitor.price_history))
+        .options(
+            selectinload(Product.keywords).selectinload(SearchKeyword.rankings)
+        )
         .options(selectinload(Product.cost_items))
         .where(Product.user_id == user_id, Product.is_active == True)
     )
@@ -76,42 +88,21 @@ async def get_product_list_items(
     seven_days_ago = now - timedelta(days=7)
 
     for product in products:
-        # 각 경쟁사의 최신 가격 수집
-        latest_prices = []
-        all_sparkline_data = {}
-        last_crawled = None
-
-        for comp in product.competitors:
-            if not comp.is_active:
-                continue
-
-            sorted_history = sorted(comp.price_history, key=lambda h: h.crawled_at, reverse=True)
-            if sorted_history:
-                latest = sorted_history[0]
-                latest_prices.append({
-                    "platform": comp.platform.display_name,
-                    "total_price": latest.total_price,
-                    "shipping_fee": latest.shipping_fee,
-                    "ranking": latest.ranking,
-                    "total_sellers": latest.total_sellers,
-                    "crawled_at": latest.crawled_at,
-                })
-                if last_crawled is None or latest.crawled_at > last_crawled:
-                    last_crawled = latest.crawled_at
-
-            # sparkline: 최근 7일간 일별 최저가
-            for h in sorted_history:
-                if h.crawled_at and h.crawled_at >= seven_days_ago:
-                    day_key = h.crawled_at.date()
-                    if day_key not in all_sparkline_data or h.total_price < all_sparkline_data[day_key]:
-                        all_sparkline_data[day_key] = h.total_price
+        active_keywords = [kw for kw in product.keywords if kw.is_active]
+        latest_rankings = _get_latest_rankings(active_keywords)
 
         # 최저가 계산
-        lowest = min(latest_prices, key=lambda x: x["total_price"]) if latest_prices else None
+        if latest_rankings:
+            lowest_ranking = min(latest_rankings, key=lambda r: r.price)
+            lowest_price = lowest_ranking.price
+            lowest_seller = lowest_ranking.mall_name
+        else:
+            lowest_price = None
+            lowest_seller = None
 
-        lowest_price = lowest["total_price"] if lowest else None
-        lowest_platform = lowest["platform"] if lowest else None
-        lowest_shipping = lowest["shipping_fee"] if lowest else None
+        # 내 순위 (is_my_store=True 중 가장 높은 순위)
+        my_rankings = [r for r in latest_rankings if r.is_my_store]
+        my_rank = min(r.rank for r in my_rankings) if my_rankings else None
 
         price_gap = (product.selling_price - lowest_price) if lowest_price else None
         price_gap_pct = round((price_gap / lowest_price) * 100, 1) if price_gap and lowest_price else None
@@ -125,12 +116,22 @@ async def get_product_list_items(
         ]
         margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
 
-        # sparkline 정렬
-        sparkline = [v for _, v in sorted(all_sparkline_data.items())]
+        # sparkline: 최근 7일 일별 최저가
+        sparkline_data = {}
+        for kw in active_keywords:
+            for r in kw.rankings:
+                if r.crawled_at and r.crawled_at >= seven_days_ago:
+                    day_key = r.crawled_at.date()
+                    if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
+                        sparkline_data[day_key] = r.price
+        sparkline = [v for _, v in sorted(sparkline_data.items())]
 
-        # ranking
-        ranking = lowest["ranking"] if lowest else None
-        total_sellers = lowest["total_sellers"] if lowest else None
+        # last_crawled_at
+        last_crawled = None
+        for kw in active_keywords:
+            if kw.last_crawled_at:
+                if last_crawled is None or kw.last_crawled_at > last_crawled:
+                    last_crawled = kw.last_crawled_at
 
         items.append({
             "id": product.id,
@@ -143,12 +144,11 @@ async def get_product_list_items(
             "price_lock_reason": product.price_lock_reason,
             "status": status,
             "lowest_price": lowest_price,
-            "lowest_platform": lowest_platform,
-            "lowest_shipping_fee": lowest_shipping,
+            "lowest_seller": lowest_seller,
             "price_gap": price_gap,
             "price_gap_percent": price_gap_pct,
-            "ranking": ranking,
-            "total_sellers": total_sellers,
+            "my_rank": my_rank,
+            "keyword_count": len(active_keywords),
             "margin_amount": margin["net_margin"],
             "margin_percent": margin["margin_percent"],
             "sparkline": sparkline,
@@ -165,7 +165,7 @@ async def get_product_list_items(
     elif sort_by == "margin":
         items.sort(key=lambda x: x["margin_percent"] or 0)
     elif sort_by == "rank_drop":
-        items.sort(key=lambda x: -(x["ranking"] or 0))
+        items.sort(key=lambda x: (x["my_rank"] or 999))
     elif sort_by == "category":
         items.sort(key=lambda x: (x["category"] or "", STATUS_ORDER.get(x["status"], 3)))
 
@@ -179,8 +179,9 @@ async def get_product_detail(
 ) -> dict | None:
     query = (
         select(Product)
-        .options(selectinload(Product.competitors).selectinload(Competitor.platform))
-        .options(selectinload(Product.competitors).selectinload(Competitor.price_history))
+        .options(
+            selectinload(Product.keywords).selectinload(SearchKeyword.rankings)
+        )
         .options(selectinload(Product.cost_items))
         .where(Product.id == product_id, Product.user_id == user_id)
     )
@@ -189,63 +190,67 @@ async def get_product_detail(
     if not product:
         return None
 
-    # 경쟁사별 최신 가격 및 상세 정보
-    competitor_details = []
-    latest_prices = []
-    last_crawled = None
+    active_keywords = [kw for kw in product.keywords if kw.is_active]
+    latest_rankings = _get_latest_rankings(active_keywords)
 
-    for comp in product.competitors:
-        if not comp.is_active:
-            continue
+    # 최저가
+    if latest_rankings:
+        lowest_ranking = min(latest_rankings, key=lambda r: r.price)
+        lowest_price = lowest_ranking.price
+        lowest_seller = lowest_ranking.mall_name
+    else:
+        lowest_price = None
+        lowest_seller = None
 
-        sorted_history = sorted(comp.price_history, key=lambda h: h.crawled_at, reverse=True)
-        if sorted_history:
-            latest = sorted_history[0]
-            latest_prices.append({
-                "comp": comp,
-                "total_price": latest.total_price,
-                "price": latest.price,
-                "shipping_fee": latest.shipping_fee,
-                "ranking": latest.ranking,
-                "total_sellers": latest.total_sellers,
-                "crawled_at": latest.crawled_at,
-            })
-            if last_crawled is None or latest.crawled_at > last_crawled:
-                last_crawled = latest.crawled_at
-
-    # 최저가 계산
-    lowest_total = None
-    if latest_prices:
-        lowest_total = min(p["total_price"] for p in latest_prices)
-
-    lowest = min(latest_prices, key=lambda x: x["total_price"]) if latest_prices else None
-    lowest_price = lowest["total_price"] if lowest else None
-    lowest_platform = lowest["comp"].platform.display_name if lowest else None
+    # 내 순위
+    my_rankings = [r for r in latest_rankings if r.is_my_store]
+    my_rank = min(r.rank for r in my_rankings) if my_rankings else None
 
     price_gap = (product.selling_price - lowest_price) if lowest_price else None
     price_gap_pct = round((price_gap / lowest_price) * 100, 1) if price_gap and lowest_price else None
 
     status = calculate_status(product.selling_price, lowest_price)
 
-    # 경쟁사 상세 목록 구성
-    for p in latest_prices:
-        comp = p["comp"]
-        is_lowest = (p["total_price"] == lowest_total) if lowest_total else False
-        gap = (p["total_price"] - lowest_total) if lowest_total else 0
-        competitor_details.append({
-            "id": comp.id,
-            "platform": comp.platform.display_name,
-            "seller_name": comp.seller_name,
-            "price": p["price"] or 0,
-            "shipping_fee": p["shipping_fee"] or 0,
-            "total_price": p["total_price"] or 0,
-            "ranking": p["ranking"],
-            "is_lowest": is_lowest,
-            "gap_from_lowest": gap,
-            "crawled_at": p["crawled_at"],
-        })
+    # last_crawled_at
+    last_crawled = None
+    for kw in active_keywords:
+        if kw.last_crawled_at:
+            if last_crawled is None or kw.last_crawled_at > last_crawled:
+                last_crawled = kw.last_crawled_at
 
-    competitor_details.sort(key=lambda x: x["total_price"])
+    # 키워드별 최신 순위
+    keywords_data = []
+    for kw in active_keywords:
+        if kw.rankings:
+            latest_time = max(r.crawled_at for r in kw.rankings)
+            kw_latest = sorted(
+                [r for r in kw.rankings if r.crawled_at == latest_time],
+                key=lambda r: r.rank,
+            )
+        else:
+            kw_latest = []
+
+        keywords_data.append({
+            "id": kw.id,
+            "keyword": kw.keyword,
+            "is_primary": kw.is_primary,
+            "crawl_status": kw.crawl_status,
+            "last_crawled_at": kw.last_crawled_at,
+            "rankings": [
+                {
+                    "id": r.id,
+                    "rank": r.rank,
+                    "product_name": r.product_name,
+                    "price": r.price,
+                    "mall_name": r.mall_name,
+                    "product_url": r.product_url,
+                    "image_url": r.image_url,
+                    "is_my_store": r.is_my_store,
+                    "crawled_at": r.crawled_at,
+                }
+                for r in kw_latest
+            ],
+        })
 
     # 마진 계산
     cost_items_data = [
@@ -253,9 +258,6 @@ async def get_product_detail(
         for ci in product.cost_items
     ]
     margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
-
-    ranking = lowest["ranking"] if lowest else None
-    total_sellers = lowest["total_sellers"] if lowest else None
 
     return {
         "id": product.id,
@@ -268,12 +270,11 @@ async def get_product_detail(
         "price_lock_reason": product.price_lock_reason,
         "status": status,
         "lowest_price": lowest_price,
-        "lowest_platform": lowest_platform,
+        "lowest_seller": lowest_seller,
         "price_gap": price_gap,
         "price_gap_percent": price_gap_pct,
-        "ranking": ranking,
-        "total_sellers": total_sellers,
+        "my_rank": my_rank,
         "last_crawled_at": last_crawled,
-        "competitors": competitor_details,
+        "keywords": keywords_data,
         "margin": margin,
     }

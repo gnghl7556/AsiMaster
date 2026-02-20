@@ -13,15 +13,17 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { productsApi } from "@/lib/api/products";
 import { costsApi } from "@/lib/api/costs";
+import { keywordsApi } from "@/lib/api/keywords";
 import { useUserStore } from "@/stores/useUserStore";
 import { StatusBadge } from "@/components/products/StatusBadge";
 import { PriceGap } from "@/components/products/PriceGap";
 import { MarginDetail } from "@/components/products/MarginDetail";
-import { CompetitorRanking } from "@/components/products/CompetitorRanking";
+import { KeywordRankingList } from "@/components/products/KeywordRankingList";
+import { KeywordManager } from "@/components/products/KeywordManager";
 import { SparklineChart } from "@/components/products/SparklineChart";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
-import type { ProductDetail, MarginDetail as MarginDetailType } from "@/types";
+import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword } from "@/types";
 
 export default function ProductDetailPage({
   params,
@@ -38,6 +40,13 @@ export default function ProductDetailPage({
     queryKey: ["product-detail", userId, productId],
     queryFn: () => productsApi.getDetail(userId!, productId),
     enabled: !!userId,
+  });
+
+  // 키워드 목록
+  const { data: keywords = [] } = useQuery({
+    queryKey: ["keywords", productId],
+    queryFn: () => keywordsApi.getList(productId),
+    enabled: !!productId,
   });
 
   // 크롤링
@@ -128,19 +137,17 @@ export default function ProductDetailPage({
           <div className="text-lg font-bold mt-1 tabular-nums">
             {formatPrice(product.lowest_price)}
           </div>
-          {product.lowest_platform && (
+          {product.lowest_seller && (
             <div className="text-xs text-[var(--muted-foreground)]">
-              {product.lowest_platform}
+              {product.lowest_seller}
             </div>
           )}
         </div>
         <div className="glass-card p-4 text-center">
-          <div className="text-sm text-[var(--muted-foreground)]">차이</div>
-          <PriceGap
-            gap={product.price_gap}
-            gapPercent={product.price_gap_percent}
-            status={product.status}
-          />
+          <div className="text-sm text-[var(--muted-foreground)]">내 순위</div>
+          <div className="text-lg font-bold mt-1 tabular-nums">
+            {product.my_rank ? `${product.my_rank}위` : "-"}
+          </div>
         </div>
       </div>
 
@@ -234,18 +241,19 @@ export default function ProductDetailPage({
         </div>
       </div>
 
-      {/* 경쟁사 순위 */}
-      <CompetitorRanking
-        competitors={product.competitors}
-        myPrice={product.selling_price}
+      {/* 키워드 관리 */}
+      <KeywordManager
+        productId={productId}
+        keywords={keywords}
       />
 
-      {/* 네이버 모니터링 안내 */}
-      <div className="glass-card p-4">
-        <h3 className="font-medium mb-2">네이버 최저가 모니터링</h3>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          상품명으로 네이버 쇼핑 최저가를 자동 검색합니다. &quot;가격 새로고침&quot; 버튼을 눌러 최신 가격을 확인하세요.
-        </p>
+      {/* 키워드별 경쟁사 순위 */}
+      <div>
+        <h2 className="text-lg font-bold mb-3">키워드별 경쟁사 순위</h2>
+        <KeywordRankingList
+          keywords={product.keywords}
+          myPrice={product.selling_price}
+        />
       </div>
     </div>
   );

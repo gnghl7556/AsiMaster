@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.search_keyword import KeywordWithRankings
+
 
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -52,31 +54,15 @@ class ProductListItem(BaseModel):
     price_lock_reason: str | None
     status: str  # winning | close | losing
     lowest_price: int | None
-    lowest_platform: str | None
-    lowest_shipping_fee: int | None
+    lowest_seller: str | None
     price_gap: int | None
     price_gap_percent: float | None
-    ranking: int | None
-    total_sellers: int | None
+    my_rank: int | None
+    keyword_count: int
     margin_amount: int | None
     margin_percent: float | None
     sparkline: list[int]
     last_crawled_at: datetime | None
-
-
-class CompetitorDetail(BaseModel):
-    id: int
-    platform: str
-    seller_name: str | None
-    price: int
-    shipping_fee: int
-    total_price: int
-    ranking: int | None
-    is_lowest: bool
-    gap_from_lowest: int
-    crawled_at: datetime | None
-
-    model_config = {"from_attributes": True}
 
 
 class MarginDetail(BaseModel):
@@ -99,11 +85,10 @@ class ProductDetail(BaseModel):
     price_lock_reason: str | None
     status: str
     lowest_price: int | None
-    lowest_platform: str | None
+    lowest_seller: str | None
     price_gap: int | None
     price_gap_percent: float | None
-    ranking: int | None
-    total_sellers: int | None
+    my_rank: int | None
     last_crawled_at: datetime | None
-    competitors: list[CompetitorDetail]
+    keywords: list[KeywordWithRankings]
     margin: MarginDetail | None

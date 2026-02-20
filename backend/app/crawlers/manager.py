@@ -3,85 +3,89 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.crawlers.base import CrawlResult
-from app.crawlers.registry import CrawlerRegistry
-from app.models.competitor import Competitor
+from app.crawlers.base import KeywordCrawlResult
+from app.crawlers.naver import NaverCrawler
 from app.models.crawl_log import CrawlLog
-from app.models.platform import Platform
-from app.models.price_history import PriceHistory
+from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
+from app.models.search_keyword import SearchKeyword
+from app.models.user import User
 from app.services.alert_service import check_and_create_alerts
 
 
+crawler = NaverCrawler()
+
+
 class CrawlManager:
-    async def crawl_competitor(self, db: AsyncSession, competitor: Competitor) -> CrawlResult:
-        platform = await db.get(Platform, competitor.platform_id)
-        if not platform:
-            return CrawlResult(success=False, error="플랫폼 없음")
-
-        crawler = CrawlerRegistry.get(platform.name)
-        if not crawler:
-            return CrawlResult(success=False, error=f"크롤러 없음: {platform.name}")
-
-        # 상품명으로 검색
-        product = await db.get(Product, competitor.product_id)
-        if not product:
-            return CrawlResult(success=False, error="상품 없음")
-
+    async def crawl_keyword(
+        self, db: AsyncSession, keyword: SearchKeyword, naver_store_name: str | None
+    ) -> KeywordCrawlResult:
         start_time = time.time()
-        result = await crawler.search(product.name)
+        result = await crawler.search_keyword(keyword.keyword)
         duration_ms = int((time.time() - start_time) * 1000)
 
-        # 크롤링 로그 기록
+        # 크롤링 로그
         log = CrawlLog(
-            competitor_id=competitor.id,
-            platform_id=competitor.platform_id,
+            keyword_id=keyword.id,
             status="success" if result.success else "failed",
             error_message=result.error,
             duration_ms=duration_ms,
         )
         db.add(log)
 
-        if result.success and result.price is not None:
-            # 가격 이력 저장
-            total_price = result.price + result.shipping_fee
-            history = PriceHistory(
-                competitor_id=competitor.id,
-                price=result.price,
-                shipping_fee=result.shipping_fee,
-                total_price=total_price,
-                ranking=result.ranking,
-                total_sellers=result.total_sellers,
-            )
-            db.add(history)
+        if result.success and result.items:
+            for item in result.items:
+                is_my = (
+                    bool(naver_store_name)
+                    and item.mall_name.strip().lower() == naver_store_name.strip().lower()
+                )
+                ranking = KeywordRanking(
+                    keyword_id=keyword.id,
+                    rank=item.rank,
+                    product_name=item.product_name,
+                    price=item.price,
+                    mall_name=item.mall_name,
+                    product_url=item.product_url,
+                    image_url=item.image_url,
+                    is_my_store=is_my,
+                )
+                db.add(ranking)
 
-            # 경쟁사 상태 업데이트
-            competitor.last_crawled_at = datetime.utcnow()
-            competitor.crawl_status = "success"
-            if result.seller_name:
-                competitor.seller_name = result.seller_name
-
-            # 알림 체크
-            await check_and_create_alerts(db, product, competitor, total_price)
+            keyword.last_crawled_at = datetime.utcnow()
+            keyword.crawl_status = "success"
         else:
-            competitor.crawl_status = "failed"
+            keyword.crawl_status = "failed"
 
         await db.flush()
         return result
 
-    async def crawl_product(self, db: AsyncSession, product_id: int) -> list[CrawlResult]:
+    async def crawl_product(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
+        product = await db.get(Product, product_id)
+        if not product:
+            return []
+
+        user = await db.get(User, product.user_id)
+        naver_store_name = user.naver_store_name if user else None
+
         result = await db.execute(
-            select(Competitor).where(
-                Competitor.product_id == product_id,
-                Competitor.is_active == True,
+            select(SearchKeyword).where(
+                SearchKeyword.product_id == product_id,
+                SearchKeyword.is_active == True,
             )
         )
-        competitors = result.scalars().all()
+        keywords = result.scalars().all()
+
         results = []
-        for comp in competitors:
-            r = await self.crawl_competitor(db, comp)
+        for kw in keywords:
+            r = await self.crawl_keyword(db, kw, naver_store_name)
             results.append(r)
+
+        # 알림 체크
+        if results:
+            await check_and_create_alerts(db, product, keywords, naver_store_name)
+
         return results
 
     async def crawl_user_all(self, db: AsyncSession, user_id: int) -> dict:
@@ -93,7 +97,6 @@ class CrawlManager:
         total = 0
         success = 0
         failed = 0
-        all_results = []
 
         for product in products:
             product_results = await self.crawl_product(db, product.id)
@@ -103,6 +106,5 @@ class CrawlManager:
                     success += 1
                 else:
                     failed += 1
-            all_results.extend(product_results)
 
-        return {"total": total, "success": success, "failed": failed, "results": all_results}
+        return {"total": total, "success": success, "failed": failed}

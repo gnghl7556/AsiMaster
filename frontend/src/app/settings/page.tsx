@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Globe, DollarSign } from "lucide-react";
+import { Store, DollarSign } from "lucide-react";
 
 const SETTINGS_ITEMS = [
   {
     href: "/settings/platforms",
-    icon: Globe,
-    label: "플랫폼 설정",
-    description: "크롤링 대상 플랫폼 ON/OFF 및 주기 설정",
+    icon: Store,
+    label: "네이버 스토어 설정",
+    description: "내 네이버 스토어명을 등록하여 검색 결과에서 내 순위를 트래킹합니다",
   },
   {
     href: "/settings/cost-presets",
