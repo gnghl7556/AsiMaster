@@ -54,7 +54,8 @@ export function ProductCard({ product }: ProductCardProps) {
         href={`/products/${product.id}`}
         className={cn("glass-card block p-4 transition-all hover:scale-[1.01]", config.glow)}
       >
-        <div className="flex items-center justify-between gap-3">
+        {/* Mobile/Tablet layout */}
+        <div className="flex items-center justify-between gap-3 lg:hidden">
           {/* 좌: 상태 + 상품명 */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <StatusBadge status={product.status} />
@@ -65,42 +66,54 @@ export function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
           </div>
+        </div>
 
-          {/* 중: 가격 정보 (PC만) */}
-          <div className="hidden lg:flex items-center gap-6">
-            <div className="text-right">
-              <div className="text-sm text-[var(--muted-foreground)]">내 가격</div>
-              <div className="font-semibold tabular-nums">{formatPrice(product.selling_price)}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-[var(--muted-foreground)]">최저가</div>
-              <div className="font-semibold tabular-nums">
-                {formatPrice(product.lowest_price)}
-              </div>
-              {product.lowest_seller && (
-                <div className="text-xs text-[var(--muted-foreground)]">{product.lowest_seller}</div>
+        {/* Desktop layout with fixed columns */}
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_120px_140px_130px_110px_150px] lg:items-center lg:gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <StatusBadge status={product.status} />
+            <div className="min-w-0">
+              <h3 className="font-medium truncate">{product.name}</h3>
+              {product.category && (
+                <span className="text-xs text-[var(--muted-foreground)]">{product.category}</span>
               )}
             </div>
           </div>
 
-          {/* 우: Gap + 마진 + Sparkline */}
-          <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-[11px] text-[var(--muted-foreground)]">내 가격</div>
+            <div className="font-semibold tabular-nums">{formatPrice(product.selling_price)}</div>
+          </div>
+
+          <div className="text-right">
+            <div className="text-[11px] text-[var(--muted-foreground)]">최저가</div>
+            <div className="font-semibold tabular-nums">{formatPrice(product.lowest_price)}</div>
+            {product.lowest_seller && (
+              <div className="truncate text-[11px] text-[var(--muted-foreground)]">
+                {product.lowest_seller}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end">
             <PriceGap
               gap={product.price_gap}
               gapPercent={product.price_gap_percent}
               status={product.status}
             />
-            <div className="hidden sm:block">
-              <MarginBar percent={product.margin_percent} />
-            </div>
-            <div className="hidden md:flex flex-col items-center gap-0.5">
-              {product.my_rank && (
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  내 순위: {product.my_rank}위
-                </span>
-              )}
-              <SparklineChart data={product.sparkline} />
-            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <MarginBar percent={product.margin_percent} />
+          </div>
+
+          <div className="flex flex-col items-end gap-0.5">
+            {product.my_rank && (
+              <span className="text-xs text-[var(--muted-foreground)]">
+                내 순위: {product.my_rank}위
+              </span>
+            )}
+            <SparklineChart data={product.sparkline} />
           </div>
         </div>
 
