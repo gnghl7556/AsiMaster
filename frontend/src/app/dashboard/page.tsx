@@ -3,7 +3,6 @@
 import { Download, RefreshCw, Loader2 } from "lucide-react";
 import { DashboardSummary } from "@/components/dashboard/DashboardSummary";
 import { PriceCompareTable } from "@/components/dashboard/PriceCompareTable";
-import { RankingChart } from "@/components/dashboard/RankingChart";
 import { ProductList } from "@/components/products/ProductList";
 import { useUserStore } from "@/stores/useUserStore";
 import { useCrawlAll } from "@/lib/hooks/useCrawl";
@@ -67,11 +66,8 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* 차트 영역 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <PriceCompareTable />
-        <RankingChart />
-      </div>
+      {/* 비교 테이블 */}
+      <PriceCompareTable />
 
       <div>
         <h2 className="text-lg font-bold mb-4">상품 한눈에 보기</h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, TrendingDown, Minus, Bell } from "lucide-react";
+import { TrendingDown, Minus, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 import { useProductList } from "@/lib/hooks/useProducts";
@@ -25,8 +25,8 @@ export function DashboardSummary() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[...Array(3)].map((_, i) => (
           <div key={i} className="skeleton h-24" />
         ))}
       </div>
@@ -35,24 +35,29 @@ export function DashboardSummary() {
 
   if (!data) return null;
 
+  const activeProducts = products.filter((p) => !p.is_price_locked);
   const samePriceCount = products.filter(
     (p) => !p.is_price_locked && p.price_gap === 0
   ).length;
+  const losingProducts = products.filter(
+    (p) => !p.is_price_locked && p.status === "losing"
+  );
+
+  const latestDetectedAt = (items: typeof activeProducts) => {
+    const latest = items
+      .map((item) => item.last_crawled_at)
+      .filter(Boolean)
+      .sort()
+      .pop();
+    return latest ? timeAgo(latest) : "감지 없음";
+  };
 
   const cards: SummaryCard[] = [
-    {
-      label: "관리 중",
-      value: data.active_products,
-      isNumber: true,
-      sub: `총 ${data.total_products}개`,
-      icon: Package,
-      color: "text-blue-500",
-    },
     {
       label: "밀림",
       value: data.status_counts.losing,
       isNumber: true,
-      sub: "조치 필요",
+      sub: `최근 감지 ${latestDetectedAt(losingProducts)}`,
       icon: TrendingDown,
       color: "text-red-500",
     },
@@ -60,7 +65,7 @@ export function DashboardSummary() {
       label: "동일가",
       value: samePriceCount,
       isNumber: true,
-      sub: "우리 상품과 동일 가격",
+      sub: `최근 감지 ${latestDetectedAt(activeProducts.filter((p) => p.price_gap === 0))}`,
       icon: Minus,
       color: "text-amber-500",
     },
@@ -79,7 +84,7 @@ export function DashboardSummary() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {cards.map((card, idx) => (
           <motion.div
             key={card.label}
