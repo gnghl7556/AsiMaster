@@ -24,21 +24,26 @@ export const productsApi = {
 
   getDetail: (userId: number, productId: number) =>
     apiClient
-      .get<ProductDetail>(`/users/${userId}/products/${productId}`)
+      .get<ProductDetail>(`/products/${productId}`)
       .then((r) => r.data),
 
   create: (userId: number, data: { name: string; category?: string; cost_price: number; selling_price: number; image_url?: string }) =>
     apiClient.post<Product>(`/users/${userId}/products`, data).then((r) => r.data),
 
   update: (userId: number, productId: number, data: Partial<Product>) =>
-    apiClient.put<Product>(`/users/${userId}/products/${productId}`, data).then((r) => r.data),
+    apiClient.put<Product>(`/products/${productId}`, data).then((r) => r.data),
 
   delete: (userId: number, productId: number) =>
-    apiClient.delete(`/users/${userId}/products/${productId}`),
+    apiClient.delete(`/products/${productId}`),
+
+  bulkDelete: (userId: number, productIds: number[]) =>
+    apiClient.post<{ deleted: number }>(`/users/${userId}/products/bulk-delete`, {
+      product_ids: productIds,
+    }).then((r) => r.data),
 
   togglePriceLock: (userId: number, productId: number, is_locked: boolean, reason?: string) =>
     apiClient
-      .patch<Product>(`/users/${userId}/products/${productId}/price-lock`, { is_locked, reason })
+      .patch<Product>(`/products/${productId}/price-lock`, { is_locked, reason })
       .then((r) => r.data),
 
   getExcluded: (productId: number) =>
