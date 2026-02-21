@@ -20,7 +20,6 @@ class SearchKeyword(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_crawled_at: Mapped[datetime | None] = mapped_column()
     crawl_status: Mapped[str] = mapped_column(String(20), default="pending")
-    sort_type: Mapped[str] = mapped_column(String(10), default="sim")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     product: Mapped["Product"] = relationship(back_populates="keywords")

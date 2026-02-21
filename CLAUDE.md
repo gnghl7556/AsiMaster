@@ -163,25 +163,7 @@ Product → CostItems
 - **R5 크롤링 딜레이**: 키워드 간 크롤링에 `CRAWL_REQUEST_DELAY_MIN`~`MAX` 랜덤 딜레이 적용.
 - **R6 웹 푸시 뼈대**: `push_subscriptions` 테이블 추가. `GET /push/vapid-public-key`, `POST /push/subscribe`, `DELETE /push/subscribe` 엔드포인트 추가. 알림 생성 시 자동 웹 푸시 전송.
 
-### 2026-02-21: 키워드별 정렬 유형 (노출 순위 / 가격 순위)
-**변경 사항:**
-- `SearchKeyword` 모델에 `sort_type: str` 컬럼 추가 (기본값 `"sim"`, 최대 10자)
-- `sort_type` 값: `"sim"` (노출 순위, 관련도순) | `"asc"` (가격 순위, 가격낮은순)
-
-**스키마 변경:**
-- `KeywordCreate`: `sort_type: "sim" | "asc"` 필드 추가 (기본값 `"sim"`)
-- `KeywordResponse`: `sort_type: str` 필드 추가
-- `KeywordWithRankings`: `sort_type: str` 필드 추가
-- 상품 상세(`ProductDetail.keywords[].sort_type`): 각 키워드의 정렬 유형 포함
-
-**API 영향:**
-- `POST /products/{product_id}/keywords` — Request Body에 `sort_type` 추가:
-  ```json
-  { "keyword": "검색어", "sort_type": "sim" }
-  ```
-- `GET /products/{product_id}/keywords` — 응답에 `sort_type` 포함
-- `GET /products/{product_id}` — `keywords[].sort_type` 포함
-
-**크롤링 동작:**
-- 키워드별 `sort_type`에 따라 네이버 API `sort` 파라미터 동적 적용
-- 유저 전체 크롤링 시 `(keyword, sort_type)` 기준으로 중복 제거 (같은 키워드라도 sort_type이 다르면 별도 크롤링)
+### 2026-02-21: 노출 순위 / 가격 순위 정렬 토글
+- **프론트엔드 전용 기능**: 크롤링된 상위 10개 상품을 노출순(rank) 또는 가격순(price asc)으로 재정렬하여 표시
+- **백엔드 변경 없음**: 기존 API 응답(`rankings[].rank`, `rankings[].price`)을 그대로 활용
+- DB에 `search_keywords.sort_type` 컬럼이 존재하나 사용하지 않음 (마이그레이션 잔여)

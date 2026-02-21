@@ -39,12 +39,12 @@ def _check_relevance(item: RankingItem, product: Product | None) -> bool:
 
 class CrawlManager:
 
-    async def _fetch_keyword(self, keyword_str: str, sort: str = "sim") -> KeywordCrawlResult:
+    async def _fetch_keyword(self, keyword_str: str) -> KeywordCrawlResult:
         """네이버 API 호출만 수행 (DB 접근 없음, 병렬 안전)."""
         max_retries = settings.CRAWL_MAX_RETRIES
         result = None
         for attempt in range(1, max_retries + 1):
-            result = await crawler.search_keyword(keyword_str, sort=sort)
+            result = await crawler.search_keyword(keyword_str)
             if result.success:
                 break
             if attempt < max_retries:
@@ -148,7 +148,7 @@ class CrawlManager:
                 )
                 await asyncio.sleep(delay)
                 start = time.time()
-                r = await self._fetch_keyword(kw.keyword, sort=kw.sort_type or "sim")
+                r = await self._fetch_keyword(kw.keyword)
                 ms = int((time.time() - start) * 1000)
                 return kw, r, ms
 
@@ -205,16 +205,15 @@ class CrawlManager:
         for pid in product_ids:
             products_cache[pid] = await db.get(Product, pid)
 
-        # 2. (키워드 문자열, sort_type) 기준 중복 제거
-        unique_map: dict[tuple[str, str], list[SearchKeyword]] = {}
+        # 2. 키워드 문자열 기준 중복 제거
+        unique_map: dict[str, list[SearchKeyword]] = {}
         for kw in all_keywords:
-            key = (kw.keyword.strip().lower(), kw.sort_type or "sim")
-            unique_map.setdefault(key, []).append(kw)
+            unique_map.setdefault(kw.keyword.strip().lower(), []).append(kw)
 
         # 3. 유니크 키워드만 병렬 크롤링
         sem = asyncio.Semaphore(settings.CRAWL_CONCURRENCY)
 
-        async def _fetch_one(keyword_str: str, sort: str):
+        async def _fetch_one(keyword_str: str):
             async with sem:
                 delay = random.uniform(
                     settings.CRAWL_REQUEST_DELAY_MIN,
@@ -222,12 +221,12 @@ class CrawlManager:
                 )
                 await asyncio.sleep(delay)
                 start = time.time()
-                r = await self._fetch_keyword(keyword_str, sort=sort)
+                r = await self._fetch_keyword(keyword_str)
                 ms = int((time.time() - start) * 1000)
-                return (keyword_str, sort), r, ms
+                return keyword_str, r, ms
 
         fetch_results = await asyncio.gather(
-            *[_fetch_one(kw_str, sort) for kw_str, sort in unique_map.keys()]
+            *[_fetch_one(kw_str) for kw_str in unique_map.keys()]
         )
 
         # 4. 결과를 각 SearchKeyword에 순차적으로 DB 기록
@@ -235,8 +234,8 @@ class CrawlManager:
         success = 0
         failed = 0
 
-        for key, crawl_result, duration_ms in fetch_results:
-            for kw in unique_map[key]:
+        for kw_str, crawl_result, duration_ms in fetch_results:
+            for kw in unique_map[kw_str]:
                 product = products_cache.get(kw.product_id)
                 excluded_ids = excluded_by_product.get(kw.product_id, set())
                 await self._save_keyword_result(
