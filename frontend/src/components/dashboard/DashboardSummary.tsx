@@ -5,18 +5,15 @@ import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 import { useProductList } from "@/lib/hooks/useProducts";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
-import { formatPercent, timeAgo } from "@/lib/utils/format";
+import { timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
 interface SummaryCard {
   label: string;
   value: number | null;
-  isNumber: boolean;
-  sub: string;
+  time: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
-  suffix?: string;
-  decimals?: number;
 }
 
 export function DashboardSummary() {
@@ -42,6 +39,7 @@ export function DashboardSummary() {
   const losingProducts = products.filter(
     (p) => !p.is_price_locked && p.status === "losing"
   );
+  const samePriceProducts = activeProducts.filter((p) => p.price_gap === 0);
 
   const latestDetectedAt = (items: typeof activeProducts) => {
     const latest = items
@@ -49,34 +47,28 @@ export function DashboardSummary() {
       .filter(Boolean)
       .sort()
       .pop();
-    return latest ? timeAgo(latest) : "감지 없음";
+    return latest ? timeAgo(latest) : "기록 없음";
   };
 
   const cards: SummaryCard[] = [
     {
       label: "밀림",
       value: data.status_counts.losing,
-      isNumber: true,
-      sub: `최근 감지 ${latestDetectedAt(losingProducts)}`,
+      time: latestDetectedAt(losingProducts),
       icon: TrendingDown,
       color: "text-red-500",
     },
     {
       label: "동일가",
       value: samePriceCount,
-      isNumber: true,
-      sub: `최근 감지 ${latestDetectedAt(activeProducts.filter((p) => p.price_gap === 0))}`,
+      time: latestDetectedAt(samePriceProducts),
       icon: Minus,
       color: "text-amber-500",
     },
     {
       label: "미확인 알림",
       value: data.unread_alerts,
-      isNumber: true,
-      sub:
-        data.crawl_success_rate != null
-          ? `크롤링 ${formatPercent(data.crawl_success_rate)}`
-          : "",
+      time: "현재 기준",
       icon: Bell,
       color: "text-blue-500",
     },
@@ -91,27 +83,25 @@ export function DashboardSummary() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className="glass-card p-4"
+            className="glass-card px-3 py-3"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--muted-foreground)]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] font-medium text-[var(--muted-foreground)]">
                 {card.label}
-              </span>
-              <card.icon className={cn("h-5 w-5", card.color)} />
+              </div>
+              <div className={cn("rounded-md p-1.5 bg-[var(--muted)]", card.color)}>
+                <card.icon className="h-4 w-4" />
+              </div>
             </div>
-            <div className="mt-2 text-2xl font-bold">
+            <div className="mt-1 text-3xl font-bold leading-none tabular-nums">
               {card.value != null ? (
-                <AnimatedNumber
-                  value={card.value as number}
-                  suffix={card.suffix}
-                  decimals={card.decimals}
-                />
+                <AnimatedNumber value={card.value as number} />
               ) : (
                 "-"
               )}
             </div>
-            <div className="text-xs text-[var(--muted-foreground)]">
-              {card.sub}
+            <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+              {card.time}
             </div>
           </motion.div>
         ))}
