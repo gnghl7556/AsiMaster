@@ -12,6 +12,7 @@ import {
   Trash2,
   RotateCcw,
   Ban,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export default function ProductDetailPage({
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isExcludedOpen, setIsExcludedOpen] = useState(false);
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -337,38 +339,51 @@ export default function ProductDetailPage({
       {/* 제외된 상품 관리 */}
       {excludedProducts.length > 0 && (
         <div>
-          <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-            <Ban className="h-4 w-4" />
-            제외된 상품
-            <span className="text-sm font-normal text-[var(--muted-foreground)]">
-              ({excludedProducts.length}개)
-            </span>
-          </h2>
-          <div className="glass-card divide-y divide-[var(--border)]">
-            {excludedProducts.map((ep) => (
-              <div key={ep.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {ep.naver_product_name || ep.naver_product_id}
+          <div className="glass-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsExcludedOpen((prev) => !prev)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left"
+            >
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Ban className="h-4 w-4" />
+                제외된 상품
+                <span className="text-sm font-normal text-[var(--muted-foreground)]">
+                  ({excludedProducts.length}개)
+                </span>
+              </h2>
+              <ChevronDown
+                className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${isExcludedOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {isExcludedOpen && (
+              <div className="divide-y divide-[var(--border)]">
+                {excludedProducts.map((ep) => (
+                  <div key={ep.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {ep.naver_product_name || ep.naver_product_id}
+                      </div>
+                      <div className="text-xs text-[var(--muted-foreground)]">
+                        ID: {ep.naver_product_id}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => restoreMutation.mutate(ep.naver_product_id)}
+                      disabled={restoreMutation.isPending}
+                      className="flex items-center gap-1 shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
+                    >
+                      {restoreMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3 w-3" />
+                      )}
+                      복원
+                    </button>
                   </div>
-                  <div className="text-xs text-[var(--muted-foreground)]">
-                    ID: {ep.naver_product_id}
-                  </div>
-                </div>
-                <button
-                  onClick={() => restoreMutation.mutate(ep.naver_product_id)}
-                  disabled={restoreMutation.isPending}
-                  className="flex items-center gap-1 shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
-                >
-                  {restoreMutation.isPending ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RotateCcw className="h-3 w-3" />
-                  )}
-                  복원
-                </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
