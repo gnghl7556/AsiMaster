@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -42,6 +42,7 @@ export default function ProductDetailPage({
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
+  const [editableName, setEditableName] = useState("");
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -101,6 +102,17 @@ export default function ProductDetailPage({
     onError: () => toast.error("상품 삭제에 실패했습니다"),
   });
 
+  const updateNameMutation = useMutation({
+    mutationFn: (name: string) =>
+      productsApi.update(userId!, productId, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("상품명이 수정되었습니다");
+    },
+    onError: () => toast.error("상품명 수정에 실패했습니다"),
+  });
+
   // 마진 시뮬레이션
   const [simPrice, setSimPrice] = useState("");
   const [simulatedMargin, setSimulatedMargin] = useState<MarginDetailType | null>(null);
@@ -114,6 +126,12 @@ export default function ProductDetailPage({
     const price = Number(simPrice);
     if (price > 0) simMutation.mutate(price);
   };
+
+  useEffect(() => {
+    if (product?.name) {
+      setEditableName(product.name);
+    }
+  }, [product?.name]);
 
   if (isLoading) {
     return (
@@ -160,6 +178,39 @@ export default function ProductDetailPage({
           )}
         </div>
         <StatusBadge status={product.status} />
+      </div>
+
+      {/* 상품명 수정 */}
+      <div className="glass-card p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const nextName = editableName.trim();
+            if (!nextName || nextName === product.name) return;
+            updateNameMutation.mutate(nextName);
+          }}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <input
+            type="text"
+            value={editableName}
+            onChange={(e) => setEditableName(e.target.value)}
+            placeholder="상품명 입력"
+            maxLength={200}
+            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={
+              updateNameMutation.isPending ||
+              !editableName.trim() ||
+              editableName.trim() === product.name
+            }
+            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+          >
+            {updateNameMutation.isPending ? "저장 중..." : "상품명 저장"}
+          </button>
+        </form>
       </div>
 
       {/* 핵심 지표 카드 3개 */}
