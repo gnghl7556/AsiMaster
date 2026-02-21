@@ -38,6 +38,8 @@ export default function AlertsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
   });
 
+  const unreadAlerts = alerts.filter((a) => !a.is_read);
+
   if (!userId) {
     return <div className="py-20 text-center text-[var(--muted-foreground)]">사업체를 선택해주세요</div>;
   }
@@ -48,7 +50,7 @@ export default function AlertsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">알림</h1>
         <div className="flex items-center gap-2">
-          {tab === "list" && alerts.some((a) => !a.is_read) && (
+          {tab === "list" && unreadAlerts.length > 0 && (
             <button
               onClick={() => markAllMutation.mutate()}
               className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600"
@@ -74,22 +76,19 @@ export default function AlertsPage() {
         <AlertSettings />
       ) : isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16" />)}</div>
-      ) : alerts.length === 0 ? (
+      ) : unreadAlerts.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-[var(--muted-foreground)]">
           <Bell className="h-12 w-12 mb-3 opacity-30" />
           <p>새로운 알림이 없습니다</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {alerts.map((alert) => {
+          {unreadAlerts.map((alert) => {
             const typeConfig = ALERT_TYPE_LABELS[alert.type] || { label: alert.type, color: "" };
             return (
               <div
                 key={alert.id}
-                className={cn(
-                  "glass-card p-4 transition-all",
-                  !alert.is_read && "border-l-4 border-l-blue-500"
-                )}
+                className="glass-card border-l-4 border-l-blue-500 p-4 transition-all"
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -104,14 +103,12 @@ export default function AlertsPage() {
                       {new Date(alert.created_at).toLocaleString("ko-KR")}
                     </span>
                   </div>
-                  {!alert.is_read && (
-                    <button
-                      onClick={() => markReadMutation.mutate(alert.id)}
-                      className="rounded-lg p-1 hover:bg-[var(--muted)]"
-                    >
-                      <Check className="h-4 w-4 text-[var(--muted-foreground)]" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => markReadMutation.mutate(alert.id)}
+                    className="rounded-lg p-1 hover:bg-[var(--muted)]"
+                  >
+                    <Check className="h-4 w-4 text-[var(--muted-foreground)]" />
+                  </button>
                 </div>
               </div>
             );
