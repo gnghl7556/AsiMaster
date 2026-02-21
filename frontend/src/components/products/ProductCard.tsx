@@ -69,7 +69,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Desktop layout with fixed columns */}
-        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_120px_140px_130px_110px_150px] lg:items-center lg:gap-3">
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_120px_140px_130px_130px_150px] lg:items-center lg:gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <StatusBadge status={product.status} />
             <div className="min-w-0">
@@ -103,8 +103,13 @@ export function ProductCard({ product }: ProductCardProps) {
             />
           </div>
 
-          <div className="flex justify-end">
-            <MarginBar percent={product.margin_percent} />
+          <div className="flex justify-end border-l border-[var(--border)]/60 pl-3">
+            <div className="flex flex-col items-end gap-1">
+              <MarginBar percent={product.margin_percent} />
+              <span className="text-[11px] text-[var(--muted-foreground)] tabular-nums">
+                순수익 {formatPrice(product.margin_amount)}원
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-col items-end gap-0.5">
