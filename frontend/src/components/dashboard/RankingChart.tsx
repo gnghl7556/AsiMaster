@@ -4,7 +4,6 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  XAxis,
   YAxis,
   Tooltip,
   Cell,
@@ -50,13 +49,6 @@ export function RankingChart() {
       <h3 className="font-medium mb-4">순위 현황</h3>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} layout="vertical">
-          <XAxis
-            type="number"
-            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-            axisLine={false}
-            tickLine={false}
-            reversed
-          />
           <YAxis
             type="category"
             dataKey="name"
