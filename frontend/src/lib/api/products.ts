@@ -1,4 +1,4 @@
-import type { Product, ProductListItem, ProductDetail, SortOption } from "@/types";
+import type { Product, ProductListItem, ProductDetail, SortOption, ExcludedProduct } from "@/types";
 import apiClient from "./client";
 
 interface ProductListParams {
@@ -32,4 +32,17 @@ export const productsApi = {
     apiClient
       .patch<Product>(`/users/${userId}/products/${productId}/price-lock`, { is_locked, reason })
       .then((r) => r.data),
+
+  getExcluded: (productId: number) =>
+    apiClient
+      .get<ExcludedProduct[]>(`/products/${productId}/excluded`)
+      .then((r) => r.data),
+
+  excludeProduct: (productId: number, data: { naver_product_id: string; naver_product_name?: string }) =>
+    apiClient
+      .post<ExcludedProduct>(`/products/${productId}/excluded`, data)
+      .then((r) => r.data),
+
+  unexcludeProduct: (productId: number, naverProductId: string) =>
+    apiClient.delete(`/products/${productId}/excluded/${naverProductId}`),
 };

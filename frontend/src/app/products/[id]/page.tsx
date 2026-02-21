@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Loader2,
   Trash2,
+  RotateCcw,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -25,7 +27,7 @@ import { KeywordManager } from "@/components/products/KeywordManager";
 import { SparklineChart } from "@/components/products/SparklineChart";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
-import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword } from "@/types";
+import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
 
 export default function ProductDetailPage({
   params,
@@ -51,6 +53,25 @@ export default function ProductDetailPage({
     queryKey: ["keywords", productId],
     queryFn: () => keywordsApi.getList(productId),
     enabled: !!productId,
+  });
+
+  // 제외된 상품 목록
+  const { data: excludedProducts = [] } = useQuery({
+    queryKey: ["excluded-products", productId],
+    queryFn: () => productsApi.getExcluded(productId),
+    enabled: !!productId,
+  });
+
+  // 제외 복원
+  const restoreMutation = useMutation({
+    mutationFn: (naverProductId: string) =>
+      productsApi.unexcludeProduct(productId, naverProductId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["excluded-products", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      toast.success("제외가 해제되었습니다");
+    },
+    onError: () => toast.error("제외 해제에 실패했습니다"),
   });
 
   // 크롤링
@@ -309,8 +330,48 @@ export default function ProductDetailPage({
         <KeywordRankingList
           keywords={product.keywords}
           myPrice={product.selling_price}
+          productId={productId}
         />
       </div>
+
+      {/* 제외된 상품 관리 */}
+      {excludedProducts.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+            <Ban className="h-4 w-4" />
+            제외된 상품
+            <span className="text-sm font-normal text-[var(--muted-foreground)]">
+              ({excludedProducts.length}개)
+            </span>
+          </h2>
+          <div className="glass-card divide-y divide-[var(--border)]">
+            {excludedProducts.map((ep) => (
+              <div key={ep.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {ep.naver_product_name || ep.naver_product_id}
+                  </div>
+                  <div className="text-xs text-[var(--muted-foreground)]">
+                    ID: {ep.naver_product_id}
+                  </div>
+                </div>
+                <button
+                  onClick={() => restoreMutation.mutate(ep.naver_product_id)}
+                  disabled={restoreMutation.isPending}
+                  className="flex items-center gap-1 shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
+                >
+                  {restoreMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3" />
+                  )}
+                  복원
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

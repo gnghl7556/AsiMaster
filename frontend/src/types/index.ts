@@ -53,8 +53,17 @@ export interface RankingItem {
   mall_name: string;
   product_url: string | null;
   image_url: string | null;
+  naver_product_id: string | null;
   is_my_store: boolean;
+  is_relevant: boolean;
   crawled_at: string;
+}
+
+export interface ExcludedProduct {
+  id: number;
+  naver_product_id: string;
+  naver_product_name: string | null;
+  created_at: string;
 }
 
 export interface KeywordDetail {
