@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { keywordsApi } from "@/lib/api/keywords";
+import { keywordsApi, type CreateKeywordRequest } from "@/lib/api/keywords";
 
 export function useKeywords(productId: number) {
   return useQuery({
@@ -16,7 +16,11 @@ export function useCreateKeyword(productId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (keyword: string) => keywordsApi.create(productId, keyword),
+    mutationFn: (payload: CreateKeywordRequest) =>
+      keywordsApi.create(productId, {
+        keyword: payload.keyword,
+        sort_type: payload.sort_type ?? "sim",
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", productId] });
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });

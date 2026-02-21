@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { ExternalLink, Crown, Store, Ban, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -16,6 +17,21 @@ interface Props {
 
 export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const queryClient = useQueryClient();
+  const [openItemKey, setOpenItemKey] = useState<string | null>(null);
+  const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({});
+  const swipeRef = useRef<{
+    key: string | null;
+    startX: number;
+    startY: number;
+    baseOffset: number;
+    isHorizontal: boolean;
+  }>({
+    key: null,
+    startX: 0,
+    startY: 0,
+    baseOffset: 0,
+    isHorizontal: false,
+  });
 
   const excludeMutation = useMutation({
     mutationFn: (item: { naver_product_id: string; product_name: string }) =>
@@ -38,6 +54,61 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     );
   }
 
+  const getItemKey = (keywordId: number, itemId: number) => `${keywordId}-${itemId}`;
+
+  const handleTouchStart = (
+    key: string,
+    e: React.TouchEvent<HTMLDivElement>
+  ) => {
+    const touch = e.touches[0];
+    if (openItemKey && openItemKey !== key) {
+      setSwipeOffsets((prev) => ({ ...prev, [openItemKey]: 0 }));
+      setOpenItemKey(null);
+    }
+    swipeRef.current = {
+      key,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      baseOffset: swipeOffsets[key] ?? (openItemKey === key ? 56 : 0),
+      isHorizontal: false,
+    };
+  };
+
+  const handleTouchMove = (
+    key: string,
+    actionWidth: number,
+    e: React.TouchEvent<HTMLDivElement>
+  ) => {
+    if (swipeRef.current.key !== key) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - swipeRef.current.startX;
+    const deltaY = touch.clientY - swipeRef.current.startY;
+
+    if (!swipeRef.current.isHorizontal) {
+      if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        swipeRef.current.isHorizontal = true;
+      } else {
+        return;
+      }
+    }
+
+    const nextOffset = Math.max(
+      0,
+      Math.min(actionWidth, swipeRef.current.baseOffset - deltaX)
+    );
+    setSwipeOffsets((prev) => ({ ...prev, [key]: nextOffset }));
+  };
+
+  const handleTouchEnd = (key: string, actionWidth: number) => {
+    if (swipeRef.current.key !== key) return;
+    const current = swipeOffsets[key] ?? 0;
+    const shouldOpen = current >= actionWidth * 0.45;
+    const nextOffset = shouldOpen ? actionWidth : 0;
+    setSwipeOffsets((prev) => ({ ...prev, [key]: nextOffset }));
+    setOpenItemKey(shouldOpen ? key : null);
+    swipeRef.current.key = null;
+  };
+
   return (
     <div className="space-y-4">
       {keywords.map((kw) => (
@@ -45,6 +116,15 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
           <div className="px-4 pt-4 pb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="font-medium">&ldquo;{kw.keyword}&rdquo;</h3>
+              <span
+                className={
+                  kw.sort_type === "asc"
+                    ? "rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                    : "rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500"
+                }
+              >
+                {kw.sort_type === "asc" ? "가격 순위" : "노출 순위"}
+              </span>
               {kw.is_primary && (
                 <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
                   기본
@@ -76,106 +156,216 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
             ) : (
               kw.rankings.map((item) => {
                 const diffFromMe = item.price - myPrice;
+                const itemKey = getItemKey(kw.id, item.id);
+                const canOpenLink = Boolean(item.product_url);
+                const canBan = !item.is_my_store && Boolean(item.naver_product_id);
+                const actionCount = Number(canOpenLink) + Number(canBan);
+                const actionWidth = actionCount * 56;
+                const hasActions = actionCount > 0;
+                const currentOffset = hasActions
+                  ? swipeOffsets[itemKey] ?? (openItemKey === itemKey ? actionWidth : 0)
+                  : 0;
+
                 return (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3",
-                      item.is_my_store && "bg-blue-500/5",
-                      !item.is_relevant && "opacity-50"
-                    )}
-                  >
-                    {/* 순위 */}
-                    <div
-                      className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                        item.rank === 1
-                          ? "bg-yellow-500 text-white"
-                          : item.is_my_store
-                          ? "bg-blue-500 text-white"
-                          : "bg-[var(--muted)] text-[var(--muted-foreground)]"
+                  <div key={item.id}>
+                    {/* Mobile: swipe card */}
+                    <div className="relative overflow-hidden md:hidden">
+                      {hasActions && (
+                        <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
+                          {canOpenLink && (
+                            <a
+                              href={item.product_url!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:text-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-5 w-5" />
+                            </a>
+                          )}
+                          {canBan && (
+                            <button
+                              onClick={() =>
+                                excludeMutation.mutate({
+                                  naver_product_id: item.naver_product_id!,
+                                  product_name: item.product_name,
+                                })
+                              }
+                              disabled={excludeMutation.isPending}
+                              className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/15 disabled:opacity-60"
+                              title="이 상품 제외"
+                            >
+                              {excludeMutation.isPending ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <Ban className="h-5 w-5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       )}
-                    >
-                      {item.rank}
-                    </div>
-
-                    {/* 판매자 정보 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-medium">
-                          {item.mall_name || "알 수 없음"}
-                        </span>
-                        {item.is_my_store && (
-                          <span className="shrink-0 flex items-center gap-0.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
-                            <Store className="h-2.5 w-2.5" />
-                            내 스토어
-                          </span>
-                        )}
-                        {item.rank === 1 && (
-                          <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
-                        )}
-                      </div>
-                      <div className="text-xs text-[var(--muted-foreground)] truncate">
-                        {item.product_name}
-                      </div>
-                    </div>
-
-                    {/* 가격 */}
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-bold tabular-nums">
-                        {formatPrice(item.price)}원
-                      </div>
                       <div
                         className={cn(
-                          "text-xs tabular-nums",
-                          diffFromMe < 0
-                            ? "text-red-500"
-                            : diffFromMe > 0
-                            ? "text-emerald-500"
-                            : "text-[var(--muted-foreground)]"
+                          "flex items-center gap-3 px-4 py-3 transition-transform duration-200 ease-out",
+                          item.is_my_store && "bg-blue-500/5",
+                          !item.is_relevant && "opacity-50"
                         )}
+                        style={{
+                          transform: hasActions
+                            ? `translateX(-${currentOffset}px)`
+                            : "translateX(0px)",
+                        }}
+                        onTouchStart={(e) => hasActions && handleTouchStart(itemKey, e)}
+                        onTouchMove={(e) => hasActions && handleTouchMove(itemKey, actionWidth, e)}
+                        onTouchEnd={() => hasActions && handleTouchEnd(itemKey, actionWidth)}
+                        onTouchCancel={() => hasActions && handleTouchEnd(itemKey, actionWidth)}
                       >
-                        {diffFromMe === 0
-                          ? "동일"
-                          : diffFromMe < 0
-                          ? `${formatPrice(diffFromMe)}원`
-                          : `+${formatPrice(diffFromMe)}원`}
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                            item.rank === 1
+                              ? "bg-yellow-500 text-white"
+                              : item.is_my_store
+                              ? "bg-blue-500 text-white"
+                              : "bg-[var(--muted)] text-[var(--muted-foreground)]"
+                          )}
+                        >
+                          {item.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-base font-semibold">
+                              {item.mall_name || "알 수 없음"}
+                            </span>
+                            {item.is_my_store && (
+                              <span className="shrink-0 flex items-center gap-0.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                                <Store className="h-2.5 w-2.5" />
+                                내 스토어
+                              </span>
+                            )}
+                            {item.rank === 1 && (
+                              <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                            )}
+                          </div>
+                          <div className="truncate text-sm text-[var(--muted-foreground)]">
+                            {item.product_name}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-base font-bold tabular-nums">
+                            {formatPrice(item.price)}원
+                          </div>
+                          <div
+                            className={cn(
+                              "text-xs tabular-nums",
+                              diffFromMe < 0
+                                ? "text-red-500"
+                                : diffFromMe > 0
+                                ? "text-emerald-500"
+                                : "text-[var(--muted-foreground)]"
+                            )}
+                          >
+                            {diffFromMe === 0
+                              ? "동일"
+                              : diffFromMe < 0
+                              ? `${formatPrice(diffFromMe)}원`
+                              : `+${formatPrice(diffFromMe)}원`}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* 링크 */}
-                    {item.product_url && (
-                      <a
-                        href={item.product_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-
-                    {/* 제외 버튼 */}
-                    {!item.is_my_store && item.naver_product_id && (
-                      <button
-                        onClick={() =>
-                          excludeMutation.mutate({
-                            naver_product_id: item.naver_product_id!,
-                            product_name: item.product_name,
-                          })
-                        }
-                        disabled={excludeMutation.isPending}
-                        className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                        title="이 상품 제외"
-                      >
-                        {excludeMutation.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Ban className="h-3.5 w-3.5" />
+                    {/* Desktop: existing layout */}
+                    <div
+                      className={cn(
+                        "hidden md:flex items-center gap-3 px-4 py-3",
+                        item.is_my_store && "bg-blue-500/5",
+                        !item.is_relevant && "opacity-50"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                          item.rank === 1
+                            ? "bg-yellow-500 text-white"
+                            : item.is_my_store
+                            ? "bg-blue-500 text-white"
+                            : "bg-[var(--muted)] text-[var(--muted-foreground)]"
                         )}
-                      </button>
-                    )}
+                      >
+                        {item.rank}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-medium">
+                            {item.mall_name || "알 수 없음"}
+                          </span>
+                          {item.is_my_store && (
+                            <span className="shrink-0 flex items-center gap-0.5 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                              <Store className="h-2.5 w-2.5" />
+                              내 스토어
+                            </span>
+                          )}
+                          {item.rank === 1 && (
+                            <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                          )}
+                        </div>
+                        <div className="text-xs text-[var(--muted-foreground)] truncate">
+                          {item.product_name}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold tabular-nums">
+                          {formatPrice(item.price)}원
+                        </div>
+                        <div
+                          className={cn(
+                            "text-xs tabular-nums",
+                            diffFromMe < 0
+                              ? "text-red-500"
+                              : diffFromMe > 0
+                              ? "text-emerald-500"
+                              : "text-[var(--muted-foreground)]"
+                          )}
+                        >
+                          {diffFromMe === 0
+                            ? "동일"
+                            : diffFromMe < 0
+                            ? `${formatPrice(diffFromMe)}원`
+                            : `+${formatPrice(diffFromMe)}원`}
+                        </div>
+                      </div>
+                      {item.product_url && (
+                        <a
+                          href={item.product_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {!item.is_my_store && item.naver_product_id && (
+                        <button
+                          onClick={() =>
+                            excludeMutation.mutate({
+                              naver_product_id: item.naver_product_id!,
+                              product_name: item.product_name,
+                            })
+                          }
+                          disabled={excludeMutation.isPending}
+                          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                          title="이 상품 제외"
+                        >
+                          {excludeMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Ban className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })

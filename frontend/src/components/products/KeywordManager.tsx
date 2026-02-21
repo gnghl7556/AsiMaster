@@ -13,6 +13,7 @@ interface Props {
 
 export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) {
   const [input, setInput] = useState("");
+  const [sortType, setSortType] = useState<"sim" | "asc">("sim");
   const createMutation = useCreateKeyword(productId);
   const deleteMutation = useDeleteKeyword(productId);
 
@@ -20,8 +21,14 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
     e.preventDefault();
     const keyword = input.trim();
     if (!keyword) return;
-    createMutation.mutate(keyword, {
-      onSuccess: () => setInput(""),
+    createMutation.mutate({
+      keyword,
+      sort_type: sortType,
+    }, {
+      onSuccess: () => {
+        setInput("");
+        setSortType("sim");
+      },
     });
   };
 
@@ -47,6 +54,15 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
             className="flex items-center gap-1 rounded-lg border border-[var(--border)] px-2.5 py-1 text-sm"
           >
             <span>{kw.keyword}</span>
+            <span
+              className={
+                kw.sort_type === "asc"
+                  ? "rounded bg-amber-500/10 px-1 py-0.5 text-[9px] font-medium text-amber-500"
+                  : "rounded bg-blue-500/10 px-1 py-0.5 text-[9px] font-medium text-blue-500"
+              }
+            >
+              {kw.sort_type === "asc" ? "가격" : "노출"}
+            </span>
             {kw.is_primary && (
               <span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] font-medium text-blue-500">
                 기본
@@ -67,7 +83,32 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
 
       {/* 키워드 추가 */}
       {activeCount < maxKeywords && (
-        <form onSubmit={handleAdd} className="flex gap-2">
+        <form onSubmit={handleAdd} className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSortType("sim")}
+              className={
+                sortType === "sim"
+                  ? "rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-500 transition-colors"
+                  : "rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
+              }
+            >
+              노출 순위
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortType("asc")}
+              className={
+                sortType === "asc"
+                  ? "rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-500 transition-colors"
+                  : "rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
+              }
+            >
+              가격 순위
+            </button>
+          </div>
+          <div className="flex gap-2">
           <input
             type="text"
             value={input}
@@ -88,6 +129,7 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
             )}
             추가
           </button>
+          </div>
         </form>
       )}
 
