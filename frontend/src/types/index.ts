@@ -2,6 +2,7 @@ export interface User {
   id: number;
   name: string;
   naver_store_name: string | null;
+  crawl_interval_min: number;
   created_at: string;
   updated_at: string;
 }
