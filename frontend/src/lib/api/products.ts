@@ -1,4 +1,12 @@
-import type { Product, ProductListItem, ProductDetail, SortOption, ExcludedProduct } from "@/types";
+import type {
+  Product,
+  ProductListItem,
+  ProductDetail,
+  SortOption,
+  ExcludedProduct,
+  StoreProduct,
+  StoreImportResult,
+} from "@/types";
 import apiClient from "./client";
 
 interface ProductListParams {
@@ -45,4 +53,17 @@ export const productsApi = {
 
   unexcludeProduct: (productId: number, naverProductId: string) =>
     apiClient.delete(`/products/${productId}/excluded/${naverProductId}`),
+
+  previewStoreProducts: (userId: number, storeUrl: string) =>
+    apiClient
+      .get<StoreProduct[]>(`/users/${userId}/store/products`, { params: { store_url: storeUrl } })
+      .then((r) => r.data),
+
+  importStoreProducts: (
+    userId: number,
+    products: { name: string; selling_price: number; image_url?: string; category?: string }[]
+  ) =>
+    apiClient
+      .post<StoreImportResult>(`/users/${userId}/store/import`, { products })
+      .then((r) => r.data),
 };

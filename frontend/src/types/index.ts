@@ -66,6 +66,20 @@ export interface ExcludedProduct {
   created_at: string;
 }
 
+export interface StoreProduct {
+  name: string;
+  price: number;
+  image_url: string;
+  category: string;
+  naver_product_id: string;
+}
+
+export interface StoreImportResult {
+  created: number;
+  skipped: number;
+  skipped_names: string[];
+}
+
 export interface KeywordDetail {
   id: number;
   keyword: string;

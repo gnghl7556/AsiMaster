@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Store, DollarSign } from "lucide-react";
+import { Store, DollarSign, Download } from "lucide-react";
 
 const SETTINGS_ITEMS = [
   {
@@ -15,6 +15,12 @@ const SETTINGS_ITEMS = [
     icon: DollarSign,
     label: "비용 프리셋",
     description: "플랫폼별 수수료 템플릿 관리",
+  },
+  {
+    href: "/settings/store-import",
+    icon: Download,
+    label: "상품 불러오기",
+    description: "스마트스토어에서 판매 중인 상품을 자동으로 불러옵니다",
   },
 ];
 
