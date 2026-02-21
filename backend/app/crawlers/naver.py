@@ -26,7 +26,7 @@ class NaverCrawler(BaseCrawler):
     async def close(self):
         await self._client.aclose()
 
-    async def search_keyword(self, keyword: str) -> KeywordCrawlResult:
+    async def search_keyword(self, keyword: str, sort: str = "sim") -> KeywordCrawlResult:
         if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
             return KeywordCrawlResult(keyword=keyword, success=False, error="네이버 API 키가 설정되지 않았습니다")
 
@@ -36,7 +36,7 @@ class NaverCrawler(BaseCrawler):
                 params={
                     "query": keyword,
                     "display": self.MAX_RESULTS,
-                    "sort": "sim",
+                    "sort": sort,
                 },
                 headers={
                     "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,

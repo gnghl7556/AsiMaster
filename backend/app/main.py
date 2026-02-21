@@ -29,6 +29,7 @@ async def apply_schema_changes(session):
         ("products", "spec_keywords", "JSONB", "'[]'"),
         ("keyword_rankings", "naver_product_id", "VARCHAR(50)", None),
         ("keyword_rankings", "is_relevant", "BOOLEAN", "true"),
+        ("search_keywords", "sort_type", "VARCHAR(10)", "'sim'"),
     ]
     try:
         if is_sqlite:

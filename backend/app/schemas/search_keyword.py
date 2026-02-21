@@ -1,10 +1,13 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class KeywordCreate(BaseModel):
     keyword: str = Field(..., min_length=1, max_length=200)
+    sort_type: Literal["sim", "asc"] = "sim"
 
 
 class KeywordResponse(BaseModel):
@@ -13,6 +16,7 @@ class KeywordResponse(BaseModel):
     keyword: str
     is_primary: bool
     is_active: bool
+    sort_type: str
     last_crawled_at: datetime | None
     crawl_status: str
     created_at: datetime
@@ -40,6 +44,7 @@ class KeywordWithRankings(BaseModel):
     id: int
     keyword: str
     is_primary: bool
+    sort_type: str
     crawl_status: str
     last_crawled_at: datetime | None
     rankings: list[RankingItemResponse]

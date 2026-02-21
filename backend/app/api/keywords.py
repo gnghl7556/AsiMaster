@@ -55,6 +55,7 @@ async def create_keyword(
         product_id=product_id,
         keyword=data.keyword,
         is_primary=False,
+        sort_type=data.sort_type,
     )
     db.add(keyword)
     await db.flush()

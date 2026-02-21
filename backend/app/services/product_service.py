@@ -329,6 +329,7 @@ async def get_product_detail(
             "id": kw.id,
             "keyword": kw.keyword,
             "is_primary": kw.is_primary,
+            "sort_type": kw.sort_type or "sim",
             "crawl_status": kw.crawl_status,
             "last_crawled_at": kw.last_crawled_at,
             "rankings": [
