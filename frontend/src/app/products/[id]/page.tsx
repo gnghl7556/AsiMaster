@@ -289,36 +289,13 @@ export default function ProductDetailPage({
         <MarginDetail
           margin={product.margin}
           simulatedMargin={simulatedMargin}
+          simPrice={simPrice}
+          setSimPrice={setSimPrice}
+          currentSellingPrice={product.selling_price}
+          isSimulating={simMutation.isPending}
+          onSimulate={handleSimulate}
         />
       )}
-
-      {/* 마진 시뮬레이션 */}
-      <div className="glass-card p-4">
-        <h3 className="font-medium mb-3">마진 시뮬레이션</h3>
-        <p className="text-sm text-[var(--muted-foreground)] mb-3">
-          판매가를 변경하면 예상 마진을 미리 확인할 수 있습니다
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            value={simPrice}
-            onChange={(e) => setSimPrice(e.target.value)}
-            placeholder={`현재 ${formatPrice(product.selling_price)}원`}
-            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors tabular-nums"
-          />
-          <button
-            onClick={handleSimulate}
-            disabled={!simPrice || simMutation.isPending}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
-            {simMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "계산"
-            )}
-          </button>
-        </div>
-      </div>
 
       {/* 키워드 관리 */}
       <KeywordManager

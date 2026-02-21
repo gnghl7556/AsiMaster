@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MarginDetail as MarginDetailType } from "@/types";
 import { formatPrice, formatPercent } from "@/lib/utils/format";
@@ -10,9 +10,22 @@ import { cn } from "@/lib/utils/cn";
 interface Props {
   margin: MarginDetailType;
   simulatedMargin?: MarginDetailType | null;
+  simPrice: string;
+  setSimPrice: (value: string) => void;
+  currentSellingPrice: number;
+  isSimulating: boolean;
+  onSimulate: () => void;
 }
 
-export function MarginDetail({ margin, simulatedMargin }: Props) {
+export function MarginDetail({
+  margin,
+  simulatedMargin,
+  simPrice,
+  setSimPrice,
+  currentSellingPrice,
+  isSimulating,
+  onSimulate,
+}: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   const marginColor =
@@ -131,6 +144,34 @@ export function MarginDetail({ margin, simulatedMargin }: Props) {
                   </div>
                 </div>
               )}
+
+              {/* 마진 시뮬레이션 */}
+              <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+                <h4 className="text-sm font-medium">마진 시뮬레이션</h4>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  판매가를 변경하면 예상 마진을 미리 확인할 수 있습니다
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="number"
+                    value={simPrice}
+                    onChange={(e) => setSimPrice(e.target.value)}
+                    placeholder={`현재 ${formatPrice(currentSellingPrice)}원`}
+                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors tabular-nums"
+                  />
+                  <button
+                    onClick={onSimulate}
+                    disabled={!simPrice || isSimulating}
+                    className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  >
+                    {isSimulating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "계산"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
