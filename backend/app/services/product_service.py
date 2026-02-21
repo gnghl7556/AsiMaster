@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.cost import CostItem
+from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -108,6 +109,16 @@ async def get_product_list_items(
     result = await db.execute(query)
     products = result.scalars().unique().all()
 
+    # 상품별 블랙리스트 조회
+    product_ids = [p.id for p in products]
+    excluded_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
+    if product_ids:
+        ex_result = await db.execute(
+            select(ExcludedProduct).where(ExcludedProduct.product_id.in_(product_ids))
+        )
+        for ep in ex_result.scalars().all():
+            excluded_by_product[ep.product_id].add(ep.naver_product_id)
+
     items = []
     now = datetime.utcnow()
     seven_days_ago = now - timedelta(days=7)
@@ -115,9 +126,13 @@ async def get_product_list_items(
     for product in products:
         active_keywords = [kw for kw in product.keywords if kw.is_active]
         latest_rankings = _get_latest_rankings(active_keywords)
+        excluded_ids = excluded_by_product.get(product.id, set())
 
-        # 관련 상품만 필터 (is_relevant=True)
-        relevant_rankings = [r for r in latest_rankings if r.is_relevant]
+        # 관련 상품만 필터 (is_relevant=True + 블랙리스트 제외)
+        relevant_rankings = [
+            r for r in latest_rankings
+            if r.is_relevant and r.naver_product_id not in excluded_ids
+        ]
 
         # 최저가 계산 (관련 상품 기준)
         if relevant_rankings:
@@ -144,11 +159,12 @@ async def get_product_list_items(
         ]
         margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
 
-        # sparkline: 최근 7일 일별 최저가 (관련 상품 기준)
+        # sparkline: 최근 7일 일별 최저가 (관련 상품 + 블랙리스트 제외)
         sparkline_data = {}
         for kw in active_keywords:
             for r in kw.rankings:
-                if r.crawled_at and r.crawled_at >= seven_days_ago and r.is_relevant:
+                if (r.crawled_at and r.crawled_at >= seven_days_ago
+                        and r.is_relevant and r.naver_product_id not in excluded_ids):
                     day_key = r.crawled_at.date()
                     if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
                         sparkline_data[day_key] = r.price
@@ -227,8 +243,18 @@ async def get_product_detail(
     active_keywords = [kw for kw in product.keywords if kw.is_active]
     latest_rankings = _get_latest_rankings(active_keywords)
 
-    # 관련 상품만 필터 (is_relevant=True)
-    relevant_rankings = [r for r in latest_rankings if r.is_relevant]
+    # 블랙리스트 조회
+    ex_result = await db.execute(
+        select(ExcludedProduct.naver_product_id)
+        .where(ExcludedProduct.product_id == product_id)
+    )
+    excluded_ids = set(ex_result.scalars().all())
+
+    # 관련 상품만 필터 (is_relevant=True + 블랙리스트 제외)
+    relevant_rankings = [
+        r for r in latest_rankings
+        if r.is_relevant and r.naver_product_id not in excluded_ids
+    ]
 
     # 최저가 (관련 상품 기준)
     if relevant_rankings:
@@ -257,13 +283,14 @@ async def get_product_detail(
             if last_crawled is None or kw.last_crawled_at > last_crawled:
                 last_crawled = kw.last_crawled_at
 
-    # sparkline: 최근 7일 일별 최저가 (관련 상품 기준)
+    # sparkline: 최근 7일 일별 최저가 (관련 상품 + 블랙리스트 제외)
     now = datetime.utcnow()
     seven_days_ago = now - timedelta(days=7)
     sparkline_data = {}
     for kw in active_keywords:
         for r in kw.rankings:
-            if r.crawled_at and r.crawled_at >= seven_days_ago and r.is_relevant:
+            if (r.crawled_at and r.crawled_at >= seven_days_ago
+                    and r.is_relevant and r.naver_product_id not in excluded_ids):
                 day_key = r.crawled_at.date()
                 if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
                     sparkline_data[day_key] = r.price
@@ -283,7 +310,7 @@ async def get_product_detail(
             "mall_name": r.mall_name,
             "is_my_store": r.is_my_store,
             "naver_product_id": r.naver_product_id,
-            "is_relevant": r.is_relevant,
+            "is_relevant": r.is_relevant and r.naver_product_id not in excluded_ids,
         })
 
     # 키워드별 최신 순위
@@ -315,7 +342,7 @@ async def get_product_detail(
                     "image_url": r.image_url,
                     "naver_product_id": r.naver_product_id,
                     "is_my_store": r.is_my_store,
-                    "is_relevant": r.is_relevant,
+                    "is_relevant": r.is_relevant and r.naver_product_id not in excluded_ids,
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest
