@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     CRAWL_MAX_RETRIES: int = 3
     CRAWL_REQUEST_DELAY_MIN: int = 2
     CRAWL_REQUEST_DELAY_MAX: int = 5
+    CRAWL_CONCURRENCY: int = 5
 
     PORT: int = 8000
 

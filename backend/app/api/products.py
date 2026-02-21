@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.models.excluded_product import ExcludedProduct
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.schemas.product import (
+    ExcludeProductRequest,
+    ExcludedProductResponse,
     PriceLockUpdate,
     ProductCreate,
     ProductDetail,
@@ -99,6 +103,64 @@ async def toggle_price_lock(
     await db.flush()
     await db.refresh(product)
     return product
+
+
+# --- 블랙리스트 (경쟁사 제외) ---
+
+@router.get("/products/{product_id}/excluded", response_model=list[ExcludedProductResponse])
+async def get_excluded_products(product_id: int, db: AsyncSession = Depends(get_db)):
+    product = await db.get(Product, product_id)
+    if not product:
+        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+    result = await db.execute(
+        select(ExcludedProduct)
+        .where(ExcludedProduct.product_id == product_id)
+        .order_by(ExcludedProduct.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/products/{product_id}/excluded", response_model=ExcludedProductResponse, status_code=201)
+async def exclude_product(
+    product_id: int, data: ExcludeProductRequest, db: AsyncSession = Depends(get_db)
+):
+    product = await db.get(Product, product_id)
+    if not product:
+        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+    # 중복 체크
+    existing = await db.execute(
+        select(ExcludedProduct).where(
+            ExcludedProduct.product_id == product_id,
+            ExcludedProduct.naver_product_id == data.naver_product_id,
+        )
+    )
+    if existing.scalars().first():
+        raise HTTPException(409, "이미 제외된 상품입니다.")
+    excluded = ExcludedProduct(
+        product_id=product_id,
+        naver_product_id=data.naver_product_id,
+        naver_product_name=data.naver_product_name,
+    )
+    db.add(excluded)
+    await db.flush()
+    await db.refresh(excluded)
+    return excluded
+
+
+@router.delete("/products/{product_id}/excluded/{naver_product_id}", status_code=204)
+async def unexclude_product(
+    product_id: int, naver_product_id: str, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(ExcludedProduct).where(
+            ExcludedProduct.product_id == product_id,
+            ExcludedProduct.naver_product_id == naver_product_id,
+        )
+    )
+    excluded = result.scalars().first()
+    if not excluded:
+        raise HTTPException(404, "제외 목록에 없는 상품입니다.")
+    await db.delete(excluded)
 
 
 # --- 이전 경로 호환 (프론트엔드 마이그레이션 전까지 유지) ---

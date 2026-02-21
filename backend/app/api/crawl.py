@@ -65,10 +65,18 @@ async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
     )
     status_counts = dict(log_q.all())
 
+    # 평균 크롤링 소요 시간
+    avg_q = await db.execute(
+        select(func.avg(CrawlLog.duration_ms))
+        .where(CrawlLog.created_at >= since, CrawlLog.status == "success")
+    )
+    avg_duration = avg_q.scalar_one_or_none()
+
     return {
         "total_keywords": total,
         "last_24h_success": status_counts.get("success", 0),
         "last_24h_failed": status_counts.get("failed", 0),
+        "avg_duration_ms": round(avg_duration) if avg_duration else None,
     }
 
 

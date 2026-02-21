@@ -11,6 +11,8 @@ class ProductCreate(BaseModel):
     cost_price: int = Field(..., ge=0)
     selling_price: int = Field(..., ge=0)
     image_url: str | None = None
+    model_code: str | None = Field(None, max_length=100)
+    spec_keywords: list[str] | None = None
 
 
 class ProductUpdate(BaseModel):
@@ -19,6 +21,8 @@ class ProductUpdate(BaseModel):
     cost_price: int | None = Field(None, ge=0)
     selling_price: int | None = Field(None, ge=0)
     image_url: str | None = None
+    model_code: str | None = Field(None, max_length=100)
+    spec_keywords: list[str] | None = None
 
 
 class PriceLockUpdate(BaseModel):
@@ -34,6 +38,8 @@ class ProductResponse(BaseModel):
     cost_price: int
     selling_price: int
     image_url: str | None
+    model_code: str | None
+    spec_keywords: list[str] | None
     is_price_locked: bool
     price_lock_reason: str | None
     is_active: bool
@@ -81,6 +87,22 @@ class CompetitorSummary(BaseModel):
     price: int
     mall_name: str
     is_my_store: bool
+    naver_product_id: str | None
+    is_relevant: bool
+
+
+class ExcludeProductRequest(BaseModel):
+    naver_product_id: str = Field(..., min_length=1)
+    naver_product_name: str | None = None
+
+
+class ExcludedProductResponse(BaseModel):
+    id: int
+    naver_product_id: str
+    naver_product_name: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ProductDetail(BaseModel):
@@ -91,6 +113,8 @@ class ProductDetail(BaseModel):
     selling_price: int
     cost_price: int
     image_url: str | None
+    model_code: str | None
+    spec_keywords: list[str] | None
     is_price_locked: bool
     price_lock_reason: str | None
     status: str

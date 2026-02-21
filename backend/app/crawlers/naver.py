@@ -17,25 +17,33 @@ class NaverCrawler(BaseCrawler):
     platform_name = "naver"
     MAX_RESULTS = 10
 
+    def __init__(self):
+        self._client = httpx.AsyncClient(
+            timeout=10,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+
+    async def close(self):
+        await self._client.aclose()
+
     async def search_keyword(self, keyword: str) -> KeywordCrawlResult:
         if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
             return KeywordCrawlResult(keyword=keyword, success=False, error="네이버 API 키가 설정되지 않았습니다")
 
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(
-                    "https://openapi.naver.com/v1/search/shop.json",
-                    params={
-                        "query": keyword,
-                        "display": self.MAX_RESULTS,
-                        "sort": "sim",
-                    },
-                    headers={
-                        "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
-                        "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET,
-                    },
-                )
-                resp.raise_for_status()
+            resp = await self._client.get(
+                "https://openapi.naver.com/v1/search/shop.json",
+                params={
+                    "query": keyword,
+                    "display": self.MAX_RESULTS,
+                    "sort": "sim",
+                },
+                headers={
+                    "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
+                    "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET,
+                },
+            )
+            resp.raise_for_status()
 
             data = resp.json()
             raw_items = data.get("items", [])
@@ -59,6 +67,7 @@ class NaverCrawler(BaseCrawler):
                     mall_name=item.get("mallName", ""),
                     product_url=item.get("link", ""),
                     image_url=item.get("image", ""),
+                    naver_product_id=str(item.get("productId", "")),
                 ))
 
             logger.info(f"키워드 검색 완료: '{keyword}' → {len(items)}개 결과")

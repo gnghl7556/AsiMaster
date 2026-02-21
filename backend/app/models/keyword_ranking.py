@@ -21,7 +21,9 @@ class KeywordRanking(Base):
     mall_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     product_url: Mapped[str | None] = mapped_column(String(1000))
     image_url: Mapped[str | None] = mapped_column(String(1000))
+    naver_product_id: Mapped[str | None] = mapped_column(String(50))
     is_my_store: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_relevant: Mapped[bool] = mapped_column(Boolean, default=True)
     crawled_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     keyword: Mapped["SearchKeyword"] = relationship(back_populates="rankings")

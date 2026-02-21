@@ -71,6 +71,9 @@ npm run dev
 - `PUT /api/v1/products/{id}` - 상품 수정
 - `DELETE /api/v1/products/{id}` - 상품 삭제
 - `PATCH /api/v1/products/{id}/price-lock` - 가격고정 토글
+- `GET /api/v1/products/{id}/excluded` - 블랙리스트 조회
+- `POST /api/v1/products/{id}/excluded` - 블랙리스트 추가
+- `DELETE /api/v1/products/{id}/excluded/{naver_product_id}` - 블랙리스트 해제
 - `POST /api/v1/crawl/product/{id}` - 상품 크롤링 실행
 - `POST /api/v1/keywords/{product_id}` - 키워드 추가
 - `GET /api/v1/dashboard/{user_id}` - 대시보드 요약
@@ -81,6 +84,7 @@ npm run dev
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings
                                   → CrawlLogs
+               → ExcludedProducts (블랙리스트)
 User → Alerts, AlertSettings
 Product → CostItems
 
@@ -94,6 +98,9 @@ Product → CostItems
 7. 대시보드 (요약, 가격 추이, 순위 차트)
 8. 비용 프리셋 관리
 9. 상품 삭제 (확인 모달)
+10. 크롤링 성능 개선 (연결 풀링, 병렬 크롤링, 키워드 중복 제거)
+11. 상품 관련성 필터링 (model_code + spec_keywords 기반 is_relevant)
+12. 경쟁사 블랙리스트 (naver_product_id 기반 제외)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -136,6 +143,19 @@ Product → CostItems
 ### 2026-02-21: 유저별 크롤링 주기 (R4)
 - `UserResponse`에 `crawl_interval_min: int` 필드 추가 (기본값 60분)
 - `UserUpdate`에 `crawl_interval_min: int | None` 필드 추가 (0~1440, 0=크롤링 중지)
+
+### 2026-02-21: 크롤링 성능 + 정확도 개선
+**새 기능:**
+- `Product`에 `model_code` (모델 코드), `spec_keywords` (규격 키워드 배열) 필드 추가
+- `KeywordRanking`에 `naver_product_id`, `is_relevant` 필드 추가
+- 블랙리스트 API: `GET/POST /products/{id}/excluded`, `DELETE /products/{id}/excluded/{naver_product_id}`
+- 크롤링 시 모델코드+규격 키워드 매칭으로 관련 상품 자동 필터링
+- 블랙리스트된 naver_product_id 자동 제외
+- 최저가/sparkline 계산이 관련 상품(`is_relevant=true`)만 기준으로 동작
+- `CompetitorSummary`에 `naver_product_id`, `is_relevant` 필드 추가
+- `RankingItemResponse`에 `naver_product_id`, `is_relevant` 필드 추가
+- 크롤링 상태 API에 `avg_duration_ms` 필드 추가
+- httpx 연결 풀링, Semaphore 기반 병렬 크롤링, 유저 전체 크롤링 시 키워드 중복 제거
 
 ### 2026-02-21: 백엔드 최종 마무리 (R1, R2, R5, R6)
 - **R1 정렬/페이지네이션**: `GET /users/{user_id}/products`에 `page`, `limit` 쿼리 파라미터 추가. `rank_drop` 정렬이 실제 순위 변동 기반으로 동작. `ProductListItem`에 `rank_change` 필드 추가.

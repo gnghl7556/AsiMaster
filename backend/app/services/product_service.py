@@ -116,9 +116,12 @@ async def get_product_list_items(
         active_keywords = [kw for kw in product.keywords if kw.is_active]
         latest_rankings = _get_latest_rankings(active_keywords)
 
-        # 최저가 계산
-        if latest_rankings:
-            lowest_ranking = min(latest_rankings, key=lambda r: r.price)
+        # 관련 상품만 필터 (is_relevant=True)
+        relevant_rankings = [r for r in latest_rankings if r.is_relevant]
+
+        # 최저가 계산 (관련 상품 기준)
+        if relevant_rankings:
+            lowest_ranking = min(relevant_rankings, key=lambda r: r.price)
             lowest_price = lowest_ranking.price
             lowest_seller = lowest_ranking.mall_name
         else:
@@ -141,11 +144,11 @@ async def get_product_list_items(
         ]
         margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
 
-        # sparkline: 최근 7일 일별 최저가
+        # sparkline: 최근 7일 일별 최저가 (관련 상품 기준)
         sparkline_data = {}
         for kw in active_keywords:
             for r in kw.rankings:
-                if r.crawled_at and r.crawled_at >= seven_days_ago:
+                if r.crawled_at and r.crawled_at >= seven_days_ago and r.is_relevant:
                     day_key = r.crawled_at.date()
                     if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
                         sparkline_data[day_key] = r.price
@@ -224,9 +227,12 @@ async def get_product_detail(
     active_keywords = [kw for kw in product.keywords if kw.is_active]
     latest_rankings = _get_latest_rankings(active_keywords)
 
-    # 최저가
-    if latest_rankings:
-        lowest_ranking = min(latest_rankings, key=lambda r: r.price)
+    # 관련 상품만 필터 (is_relevant=True)
+    relevant_rankings = [r for r in latest_rankings if r.is_relevant]
+
+    # 최저가 (관련 상품 기준)
+    if relevant_rankings:
+        lowest_ranking = min(relevant_rankings, key=lambda r: r.price)
         lowest_price = lowest_ranking.price
         lowest_seller = lowest_ranking.mall_name
     else:
@@ -251,13 +257,13 @@ async def get_product_detail(
             if last_crawled is None or kw.last_crawled_at > last_crawled:
                 last_crawled = kw.last_crawled_at
 
-    # sparkline: 최근 7일 일별 최저가
+    # sparkline: 최근 7일 일별 최저가 (관련 상품 기준)
     now = datetime.utcnow()
     seven_days_ago = now - timedelta(days=7)
     sparkline_data = {}
     for kw in active_keywords:
         for r in kw.rankings:
-            if r.crawled_at and r.crawled_at >= seven_days_ago:
+            if r.crawled_at and r.crawled_at >= seven_days_ago and r.is_relevant:
                 day_key = r.crawled_at.date()
                 if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
                     sparkline_data[day_key] = r.price
@@ -276,6 +282,8 @@ async def get_product_detail(
             "price": r.price,
             "mall_name": r.mall_name,
             "is_my_store": r.is_my_store,
+            "naver_product_id": r.naver_product_id,
+            "is_relevant": r.is_relevant,
         })
 
     # 키워드별 최신 순위
@@ -305,7 +313,9 @@ async def get_product_detail(
                     "mall_name": r.mall_name,
                     "product_url": r.product_url,
                     "image_url": r.image_url,
+                    "naver_product_id": r.naver_product_id,
                     "is_my_store": r.is_my_store,
+                    "is_relevant": r.is_relevant,
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest
@@ -327,6 +337,8 @@ async def get_product_detail(
         "selling_price": product.selling_price,
         "cost_price": product.cost_price,
         "image_url": product.image_url,
+        "model_code": product.model_code,
+        "spec_keywords": product.spec_keywords,
         "is_price_locked": product.is_price_locked,
         "price_lock_reason": product.price_lock_reason,
         "status": status,

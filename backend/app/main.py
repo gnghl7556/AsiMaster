@@ -20,28 +20,34 @@ logger = logging.getLogger(__name__)
 async def apply_schema_changes(session):
     """기존 테이블에 새 컬럼 추가 (create_all로 불가능한 ALTER TABLE)."""
     is_sqlite = "sqlite" in str(engine.url)
+
+    # (테이블명, 컬럼명, 타입, 기본값)
     alter_statements = [
-        ("naver_store_name", "VARCHAR(200)", None),
-        ("crawl_interval_min", "INTEGER", "60"),
+        ("users", "naver_store_name", "VARCHAR(200)", None),
+        ("users", "crawl_interval_min", "INTEGER", "60"),
+        ("products", "model_code", "VARCHAR(100)", None),
+        ("products", "spec_keywords", "JSONB", "'[]'"),
+        ("keyword_rankings", "naver_product_id", "VARCHAR(50)", None),
+        ("keyword_rankings", "is_relevant", "BOOLEAN", "true"),
     ]
     try:
         if is_sqlite:
-            result = await session.execute(text("PRAGMA table_info(users)"))
-            columns = [row[1] for row in result.fetchall()]
-            for col_name, col_type, default in alter_statements:
+            for table, col_name, col_type, default in alter_statements:
+                result = await session.execute(text(f"PRAGMA table_info({table})"))
+                columns = [row[1] for row in result.fetchall()]
                 if col_name not in columns:
                     default_clause = f" DEFAULT {default}" if default else ""
                     await session.execute(text(
-                        f"ALTER TABLE users ADD COLUMN {col_name} {col_type}{default_clause}"
+                        f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{default_clause}"
                     ))
         else:
-            for col_name, col_type, default in alter_statements:
+            for table, col_name, col_type, default in alter_statements:
                 default_clause = f" DEFAULT {default}" if default else ""
                 await session.execute(text(
-                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}{default_clause}"
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}{default_clause}"
                 ))
         await session.commit()
-        logger.info("스키마 변경 적용 완료: users 테이블")
+        logger.info("스키마 변경 적용 완료")
     except Exception as e:
         await session.rollback()
         logger.warning(f"스키마 변경 스킵 (이미 적용됨): {e}")
@@ -118,6 +124,9 @@ async def lifespan(app: FastAPI):
     init_scheduler()
     yield
     shutdown_scheduler()
+    # httpx 클라이언트 정리
+    from app.crawlers.manager import crawler
+    await crawler.close()
 
 
 app = FastAPI(

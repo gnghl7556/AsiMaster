@@ -28,7 +28,9 @@ class RankingItemResponse(BaseModel):
     mall_name: str
     product_url: str | None
     image_url: str | None
+    naver_product_id: str | None
     is_my_store: bool
+    is_relevant: bool
     crawled_at: datetime
 
     model_config = {"from_attributes": True}

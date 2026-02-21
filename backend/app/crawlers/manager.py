@@ -6,12 +6,12 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.crawlers.base import KeywordCrawlResult
+from app.crawlers.base import KeywordCrawlResult, RankingItem
 from app.crawlers.naver import NaverCrawler
 from app.models.crawl_log import CrawlLog
+from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -23,16 +23,28 @@ logger = logging.getLogger(__name__)
 crawler = NaverCrawler()
 
 
-class CrawlManager:
-    async def crawl_keyword(
-        self, db: AsyncSession, keyword: SearchKeyword, naver_store_name: str | None
-    ) -> KeywordCrawlResult:
-        max_retries = settings.CRAWL_MAX_RETRIES
-        start_time = time.time()
-        result = None
+def _check_relevance(item: RankingItem, product: Product | None) -> bool:
+    """모델코드 + 규격 키워드 기반 관련성 판별."""
+    if not product or not product.model_code:
+        return True  # 모델코드 미설정 시 모두 관련 있음
+    title_lower = item.product_name.lower()
+    if product.model_code.lower() not in title_lower:
+        return False
+    if product.spec_keywords:
+        for spec in product.spec_keywords:
+            if spec.lower() not in title_lower:
+                return False
+    return True
 
+
+class CrawlManager:
+
+    async def _fetch_keyword(self, keyword_str: str) -> KeywordCrawlResult:
+        """네이버 API 호출만 수행 (DB 접근 없음, 병렬 안전)."""
+        max_retries = settings.CRAWL_MAX_RETRIES
+        result = None
         for attempt in range(1, max_retries + 1):
-            result = await crawler.search_keyword(keyword.keyword)
+            result = await crawler.search_keyword(keyword_str)
             if result.success:
                 break
             if attempt < max_retries:
@@ -42,13 +54,22 @@ class CrawlManager:
                 )
                 logger.warning(
                     f"크롤링 재시도 {attempt}/{max_retries}: "
-                    f"'{keyword.keyword}' ({delay:.1f}s 대기)"
+                    f"'{keyword_str}' ({delay:.1f}s 대기)"
                 )
                 await asyncio.sleep(delay)
+        return result
 
-        duration_ms = int((time.time() - start_time) * 1000)
-
-        # 크롤링 로그
+    async def _save_keyword_result(
+        self,
+        db: AsyncSession,
+        keyword: SearchKeyword,
+        result: KeywordCrawlResult,
+        naver_store_name: str | None,
+        duration_ms: int,
+        product: Product | None = None,
+        excluded_ids: set[str] | None = None,
+    ) -> None:
+        """크롤링 결과를 DB에 저장 (순차 호출)."""
         log = CrawlLog(
             keyword_id=keyword.id,
             status="success" if result.success else "failed",
@@ -59,10 +80,16 @@ class CrawlManager:
 
         if result.success and result.items:
             for item in result.items:
+                # 블랙리스트 체크
+                if excluded_ids and item.naver_product_id in excluded_ids:
+                    continue
+
                 is_my = (
                     bool(naver_store_name)
                     and item.mall_name.strip().lower() == naver_store_name.strip().lower()
                 )
+                is_relevant = _check_relevance(item, product)
+
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,
                     rank=item.rank,
@@ -71,7 +98,9 @@ class CrawlManager:
                     mall_name=item.mall_name,
                     product_url=item.product_url,
                     image_url=item.image_url,
+                    naver_product_id=item.naver_product_id,
                     is_my_store=is_my,
+                    is_relevant=is_relevant,
                 )
                 db.add(ranking)
 
@@ -81,9 +110,9 @@ class CrawlManager:
             keyword.crawl_status = "failed"
 
         await db.flush()
-        return result
 
     async def crawl_product(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
+        """단일 상품 크롤링 (API 수동 호출용). 키워드 병렬 처리."""
         product = await db.get(Product, product_id)
         if not product:
             return []
@@ -98,17 +127,41 @@ class CrawlManager:
             )
         )
         keywords = result.scalars().all()
+        if not keywords:
+            return []
 
-        results = []
-        for idx, kw in enumerate(keywords):
-            if idx > 0:
+        # 블랙리스트 조회
+        excluded_result = await db.execute(
+            select(ExcludedProduct.naver_product_id)
+            .where(ExcludedProduct.product_id == product_id)
+        )
+        excluded_ids = set(excluded_result.scalars().all())
+
+        # 병렬 API 호출
+        sem = asyncio.Semaphore(settings.CRAWL_CONCURRENCY)
+
+        async def _fetch_one(kw: SearchKeyword):
+            async with sem:
                 delay = random.uniform(
                     settings.CRAWL_REQUEST_DELAY_MIN,
                     settings.CRAWL_REQUEST_DELAY_MAX,
                 )
                 await asyncio.sleep(delay)
-            r = await self.crawl_keyword(db, kw, naver_store_name)
-            results.append(r)
+                start = time.time()
+                r = await self._fetch_keyword(kw.keyword)
+                ms = int((time.time() - start) * 1000)
+                return kw, r, ms
+
+        fetch_results = await asyncio.gather(*[_fetch_one(kw) for kw in keywords])
+
+        # 순차 DB 기록
+        results = []
+        for kw, crawl_result, duration_ms in fetch_results:
+            await self._save_keyword_result(
+                db, kw, crawl_result, naver_store_name, duration_ms,
+                product=product, excluded_ids=excluded_ids,
+            )
+            results.append(crawl_result)
 
         # 알림 체크
         if results:
@@ -117,22 +170,89 @@ class CrawlManager:
         return results
 
     async def crawl_user_all(self, db: AsyncSession, user_id: int) -> dict:
-        result = await db.execute(
-            select(Product).where(Product.user_id == user_id, Product.is_active == True)
-        )
-        products = result.scalars().all()
+        """유저 전체 크롤링. 키워드 중복 제거 + 병렬 처리."""
+        user = await db.get(User, user_id)
+        if not user:
+            return {"total": 0, "success": 0, "failed": 0}
+        naver_store_name = user.naver_store_name
 
+        # 1. 전체 활성 키워드 수집
+        kw_result = await db.execute(
+            select(SearchKeyword)
+            .join(Product, SearchKeyword.product_id == Product.id)
+            .where(
+                Product.user_id == user_id,
+                Product.is_active == True,
+                SearchKeyword.is_active == True,
+            )
+        )
+        all_keywords = kw_result.scalars().all()
+        if not all_keywords:
+            return {"total": 0, "success": 0, "failed": 0}
+
+        # 상품별 블랙리스트 조회
+        product_ids = {kw.product_id for kw in all_keywords}
+        excluded_by_product: dict[int, set[str]] = {}
+        for pid in product_ids:
+            ex_result = await db.execute(
+                select(ExcludedProduct.naver_product_id)
+                .where(ExcludedProduct.product_id == pid)
+            )
+            excluded_by_product[pid] = set(ex_result.scalars().all())
+
+        # 상품 객체 캐시
+        products_cache: dict[int, Product] = {}
+        for pid in product_ids:
+            products_cache[pid] = await db.get(Product, pid)
+
+        # 2. 키워드 문자열 기준 중복 제거
+        unique_map: dict[str, list[SearchKeyword]] = {}
+        for kw in all_keywords:
+            unique_map.setdefault(kw.keyword.strip().lower(), []).append(kw)
+
+        # 3. 유니크 키워드만 병렬 크롤링
+        sem = asyncio.Semaphore(settings.CRAWL_CONCURRENCY)
+
+        async def _fetch_one(keyword_str: str):
+            async with sem:
+                delay = random.uniform(
+                    settings.CRAWL_REQUEST_DELAY_MIN,
+                    settings.CRAWL_REQUEST_DELAY_MAX,
+                )
+                await asyncio.sleep(delay)
+                start = time.time()
+                r = await self._fetch_keyword(keyword_str)
+                ms = int((time.time() - start) * 1000)
+                return keyword_str, r, ms
+
+        fetch_results = await asyncio.gather(
+            *[_fetch_one(kw_str) for kw_str in unique_map.keys()]
+        )
+
+        # 4. 결과를 각 SearchKeyword에 순차적으로 DB 기록
         total = 0
         success = 0
         failed = 0
 
-        for product in products:
-            product_results = await self.crawl_product(db, product.id)
-            for r in product_results:
+        for kw_str, crawl_result, duration_ms in fetch_results:
+            for kw in unique_map[kw_str]:
+                product = products_cache.get(kw.product_id)
+                excluded_ids = excluded_by_product.get(kw.product_id, set())
+                await self._save_keyword_result(
+                    db, kw, crawl_result, naver_store_name, duration_ms,
+                    product=product, excluded_ids=excluded_ids,
+                )
                 total += 1
-                if r.success:
+                if crawl_result.success:
                     success += 1
                 else:
                     failed += 1
+
+        # 5. 알림 체크 (상품별)
+        for pid in product_ids:
+            product = products_cache.get(pid)
+            product_keywords = [kw for kw in all_keywords if kw.product_id == pid]
+            if product and product_keywords:
+                await check_and_create_alerts(db, product, product_keywords, naver_store_name)
 
         return {"total": total, "success": success, "failed": failed}

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, func
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -23,6 +23,8 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String(500))
     is_price_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     price_lock_reason: Mapped[str | None] = mapped_column(String(200))
+    model_code: Mapped[str | None] = mapped_column(String(100))
+    spec_keywords: Mapped[list | None] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -30,3 +32,4 @@ class Product(Base):
     user: Mapped["User"] = relationship(back_populates="products")
     keywords: Mapped[list["SearchKeyword"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     cost_items: Mapped[list["CostItem"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    excluded_products: Mapped[list["ExcludedProduct"]] = relationship(back_populates="product", cascade="all, delete-orphan")

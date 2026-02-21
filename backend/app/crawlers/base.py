@@ -10,6 +10,7 @@ class RankingItem:
     mall_name: str = ""
     product_url: str = ""
     image_url: str = ""
+    naver_product_id: str = ""
 
 
 @dataclass
