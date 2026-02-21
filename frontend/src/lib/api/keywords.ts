@@ -7,9 +7,9 @@ export const keywordsApi = {
       .get<SearchKeyword[]>(`/products/${productId}/keywords`)
       .then((r) => r.data),
 
-  create: (productId: number, keyword: string) =>
+  create: (productId: number, data: { keyword: string; sort_type: "sim" | "asc" }) =>
     apiClient
-      .post<SearchKeyword>(`/products/${productId}/keywords`, { keyword })
+      .post<SearchKeyword>(`/products/${productId}/keywords`, data)
       .then((r) => r.data),
 
   delete: (keywordId: number) =>

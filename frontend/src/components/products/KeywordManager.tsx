@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, X, Loader2, Tag } from "lucide-react";
 import { useCreateKeyword, useDeleteKeyword } from "@/lib/hooks/useKeywords";
 import type { SearchKeyword } from "@/types";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   productId: number;
@@ -13,6 +14,7 @@ interface Props {
 
 export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) {
   const [input, setInput] = useState("");
+  const [sortType, setSortType] = useState<"sim" | "asc">("sim");
   const createMutation = useCreateKeyword(productId);
   const deleteMutation = useDeleteKeyword(productId);
 
@@ -20,9 +22,10 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
     e.preventDefault();
     const keyword = input.trim();
     if (!keyword) return;
-    createMutation.mutate(keyword, {
+    createMutation.mutate({ keyword, sort_type: sortType }, {
       onSuccess: () => {
         setInput("");
+        setSortType("sim");
       },
     });
   };
@@ -54,6 +57,11 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
                 기본
               </span>
             )}
+            {kw.sort_type === "asc" && (
+              <span className="rounded bg-amber-500/10 px-1 py-0.5 text-[9px] font-medium text-amber-500">
+                가격
+              </span>
+            )}
             {!kw.is_primary && (
               <button
                 onClick={() => deleteMutation.mutate(kw.id)}
@@ -70,6 +78,32 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
       {/* 키워드 추가 */}
       {activeCount < maxKeywords && (
         <form onSubmit={handleAdd} className="flex gap-2">
+          <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+            <button
+              type="button"
+              onClick={() => setSortType("sim")}
+              className={cn(
+                "rounded-md px-2 py-1.5 text-xs transition-colors",
+                sortType === "sim"
+                  ? "bg-[var(--card)] text-blue-500 shadow-sm"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              )}
+            >
+              노출
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortType("asc")}
+              className={cn(
+                "rounded-md px-2 py-1.5 text-xs transition-colors",
+                sortType === "asc"
+                  ? "bg-[var(--card)] text-amber-500 shadow-sm"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              )}
+            >
+              가격
+            </button>
+          </div>
           <input
             type="text"
             value={input}

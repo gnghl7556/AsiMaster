@@ -159,6 +159,11 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         기본
                       </span>
                     )}
+                    {kw.sort_type === "asc" && (
+                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
+                        가격순
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span

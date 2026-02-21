@@ -16,7 +16,8 @@ export function useCreateKeyword(productId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (keyword: string) => keywordsApi.create(productId, keyword),
+    mutationFn: (data: { keyword: string; sort_type: "sim" | "asc" }) =>
+      keywordsApi.create(productId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["keywords", productId] });
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
