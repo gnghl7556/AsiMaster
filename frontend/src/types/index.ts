@@ -63,6 +63,7 @@ export interface ExcludedProduct {
   id: number;
   naver_product_id: string;
   naver_product_name: string | null;
+  mall_name: string | null;
   created_at: string;
 }
 

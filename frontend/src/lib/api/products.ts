@@ -46,7 +46,7 @@ export const productsApi = {
       .get<ExcludedProduct[]>(`/products/${productId}/excluded`)
       .then((r) => r.data),
 
-  excludeProduct: (productId: number, data: { naver_product_id: string; naver_product_name?: string }) =>
+  excludeProduct: (productId: number, data: { naver_product_id: string; naver_product_name?: string; mall_name?: string }) =>
     apiClient
       .post<ExcludedProduct>(`/products/${productId}/excluded`, data)
       .then((r) => r.data),

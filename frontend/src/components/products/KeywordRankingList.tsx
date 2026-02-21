@@ -40,10 +40,11 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   });
 
   const excludeMutation = useMutation({
-    mutationFn: (item: { naver_product_id: string; product_name: string }) =>
+    mutationFn: (item: { naver_product_id: string; product_name: string; mall_name: string }) =>
       productsApi.excludeProduct(productId, {
         naver_product_id: item.naver_product_id,
         naver_product_name: item.product_name,
+        mall_name: item.mall_name,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
@@ -264,6 +265,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                                 excludeMutation.mutate({
                                   naver_product_id: item.naver_product_id!,
                                   product_name: item.product_name,
+                                  mall_name: item.mall_name,
                                 })
                               }
                               disabled={excludeMutation.isPending}
@@ -427,6 +429,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                             excludeMutation.mutate({
                               naver_product_id: item.naver_product_id!,
                               product_name: item.product_name,
+                              mall_name: item.mall_name,
                             })
                           }
                           disabled={excludeMutation.isPending}
