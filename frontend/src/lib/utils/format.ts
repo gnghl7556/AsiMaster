@@ -17,7 +17,9 @@ export function formatGap(gap: number | null | undefined): string {
 
 export function timeAgo(dateStr: string | null | undefined): string {
   if (!dateStr) return "수집 전";
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(dateStr);
+  const normalized = hasTimezone ? dateStr : `${dateStr}Z`;
+  const diff = Date.now() - new Date(normalized).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "방금 전";
   if (minutes < 60) return `${minutes}분 전 수집`;
