@@ -9,6 +9,8 @@ from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.schemas.product import (
+    BulkDeleteRequest,
+    BulkDeleteResult,
     ExcludeProductRequest,
     ExcludedProductResponse,
     PriceLockUpdate,
@@ -59,6 +61,22 @@ async def create_product(user_id: int, data: ProductCreate, db: AsyncSession = D
 
     await db.refresh(product)
     return product
+
+
+@router.post("/users/{user_id}/products/bulk-delete", response_model=BulkDeleteResult)
+async def bulk_delete_products(
+    user_id: int, data: BulkDeleteRequest, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Product).where(
+            Product.id.in_(data.product_ids),
+            Product.user_id == user_id,
+        )
+    )
+    products = result.scalars().all()
+    for product in products:
+        await db.delete(product)
+    return BulkDeleteResult(deleted=len(products))
 
 
 @router.get("/products/{product_id}", response_model=ProductDetail)

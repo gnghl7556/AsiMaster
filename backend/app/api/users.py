@@ -47,6 +47,8 @@ async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends
         user.name = data.name
     if data.naver_store_name is not None:
         user.naver_store_name = data.naver_store_name
+    if data.crawl_interval_min is not None:
+        user.crawl_interval_min = data.crawl_interval_min
     await db.flush()
     await db.refresh(user)
     return user

@@ -70,6 +70,7 @@ npm run dev
 - `GET /api/v1/products/{id}` - 상품 상세 (키워드별 순위 포함)
 - `PUT /api/v1/products/{id}` - 상품 수정
 - `DELETE /api/v1/products/{id}` - 상품 삭제
+- `POST /api/v1/users/{user_id}/products/bulk-delete` - 상품 복수 삭제
 - `PATCH /api/v1/products/{id}/price-lock` - 가격고정 토글
 - `GET /api/v1/products/{id}/excluded` - 블랙리스트 조회
 - `POST /api/v1/products/{id}/excluded` - 블랙리스트 추가
@@ -129,6 +130,13 @@ Product → CostItems
 - Codex는 이 문서에 기록된 최신 API 명세를 바탕으로 프론트엔드 연동 작업을 수행한다.
 
 ## API 변경 이력
+
+### 2026-02-21: 상품 복수 삭제 + 크롤링 주기 설정 수정
+- `POST /api/v1/users/{user_id}/products/bulk-delete` — 상품 복수 삭제
+  - Request: `{ product_ids: [1, 2, 3] }` (최소 1개)
+  - Response: `{ deleted: 2 }` (실제 삭제된 건수)
+  - user_id 소속 상품만 삭제, 존재하지 않는 ID는 무시
+- `PUT /api/v1/users/{user_id}` 에서 `crawl_interval_min` 값이 실제 반영되지 않던 버그 수정
 
 ### 2026-02-21: 상품 API 경로 정리 (R8)
 **변경된 API 경로 4개** (user_id 제거):

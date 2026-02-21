@@ -107,6 +107,14 @@ class ExcludedProductResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BulkDeleteRequest(BaseModel):
+    product_ids: list[int] = Field(..., min_length=1)
+
+
+class BulkDeleteResult(BaseModel):
+    deleted: int
+
+
 class ProductDetail(BaseModel):
     id: int
     user_id: int
