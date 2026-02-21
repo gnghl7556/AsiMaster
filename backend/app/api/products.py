@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.models.excluded_product import ExcludedProduct
+from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
@@ -142,6 +143,20 @@ async def exclude_product(
         naver_product_name=data.naver_product_name,
     )
     db.add(excluded)
+    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=False로 즉시 반영
+    keyword_ids_result = await db.execute(
+        select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
+    )
+    keyword_ids = keyword_ids_result.scalars().all()
+    if keyword_ids:
+        await db.execute(
+            update(KeywordRanking)
+            .where(
+                KeywordRanking.keyword_id.in_(keyword_ids),
+                KeywordRanking.naver_product_id == data.naver_product_id,
+            )
+            .values(is_relevant=False)
+        )
     await db.flush()
     await db.refresh(excluded)
     return excluded
@@ -161,6 +176,20 @@ async def unexclude_product(
     if not excluded:
         raise HTTPException(404, "제외 목록에 없는 상품입니다.")
     await db.delete(excluded)
+    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=True로 복원
+    keyword_ids_result = await db.execute(
+        select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
+    )
+    keyword_ids = keyword_ids_result.scalars().all()
+    if keyword_ids:
+        await db.execute(
+            update(KeywordRanking)
+            .where(
+                KeywordRanking.keyword_id.in_(keyword_ids),
+                KeywordRanking.naver_product_id == naver_product_id,
+            )
+            .values(is_relevant=True)
+        )
 
 
 # --- 이전 경로 호환 (프론트엔드 마이그레이션 전까지 유지) ---
