@@ -69,7 +69,6 @@ export interface ExcludedProduct {
 export interface KeywordDetail {
   id: number;
   keyword: string;
-  sort_type: "sim" | "asc";
   is_primary: boolean;
   crawl_status: string;
   last_crawled_at: string | null;
@@ -116,7 +115,6 @@ export interface SearchKeyword {
   id: number;
   product_id: number;
   keyword: string;
-  sort_type: "sim" | "asc";
   is_primary: boolean;
   is_active: boolean;
   last_crawled_at: string | null;

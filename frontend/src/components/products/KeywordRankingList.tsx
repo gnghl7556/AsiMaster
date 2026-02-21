@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, Crown, Store, Ban, Loader2, ChevronDown } from "lucide-react";
+import { ExternalLink, Crown, Store, Ban, Loader2, ChevronDown, TrendingUp, DollarSign } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { KeywordDetail } from "@/types";
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const MOBILE_ACTION_SLOT_WIDTH = 64;
+type RankingSortMode = "exposure" | "price";
 
 export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const queryClient = useQueryClient();
@@ -23,6 +24,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({});
   const [openKeywordId, setOpenKeywordId] = useState<number | null>(null);
   const [showTopTenByKeyword, setShowTopTenByKeyword] = useState<Record<number, boolean>>({});
+  const [sortModeByKeyword, setSortModeByKeyword] = useState<Record<number, RankingSortMode>>({});
   const swipeRef = useRef<{
     key: string | null;
     startX: number;
@@ -125,7 +127,17 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
           {(() => {
             const isExpanded = openKeywordId === kw.id;
             const showTopTen = showTopTenByKeyword[kw.id] ?? false;
-            const visibleRankings = showTopTen ? kw.rankings.slice(0, 10) : kw.rankings.slice(0, 3);
+            const sortMode = sortModeByKeyword[kw.id] ?? "exposure";
+            const sortedRankings = [...kw.rankings].sort((a, b) => {
+              if (sortMode === "price") {
+                if (a.price !== b.price) return a.price - b.price;
+                return a.rank - b.rank;
+              }
+              return a.rank - b.rank;
+            });
+            const visibleRankings = showTopTen
+              ? sortedRankings.slice(0, 10)
+              : sortedRankings.slice(0, 3);
 
             return (
               <>
@@ -141,15 +153,6 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <h3 className="font-medium truncate">&ldquo;{kw.keyword}&rdquo;</h3>
-                    <span
-                      className={
-                        kw.sort_type === "asc"
-                          ? "rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                          : "rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500"
-                      }
-                    >
-                      {kw.sort_type === "asc" ? "가격 순위" : "노출 순위"}
-                    </span>
                     {kw.is_primary && (
                       <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
                         기본
@@ -183,12 +186,47 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 </button>
                 {isExpanded && (
                   <div className="divide-y divide-[var(--border)]">
+                    <div className="px-4 py-2">
+                      <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "exposure" }))
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                            sortMode === "exposure"
+                              ? "bg-[var(--card)] text-blue-500 shadow-sm"
+                              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          노출 순위
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "price" }))
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                            sortMode === "price"
+                              ? "bg-[var(--card)] text-amber-500 shadow-sm"
+                              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          <DollarSign className="h-3.5 w-3.5" />
+                          가격 순위
+                        </button>
+                      </div>
+                    </div>
                     {kw.rankings.length === 0 ? (
                       <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
                         검색 결과가 없습니다. &quot;가격 새로고침&quot;을 눌러 검색하세요.
                       </div>
                     ) : (
-                      visibleRankings.map((item) => {
+                      visibleRankings.map((item, index) => {
+                const displayRank = index + 1;
                 const diffFromMe = item.price - myPrice;
                 const itemKey = getItemKey(kw.id, item.id);
                 const canOpenLink = Boolean(item.product_url);
@@ -260,14 +298,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         <div
                           className={cn(
                             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                            item.rank === 1
+                            displayRank === 1
                               ? "bg-yellow-500 text-white"
                               : item.is_my_store
                               ? "bg-blue-500 text-white"
                               : "bg-[var(--muted)] text-[var(--muted-foreground)]"
                           )}
                         >
-                          {item.rank}
+                          {displayRank}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
@@ -280,7 +318,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                                 내 스토어
                               </span>
                             )}
-                            {item.rank === 1 && (
+                            {displayRank === 1 && (
                               <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                             )}
                           </div>
@@ -323,14 +361,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                       <div
                         className={cn(
                           "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                          item.rank === 1
+                          displayRank === 1
                             ? "bg-yellow-500 text-white"
                             : item.is_my_store
                             ? "bg-blue-500 text-white"
                             : "bg-[var(--muted)] text-[var(--muted-foreground)]"
                         )}
                       >
-                        {item.rank}
+                        {displayRank}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -343,7 +381,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                               내 스토어
                             </span>
                           )}
-                          {item.rank === 1 && (
+                          {displayRank === 1 && (
                             <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                           )}
                         </div>
