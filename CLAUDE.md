@@ -118,12 +118,12 @@ Product → CostItems
 ## AI 에이전트 협업 가이드
 
 ### 역할 분담
-- **Claude Code**: `backend/` 폴더 전담. FastAPI, DB 모델링, 비즈니스 로직, 크롤링 엔진 구축을 담당한다. (`frontend/` 폴더는 절대 건드리지 않는다)
-- **Antigravity**: `frontend/` 폴더 전담. Next.js 화면 구현, 컴포넌트 개발 및 브라우저를 통한 QA 테스트를 담당한다.
+- **Claude Code**: `backend/` 폴더 전담. FastAPI, DB 모델링, 비즈니스 로직, 크롤링 엔진 구축 담당. (`frontend/` 폴더는 절대 수정하지 않음)
+- **Codex (Editor AI)**: `frontend/` 폴더 전담. Next.js 화면 구현, 컴포넌트 리팩토링 및 API 연동 담당.
 
 ### 작업 동기화 규칙
-- 두 AI는 같은 로컬 폴더(같은 Git 브랜치)를 바라보고 작업한다.
-- **API 명세 기록**: Claude가 백엔드 API를 신규 작성하거나 수정하면, 반드시 `docs/api-specs/` 폴더 등에 명세(Endpoint, Request/Response JSON)를 기록하거나 CLAUDE.md에 요약해야 한다. Antigravity는 이 문서를 보고 프론트엔드를 연동한다.
+- **API 명세 기록**: Claude가 백엔드 API를 추가/수정하면, 반드시 이 문서(CLAUDE.md)의 API 엔드포인트 섹션에 변경된 Request/Response 구조를 명확히 기록한다.
+- Codex는 이 문서에 기록된 최신 API 명세를 바탕으로 프론트엔드 연동 작업을 수행한다.
 
 ## API 변경 이력
 
