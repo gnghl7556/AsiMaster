@@ -36,7 +36,7 @@ async def _get_store_info(store_slug: str) -> StoreInfo:
             "Accept-Language": "ko-KR,ko;q=0.9",
         }, follow_redirects=True)
 
-    if resp.status_code != 200:
+    if resp.status_code >= 400:
         raise ValueError(f"스토어 페이지 접근 실패 (HTTP {resp.status_code})")
 
     html = resp.text
