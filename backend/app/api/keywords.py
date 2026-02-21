@@ -54,6 +54,7 @@ async def create_keyword(
     keyword = SearchKeyword(
         product_id=product_id,
         keyword=data.keyword,
+        sort_type=data.sort_type,
         is_primary=False,
     )
     db.add(keyword)

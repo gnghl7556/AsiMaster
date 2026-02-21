@@ -166,10 +166,13 @@ Product → CostItems
 - **R5 크롤링 딜레이**: 키워드 간 크롤링에 `CRAWL_REQUEST_DELAY_MIN`~`MAX` 랜덤 딜레이 적용.
 - **R6 웹 푸시 뼈대**: `push_subscriptions` 테이블 추가. `GET /push/vapid-public-key`, `POST /push/subscribe`, `DELETE /push/subscribe` 엔드포인트 추가. 알림 생성 시 자동 웹 푸시 전송.
 
-### 2026-02-21: 노출 순위 / 가격 순위 정렬 토글
-- **프론트엔드 전용 기능**: 크롤링된 상위 10개 상품을 노출순(rank) 또는 가격순(price asc)으로 재정렬하여 표시
-- **백엔드 변경 없음**: 기존 API 응답(`rankings[].rank`, `rankings[].price`)을 그대로 활용
-- DB에 `search_keywords.sort_type` 컬럼이 존재하나 사용하지 않음 (마이그레이션 잔여)
+### 2026-02-21: 키워드별 정렬 유형 (노출 순위 / 가격 순위)
+- `SearchKeyword`에 `sort_type` 필드 추가 (`"sim"` = 노출 순위, `"asc"` = 가격 순위, 기본값: `"sim"`)
+- `POST /products/{product_id}/keywords`: `sort_type` 필드 추가 (`"sim"` | `"asc"`, 기본값: `"sim"`)
+- `GET /products/{product_id}/keywords`: 응답에 `sort_type` 필드 포함
+- 상품 상세 API (`GET /products/{id}`) keywords 배열에 `sort_type` 필드 포함
+- 크롤링 시 키워드별 `sort_type`에 맞는 네이버 API sort 파라미터 동적 적용
+- 유저 전체 크롤링 시 중복 제거 키가 `(keyword, sort_type)` 기준으로 동작
 
 ### 2026-02-21: 스마트스토어 상품 자동 불러오기
 **새 API:**

@@ -19,6 +19,7 @@ class SearchKeyword(Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_crawled_at: Mapped[datetime | None] = mapped_column()
+    sort_type: Mapped[str] = mapped_column(String(10), default="sim")
     crawl_status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

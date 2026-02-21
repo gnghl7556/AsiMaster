@@ -25,5 +25,5 @@ class BaseCrawler(ABC):
     platform_name: str = ""
 
     @abstractmethod
-    async def search_keyword(self, keyword: str) -> KeywordCrawlResult:
+    async def search_keyword(self, keyword: str, sort_type: str = "sim") -> KeywordCrawlResult:
         pass

@@ -348,6 +348,7 @@ async def get_product_detail(
         keywords_data.append({
             "id": kw.id,
             "keyword": kw.keyword,
+            "sort_type": kw.sort_type or "sim",
             "is_primary": kw.is_primary,
             "crawl_status": kw.crawl_status,
             "last_crawled_at": kw.last_crawled_at,

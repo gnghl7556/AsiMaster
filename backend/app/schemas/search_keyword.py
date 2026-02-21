@@ -1,16 +1,19 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 class KeywordCreate(BaseModel):
     keyword: str = Field(..., min_length=1, max_length=200)
+    sort_type: Literal["sim", "asc"] = "sim"
 
 
 class KeywordResponse(BaseModel):
     id: int
     product_id: int
     keyword: str
+    sort_type: str
     is_primary: bool
     is_active: bool
     last_crawled_at: datetime | None
