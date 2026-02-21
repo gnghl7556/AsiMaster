@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ExternalLink, Crown, Store, Ban, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExternalLink, Crown, Store, Ban, Loader2, ChevronDown } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { KeywordDetail } from "@/types";
@@ -21,6 +21,8 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const queryClient = useQueryClient();
   const [openItemKey, setOpenItemKey] = useState<string | null>(null);
   const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({});
+  const [openKeywordId, setOpenKeywordId] = useState<number | null>(null);
+  const [showTopTenByKeyword, setShowTopTenByKeyword] = useState<Record<number, boolean>>({});
   const swipeRef = useRef<{
     key: string | null;
     startX: number;
@@ -55,6 +57,11 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
       </div>
     );
   }
+
+  useEffect(() => {
+    if (keywords.length === 0) return;
+    setOpenKeywordId((prev) => prev ?? keywords[0].id);
+  }, [keywords]);
 
   const getItemKey = (keywordId: number, itemId: number) => `${keywordId}-${itemId}`;
 
@@ -115,48 +122,73 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     <div className="space-y-4">
       {keywords.map((kw) => (
         <div key={kw.id} className="glass-card overflow-hidden">
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium">&ldquo;{kw.keyword}&rdquo;</h3>
-              <span
-                className={
-                  kw.sort_type === "asc"
-                    ? "rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                    : "rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500"
-                }
-              >
-                {kw.sort_type === "asc" ? "가격 순위" : "노출 순위"}
-              </span>
-              {kw.is_primary && (
-                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
-                  기본
-                </span>
-              )}
-            </div>
-            <span
-              className={cn(
-                "text-xs px-2 py-0.5 rounded",
-                kw.crawl_status === "success"
-                  ? "bg-emerald-500/10 text-emerald-500"
-                  : kw.crawl_status === "failed"
-                  ? "bg-red-500/10 text-red-500"
-                  : "bg-gray-500/10 text-gray-500"
-              )}
-            >
-              {kw.crawl_status === "success"
-                ? "검색 완료"
-                : kw.crawl_status === "failed"
-                ? "검색 실패"
-                : "대기 중"}
-            </span>
-          </div>
-          <div className="divide-y divide-[var(--border)]">
-            {kw.rankings.length === 0 ? (
-              <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
-                검색 결과가 없습니다. &quot;가격 새로고침&quot;을 눌러 검색하세요.
-              </div>
-            ) : (
-              kw.rankings.map((item) => {
+          {(() => {
+            const isExpanded = openKeywordId === kw.id;
+            const showTopTen = showTopTenByKeyword[kw.id] ?? false;
+            const visibleRankings = showTopTen ? kw.rankings.slice(0, 10) : kw.rankings.slice(0, 3);
+
+            return (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenKeywordId((prev) => (prev === kw.id ? null : kw.id));
+                    if (!isExpanded) {
+                      setShowTopTenByKeyword((prev) => ({ ...prev, [kw.id]: false }));
+                    }
+                  }}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="font-medium truncate">&ldquo;{kw.keyword}&rdquo;</h3>
+                    <span
+                      className={
+                        kw.sort_type === "asc"
+                          ? "rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                          : "rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500"
+                      }
+                    >
+                      {kw.sort_type === "asc" ? "가격 순위" : "노출 순위"}
+                    </span>
+                    {kw.is_primary && (
+                      <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                        기본
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        kw.crawl_status === "success"
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : kw.crawl_status === "failed"
+                          ? "bg-red-500/10 text-red-500"
+                          : "bg-gray-500/10 text-gray-500"
+                      )}
+                    >
+                      {kw.crawl_status === "success"
+                        ? "검색 완료"
+                        : kw.crawl_status === "failed"
+                        ? "검색 실패"
+                        : "대기 중"}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 text-[var(--muted-foreground)] transition-transform",
+                        isExpanded && "rotate-180"
+                      )}
+                    />
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="divide-y divide-[var(--border)]">
+                    {kw.rankings.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
+                        검색 결과가 없습니다. &quot;가격 새로고침&quot;을 눌러 검색하세요.
+                      </div>
+                    ) : (
+                      visibleRankings.map((item) => {
                 const diffFromMe = item.price - myPrice;
                 const itemKey = getItemKey(kw.id, item.id);
                 const canOpenLink = Boolean(item.product_url);
@@ -375,7 +407,36 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 );
               })
             )}
-          </div>
+                    {kw.rankings.length > 3 && (
+                      <div className="px-4 py-2 flex items-center justify-center">
+                        {!showTopTen ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowTopTenByKeyword((prev) => ({ ...prev, [kw.id]: true }))
+                            }
+                            className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors"
+                          >
+                            더보기(10개)
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowTopTenByKeyword((prev) => ({ ...prev, [kw.id]: false }))
+                            }
+                            className="text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                          >
+                            접기
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       ))}
     </div>
