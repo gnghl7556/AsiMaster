@@ -146,7 +146,7 @@ export default function NewProductPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* 기본 정보 */}
-        <div className="glass-card p-5 space-y-4">
+        <div className="glass-card p-5 space-y-4 relative z-10">
           <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider flex items-center gap-2">
             <Package className="h-4 w-4" />
             기본 정보
@@ -220,7 +220,7 @@ export default function NewProductPage() {
                 </button>
 
                 {isCategoryOpen && (
-                  <div className="absolute z-10 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg overflow-hidden">
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg overflow-hidden">
                     <div className="max-h-52 overflow-y-auto py-1">
                       {form.category && (
                         <button
