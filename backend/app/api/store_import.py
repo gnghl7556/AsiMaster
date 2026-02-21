@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.crawlers.store_scraper import fetch_store_products
+from app.crawlers.store_scraper import fetch_store_products, suggest_keywords
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
@@ -41,6 +41,7 @@ async def preview_store_products(
             image_url=p.image_url,
             category=p.category,
             naver_product_id=p.naver_product_id,
+            suggested_keywords=suggest_keywords(p.name, p.mall_name),
         )
         for p in products
     ]
@@ -87,13 +88,14 @@ async def import_store_products(
         db.add(product)
         await db.flush()
 
-        # 상품명으로 기본 키워드 자동 등록
-        keyword = SearchKeyword(
-            product_id=product.id,
-            keyword=product.name,
-            is_primary=True,
-        )
-        db.add(keyword)
+        # 키워드 등록: 사용자 선택 키워드 또는 기본 상품명
+        kw_list = item.keywords if item.keywords else [item.name]
+        for i, kw in enumerate(kw_list):
+            db.add(SearchKeyword(
+                product_id=product.id,
+                keyword=kw,
+                is_primary=(i == 0),
+            ))
         await db.flush()
 
         existing_names.add(item.name.lower())

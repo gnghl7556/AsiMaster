@@ -185,12 +185,14 @@ Product → CostItems
 ### 2026-02-21: 스마트스토어 상품 자동 불러오기
 **새 API:**
 - `GET /api/v1/users/{user_id}/store/products?store_url=<URL>` — 스토어 상품 미리보기
-  - Response: `[{name, price, image_url, category, naver_product_id}]`
+  - Response: `[{name, price, image_url, category, naver_product_id, suggested_keywords}]`
+  - `suggested_keywords`: 상품명에서 자동 추출된 추천 키워드 최대 5개
   - 스마트스토어 URL 입력 → 페이지 스크래핑(channelName 추출) → 네이버 쇼핑 API로 상품 검색
 - `POST /api/v1/users/{user_id}/store/import` — 선택한 상품 일괄 등록
-  - Request: `{products: [{name, selling_price, image_url?, category?}]}`
+  - Request: `{products: [{name, selling_price, image_url?, category?, keywords?}]}`
+  - `keywords`: 사용자가 선택한 키워드 배열 (미전달 시 상품명이 기본 키워드로 등록)
   - Response: `{created, skipped, skipped_names}`
-  - 중복 상품(같은 이름) 자동 스킵, 등록된 상품마다 기본 키워드(상품명) 자동 생성
+  - 중복 상품(같은 이름) 자동 스킵, 첫 번째 키워드가 is_primary=true로 등록
 
 **새 파일:**
 - `backend/app/crawlers/store_scraper.py` — 스마트스토어 페이지 스크래핑 + 네이버 쇼핑 API 검색

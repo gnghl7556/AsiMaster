@@ -8,6 +8,7 @@ class StoreProductItem(BaseModel):
     image_url: str
     category: str
     naver_product_id: str
+    suggested_keywords: list[str] = []
 
 
 class StoreImportItem(BaseModel):
@@ -16,6 +17,7 @@ class StoreImportItem(BaseModel):
     selling_price: int = Field(..., ge=0)
     image_url: str | None = None
     category: str | None = None
+    keywords: list[str] | None = None
 
 
 class StoreImportRequest(BaseModel):
