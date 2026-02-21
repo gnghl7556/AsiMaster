@@ -74,6 +74,7 @@ export interface StoreProduct {
   image_url: string;
   category: string;
   naver_product_id: string;
+  suggested_keywords: string[];
 }
 
 export interface StoreImportResult {

@@ -16,6 +16,7 @@ import { productsApi } from "@/lib/api/products";
 import { useUserStore } from "@/stores/useUserStore";
 import { formatPrice } from "@/lib/utils/format";
 import type { StoreProduct } from "@/types";
+import { cn } from "@/lib/utils/cn";
 
 export default function StoreImportPage() {
   const userId = useUserStore((s) => s.currentUserId);
@@ -24,6 +25,7 @@ export default function StoreImportPage() {
   const [storeUrl, setStoreUrl] = useState("");
   const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedKeywords, setSelectedKeywords] = useState<Map<string, Set<string>>>(new Map());
   const [hasPreviewed, setHasPreviewed] = useState(false);
 
   const selectedCount = selectedIds.size;
@@ -41,6 +43,11 @@ export default function StoreImportPage() {
       setHasPreviewed(true);
       setStoreProducts(data);
       setSelectedIds(new Set(data.map((p) => p.naver_product_id)));
+      const kwMap = new Map<string, Set<string>>();
+      data.forEach((p) => {
+        kwMap.set(p.naver_product_id, new Set(p.suggested_keywords || []));
+      });
+      setSelectedKeywords(kwMap);
       if (data.length === 0) {
         toast.info("해당 스토어에서 상품을 찾을 수 없습니다");
       }
@@ -60,6 +67,7 @@ export default function StoreImportPage() {
           selling_price: p.price,
           image_url: p.image_url || undefined,
           category: p.category || undefined,
+          keywords: Array.from(selectedKeywords.get(p.naver_product_id) || []),
         }))
       ),
     onSuccess: (result) => {
@@ -69,6 +77,7 @@ export default function StoreImportPage() {
       );
       setStoreProducts([]);
       setSelectedIds(new Set());
+      setSelectedKeywords(new Map());
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.detail || "상품 등록에 실패했습니다";
@@ -91,6 +100,17 @@ export default function StoreImportPage() {
     } else {
       setSelectedIds(new Set(storeProducts.map((p) => p.naver_product_id)));
     }
+  };
+
+  const toggleKeyword = (productId: string, keyword: string) => {
+    setSelectedKeywords((prev) => {
+      const next = new Map(prev);
+      const kwSet = new Set(next.get(productId) || []);
+      if (kwSet.has(keyword)) kwSet.delete(keyword);
+      else kwSet.add(keyword);
+      next.set(productId, kwSet);
+      return next;
+    });
   };
 
   const handlePreview = () => {
@@ -174,37 +194,68 @@ export default function StoreImportPage() {
             {storeProducts.map((p) => {
               const checked = selectedIds.has(p.naver_product_id);
               return (
-                <label
+                <div
                   key={p.naver_product_id}
-                  className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-[var(--muted)]/40 transition-colors"
+                  className="px-4 py-3 hover:bg-[var(--muted)]/40 transition-colors"
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleSelect(p.naver_product_id)}
-                    className="h-4 w-4 rounded border-[var(--border)]"
-                  />
-                  {p.image_url ? (
-                    <img
-                      src={p.image_url}
-                      alt={p.name}
-                      className="h-10 w-10 rounded-md object-cover bg-[var(--muted)]"
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSelect(p.naver_product_id)}
+                      className="h-4 w-4 rounded border-[var(--border)]"
                     />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--muted)]">
-                      <Package className="h-4 w-4 text-[var(--muted-foreground)]" />
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.name}
+                        className="h-10 w-10 rounded-md object-cover bg-[var(--muted)]"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--muted)]">
+                        <Package className="h-4 w-4 text-[var(--muted-foreground)]" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{p.name}</div>
+                      <div className="truncate text-xs text-[var(--muted-foreground)]">
+                        {p.category}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right text-sm font-medium tabular-nums">
+                      {formatPrice(p.price)}원
+                    </div>
+                  </label>
+
+                  {checked && p.suggested_keywords.length > 0 && (
+                    <div className="mt-2 ml-7 flex flex-wrap gap-1.5">
+                      {p.suggested_keywords.map((kw) => {
+                        const kwSelected =
+                          selectedKeywords.get(p.naver_product_id)?.has(kw) ?? false;
+                        return (
+                          <button
+                            key={kw}
+                            type="button"
+                            onClick={() => toggleKeyword(p.naver_product_id, kw)}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                              kwSelected
+                                ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                                : "bg-[var(--muted)] text-[var(--muted-foreground)] border border-transparent"
+                            )}
+                          >
+                            {kwSelected ? (
+                              <CheckSquare className="h-3 w-3" />
+                            ) : (
+                              <Square className="h-3 w-3" />
+                            )}
+                            {kw}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{p.name}</div>
-                    <div className="truncate text-xs text-[var(--muted-foreground)]">
-                      {p.category}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right text-sm font-medium tabular-nums">
-                    {formatPrice(p.price)}원
-                  </div>
-                </label>
+                </div>
               );
             })}
           </div>
