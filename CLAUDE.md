@@ -74,6 +74,9 @@ npm run dev
 - `POST /api/v1/crawl/product/{id}` - 상품 크롤링 실행
 - `POST /api/v1/keywords/{product_id}` - 키워드 추가
 - `GET /api/v1/dashboard/{user_id}` - 대시보드 요약
+- `GET /api/v1/push/vapid-public-key` - VAPID 공개키 조회
+- `POST /api/v1/push/subscribe` - 웹 푸시 구독 등록
+- `DELETE /api/v1/push/subscribe` - 웹 푸시 구독 해제
 
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings

@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.config import settings
 from app.core.database import Base
 
 
@@ -12,7 +13,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     naver_store_name: Mapped[str | None] = mapped_column(String(200))
-    crawl_interval_min: Mapped[int] = mapped_column(default=60)
+    crawl_interval_min: Mapped[int] = mapped_column(default=settings.CRAWL_DEFAULT_INTERVAL_MIN)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
