@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, Minus, Bell } from "lucide-react";
+import { TrendingDown, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 import { useProductList } from "@/lib/hooks/useProducts";
@@ -22,8 +22,8 @@ export function DashboardSummary() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {[...Array(3)].map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {[...Array(2)].map((_, i) => (
           <div key={i} className="skeleton h-24" />
         ))}
       </div>
@@ -65,18 +65,11 @@ export function DashboardSummary() {
       icon: Minus,
       color: "text-amber-500",
     },
-    {
-      label: "미확인 알림",
-      value: data.unread_alerts,
-      time: "현재 기준",
-      icon: Bell,
-      color: "text-blue-500",
-    },
   ];
 
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {cards.map((card, idx) => (
           <motion.div
             key={card.label}

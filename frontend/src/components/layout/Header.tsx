@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Plus, Bell } from "lucide-react";
+import Link from "next/link";
 import { useUserStore } from "@/stores/useUserStore";
 import { usersApi } from "@/lib/api/users";
+import { alertsApi } from "@/lib/api/alerts";
 import { ThemeToggle } from "./ThemeToggle";
 import type { User } from "@/types";
 
@@ -18,6 +20,12 @@ export function Header() {
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.getAll,
+  });
+  const { data: alerts = [] } = useQuery({
+    queryKey: ["alerts", currentUserId],
+    queryFn: () => alertsApi.getList(currentUserId!),
+    enabled: !!currentUserId,
+    refetchInterval: 30_000,
   });
 
   const createMutation = useMutation({
@@ -37,6 +45,7 @@ export function Header() {
   }, [users, currentUserId, setCurrentUser]);
 
   const currentUser = users.find((u) => u.id === currentUserId);
+  const unreadCount = alerts.filter((a) => !a.is_read).length;
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
@@ -106,9 +115,18 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
-        <button className="relative rounded-lg p-2 hover:bg-[var(--muted)] transition-colors">
+        <Link
+          href="/alerts"
+          className="relative rounded-lg p-2 hover:bg-[var(--muted)] transition-colors"
+          aria-label="알림"
+        >
           <Bell className="h-5 w-5" />
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute right-1 top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </Link>
         <ThemeToggle />
       </div>
     </header>
