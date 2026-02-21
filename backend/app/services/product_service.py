@@ -296,10 +296,12 @@ async def get_product_detail(
                     sparkline_data[day_key] = r.price
     sparkline = [v for _, v in sorted(sparkline_data.items())]
 
-    # 경쟁사 요약 (최신 rankings에서 순위별 요약)
+    # 경쟁사 요약 (최신 rankings에서 순위별 요약, 블랙리스트 제외)
     competitors = []
     seen_malls = set()
     for r in sorted(latest_rankings, key=lambda r: r.rank):
+        if r.naver_product_id and r.naver_product_id in excluded_ids:
+            continue
         if r.mall_name in seen_malls:
             continue
         seen_malls.add(r.mall_name)
@@ -310,7 +312,7 @@ async def get_product_detail(
             "mall_name": r.mall_name,
             "is_my_store": r.is_my_store,
             "naver_product_id": r.naver_product_id,
-            "is_relevant": r.is_relevant and r.naver_product_id not in excluded_ids,
+            "is_relevant": r.is_relevant,
         })
 
     # 키워드별 최신 순위
@@ -319,7 +321,9 @@ async def get_product_detail(
         if kw.rankings:
             latest_time = max(r.crawled_at for r in kw.rankings)
             kw_latest = sorted(
-                [r for r in kw.rankings if r.crawled_at == latest_time],
+                [r for r in kw.rankings
+                 if r.crawled_at == latest_time
+                 and not (r.naver_product_id and r.naver_product_id in excluded_ids)],
                 key=lambda r: r.rank,
             )
         else:
@@ -343,7 +347,7 @@ async def get_product_detail(
                     "image_url": r.image_url,
                     "naver_product_id": r.naver_product_id,
                     "is_my_store": r.is_my_store,
-                    "is_relevant": r.is_relevant and r.naver_product_id not in excluded_ids,
+                    "is_relevant": r.is_relevant,
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest
