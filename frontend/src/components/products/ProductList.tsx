@@ -2,13 +2,16 @@
 
 import { AnimatePresence } from "framer-motion";
 import { useProductList } from "@/lib/hooks/useProducts";
-import { timeAgo } from "@/lib/utils/format";
 import { SortDropdown } from "./SortDropdown";
 import { SummaryBar } from "./SummaryBar";
 import { ProductCard } from "./ProductCard";
 import { PriceLockSection } from "./PriceLockSection";
 
-export function ProductList() {
+interface Props {
+  hideMeta?: boolean;
+}
+
+export function ProductList({ hideMeta = false }: Props) {
   const { data: products, isLoading } = useProductList();
 
   if (isLoading) {
@@ -32,24 +35,20 @@ export function ProductList() {
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
   const lockedProducts = products.filter((p) => p.is_price_locked);
-  const lastCrawled = products
-    .map((p) => p.last_crawled_at)
-    .filter(Boolean)
-    .sort()
-    .pop();
-
   return (
     <div>
-      {/* 상단: 정렬 + 수집 시각 */}
-      <div className="flex items-center justify-between mb-4">
-        <SortDropdown />
-        <span className="text-xs text-[var(--muted-foreground)]">{timeAgo(lastCrawled)}</span>
-      </div>
-
-      {/* 관리 중 섹션 */}
-      <div className="mb-2 text-sm font-medium text-[var(--muted-foreground)]">
-        관리 중 ({activeProducts.length}개)
-      </div>
+      {!hideMeta && (
+        <>
+          {/* 상단: 정렬 */}
+          <div className="flex items-center justify-between mb-4">
+            <SortDropdown />
+          </div>
+          {/* 관리 중 섹션 */}
+          <div className="mb-2 text-sm font-medium text-[var(--muted-foreground)]">
+            관리 중 ({activeProducts.length}개)
+          </div>
+        </>
+      )}
       <div className="space-y-2">
         <AnimatePresence mode="popLayout">
           {activeProducts.map((product) => (

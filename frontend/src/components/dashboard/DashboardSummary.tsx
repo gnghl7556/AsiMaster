@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, Minus } from "lucide-react";
+import { TrendingDown, Minus, RefreshCw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 import { useProductList } from "@/lib/hooks/useProducts";
@@ -16,16 +16,24 @@ interface SummaryCard {
   color: string;
 }
 
-export function DashboardSummary() {
+interface Props {
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}
+
+export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const { data, isLoading } = useDashboard();
   const { data: products = [] } = useProductList();
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="skeleton h-24" />
-        ))}
+      <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 flex-1">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="skeleton h-24" />
+          ))}
+        </div>
+        <div className="skeleton h-24 w-12 shrink-0" />
       </div>
     );
   }
@@ -69,35 +77,51 @@ export function DashboardSummary() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {cards.map((card, idx) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className="glass-card px-3 py-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                {card.label}
+      <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 flex-1">
+          {cards.map((card, idx) => (
+            <motion.div
+              key={card.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
+              className="glass-card px-3 py-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                  {card.label}
+                </div>
+                <div className={cn("rounded-md p-1.5 bg-[var(--muted)]", card.color)}>
+                  <card.icon className="h-4 w-4" />
+                </div>
               </div>
-              <div className={cn("rounded-md p-1.5 bg-[var(--muted)]", card.color)}>
-                <card.icon className="h-4 w-4" />
+              <div className="mt-1 text-3xl font-bold leading-none tabular-nums">
+                {card.value != null ? (
+                  <AnimatedNumber value={card.value as number} />
+                ) : (
+                  "-"
+                )}
               </div>
-            </div>
-            <div className="mt-1 text-3xl font-bold leading-none tabular-nums">
-              {card.value != null ? (
-                <AnimatedNumber value={card.value as number} />
-              ) : (
-                "-"
-              )}
-            </div>
-            <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
-              {card.time}
-            </div>
-          </motion.div>
-        ))}
+              <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+                {card.time}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="glass-card w-12 shrink-0 flex items-center justify-center hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+          aria-label="전체 크롤링"
+          title="전체 크롤링"
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          ) : (
+            <RefreshCw className="h-5 w-5 text-blue-500" />
+          )}
+        </button>
       </div>
       {data.last_crawled_at && (
         <div className="mt-2 text-right text-xs text-[var(--muted-foreground)]">
