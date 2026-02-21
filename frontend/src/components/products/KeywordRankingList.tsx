@@ -15,6 +15,8 @@ interface Props {
   productId: number;
 }
 
+const MOBILE_ACTION_SLOT_WIDTH = 64;
+
 export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const queryClient = useQueryClient();
   const [openItemKey, setOpenItemKey] = useState<string | null>(null);
@@ -160,7 +162,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 const canOpenLink = Boolean(item.product_url);
                 const canBan = !item.is_my_store && Boolean(item.naver_product_id);
                 const actionCount = Number(canOpenLink) + Number(canBan);
-                const actionWidth = actionCount * 56;
+                const actionWidth = actionCount * MOBILE_ACTION_SLOT_WIDTH;
                 const hasActions = actionCount > 0;
                 const currentOffset = hasActions
                   ? swipeOffsets[itemKey] ?? (openItemKey === itemKey ? actionWidth : 0)
@@ -171,13 +173,16 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                     {/* Mobile: swipe card */}
                     <div className="relative overflow-hidden md:hidden">
                       {hasActions && (
-                        <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
+                        <div
+                          className="absolute inset-y-0 right-0 flex items-center justify-end"
+                          style={{ width: `${actionWidth}px` }}
+                        >
                           {canOpenLink && (
                             <a
                               href={item.product_url!}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:text-blue-500"
+                              className="mx-1.5 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:text-blue-500"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="h-5 w-5" />
@@ -192,7 +197,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                                 })
                               }
                               disabled={excludeMutation.isPending}
-                              className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/15 disabled:opacity-60"
+                              className="mx-1.5 flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/15 disabled:opacity-60"
                               title="이 상품 제외"
                             >
                               {excludeMutation.isPending ? (
