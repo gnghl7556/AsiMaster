@@ -1,14 +1,27 @@
 "use client";
 
-import { Package, TrendingDown, TrendingUp, Lock } from "lucide-react";
+import { Package, TrendingDown, Minus, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
+import { useProductList } from "@/lib/hooks/useProducts";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { formatPercent, timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
+interface SummaryCard {
+  label: string;
+  value: number | null;
+  isNumber: boolean;
+  sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  suffix?: string;
+  decimals?: number;
+}
+
 export function DashboardSummary() {
   const { data, isLoading } = useDashboard();
+  const { data: products = [] } = useProductList();
 
   if (isLoading) {
     return (
@@ -22,7 +35,11 @@ export function DashboardSummary() {
 
   if (!data) return null;
 
-  const cards = [
+  const samePriceCount = products.filter(
+    (p) => !p.is_price_locked && p.price_gap === 0
+  ).length;
+
+  const cards: SummaryCard[] = [
     {
       label: "관리 중",
       value: data.active_products,
@@ -40,25 +57,23 @@ export function DashboardSummary() {
       color: "text-red-500",
     },
     {
-      label: "평균 마진",
-      value: data.avg_margin_percent,
+      label: "동일가",
+      value: samePriceCount,
       isNumber: true,
-      suffix: "%",
-      decimals: 1,
+      sub: "우리 상품과 동일 가격",
+      icon: Minus,
+      color: "text-amber-500",
+    },
+    {
+      label: "미확인 알림",
+      value: data.unread_alerts,
+      isNumber: true,
       sub:
         data.crawl_success_rate != null
           ? `크롤링 ${formatPercent(data.crawl_success_rate)}`
           : "",
-      icon: TrendingUp,
-      color: "text-emerald-500",
-    },
-    {
-      label: "가격고정",
-      value: data.price_locked_products,
-      isNumber: true,
-      sub: `읽지 않은 알림 ${data.unread_alerts}개`,
-      icon: Lock,
-      color: "text-gray-500",
+      icon: Bell,
+      color: "text-blue-500",
     },
   ];
 
