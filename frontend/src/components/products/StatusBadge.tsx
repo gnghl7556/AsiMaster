@@ -16,7 +16,7 @@ export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full font-semibold",
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full font-semibold",
         config.bg,
         config.color,
         neonClass,
