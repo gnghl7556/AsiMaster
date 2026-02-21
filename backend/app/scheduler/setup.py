@@ -13,16 +13,17 @@ scheduler = AsyncIOScheduler()
 
 
 def init_scheduler():
+    check_interval = 10  # 10분마다 체크, 실제 크롤링은 유저별 주기에 따라 실행
     scheduler.add_job(
         crawl_all_users,
-        trigger=IntervalTrigger(minutes=settings.CRAWL_DEFAULT_INTERVAL_MIN),
+        trigger=IntervalTrigger(minutes=check_interval),
         id="crawl_scheduled",
         name="전체 크롤링",
         replace_existing=True,
         misfire_grace_time=300,
     )
     scheduler.start()
-    logger.info(f"스케줄러 시작 (크롤링 주기: {settings.CRAWL_DEFAULT_INTERVAL_MIN}분)")
+    logger.info(f"스케줄러 시작 (체크 주기: {check_interval}분, 유저별 크롤링 주기 적용)")
 
 
 def shutdown_scheduler():

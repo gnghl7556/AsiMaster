@@ -60,12 +60,37 @@ def _get_latest_rankings(keywords: list) -> list:
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
+def _calc_rank_change(keywords: list) -> int | None:
+    """키워드들의 is_my_store 순위에서 직전 크롤링 대비 변동 계산.
+    양수 = 순위 하락(나빠짐), 음수 = 순위 상승(좋아짐).
+    """
+    for kw in keywords:
+        my_rankings = [r for r in (kw.rankings or []) if r.is_my_store]
+        if len(my_rankings) < 2:
+            continue
+        # crawled_at 기준 정렬
+        my_rankings.sort(key=lambda r: r.crawled_at, reverse=True)
+        latest_time = my_rankings[0].crawled_at
+        latest = [r for r in my_rankings if r.crawled_at == latest_time]
+        prev = [r for r in my_rankings if r.crawled_at != latest_time]
+        if not latest or not prev:
+            continue
+        prev_time = max(r.crawled_at for r in prev)
+        prev_at = [r for r in prev if r.crawled_at == prev_time]
+        current_rank = min(r.rank for r in latest)
+        prev_rank = min(r.rank for r in prev_at)
+        return current_rank - prev_rank  # 양수 = 하락
+    return None
+
+
 async def get_product_list_items(
     db: AsyncSession,
     user_id: int,
     sort_by: str = "urgency",
     category: str | None = None,
     search: str | None = None,
+    page: int = 1,
+    limit: int = 50,
 ) -> list[dict]:
     query = (
         select(Product)
@@ -133,6 +158,9 @@ async def get_product_list_items(
                 if last_crawled is None or kw.last_crawled_at > last_crawled:
                     last_crawled = kw.last_crawled_at
 
+        # 이전 크롤링 대비 순위 변동 계산
+        rank_change = _calc_rank_change(active_keywords)
+
         items.append({
             "id": product.id,
             "name": product.name,
@@ -148,6 +176,7 @@ async def get_product_list_items(
             "price_gap": price_gap,
             "price_gap_percent": price_gap_pct,
             "my_rank": my_rank,
+            "rank_change": rank_change,
             "keyword_count": len(active_keywords),
             "margin_amount": margin["net_margin"],
             "margin_percent": margin["margin_percent"],
@@ -165,16 +194,18 @@ async def get_product_list_items(
     elif sort_by == "margin":
         items.sort(key=lambda x: x["margin_percent"] or 0)
     elif sort_by == "rank_drop":
-        items.sort(key=lambda x: (x["my_rank"] or 999))
+        # rank_change > 0 = 순위 하락 (숫자 높을수록 더 큰 하락)
+        items.sort(key=lambda x: -(x["rank_change"] or 0))
     elif sort_by == "category":
         items.sort(key=lambda x: (x["category"] or "", STATUS_ORDER.get(x["status"], 3)))
 
-    return items
+    # 페이지네이션
+    offset = (page - 1) * limit
+    return items[offset:offset + limit]
 
 
 async def get_product_detail(
     db: AsyncSession,
-    user_id: int,
     product_id: int,
 ) -> dict | None:
     query = (
@@ -183,7 +214,7 @@ async def get_product_detail(
             selectinload(Product.keywords).selectinload(SearchKeyword.rankings)
         )
         .options(selectinload(Product.cost_items))
-        .where(Product.id == product_id, Product.user_id == user_id)
+        .where(Product.id == product_id)
     )
     result = await db.execute(query)
     product = result.scalars().unique().first()
@@ -211,12 +242,41 @@ async def get_product_detail(
 
     status = calculate_status(product.selling_price, lowest_price)
 
+    rank_change = _calc_rank_change(active_keywords)
+
     # last_crawled_at
     last_crawled = None
     for kw in active_keywords:
         if kw.last_crawled_at:
             if last_crawled is None or kw.last_crawled_at > last_crawled:
                 last_crawled = kw.last_crawled_at
+
+    # sparkline: 최근 7일 일별 최저가
+    now = datetime.utcnow()
+    seven_days_ago = now - timedelta(days=7)
+    sparkline_data = {}
+    for kw in active_keywords:
+        for r in kw.rankings:
+            if r.crawled_at and r.crawled_at >= seven_days_ago:
+                day_key = r.crawled_at.date()
+                if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
+                    sparkline_data[day_key] = r.price
+    sparkline = [v for _, v in sorted(sparkline_data.items())]
+
+    # 경쟁사 요약 (최신 rankings에서 순위별 요약)
+    competitors = []
+    seen_malls = set()
+    for r in sorted(latest_rankings, key=lambda r: r.rank):
+        if r.mall_name in seen_malls:
+            continue
+        seen_malls.add(r.mall_name)
+        competitors.append({
+            "rank": r.rank,
+            "product_name": r.product_name,
+            "price": r.price,
+            "mall_name": r.mall_name,
+            "is_my_store": r.is_my_store,
+        })
 
     # 키워드별 최신 순위
     keywords_data = []
@@ -261,6 +321,7 @@ async def get_product_detail(
 
     return {
         "id": product.id,
+        "user_id": product.user_id,
         "name": product.name,
         "category": product.category,
         "selling_price": product.selling_price,
@@ -274,7 +335,11 @@ async def get_product_detail(
         "price_gap": price_gap,
         "price_gap_percent": price_gap_pct,
         "my_rank": my_rank,
+        "rank_change": rank_change,
+        "keyword_count": len(active_keywords),
         "last_crawled_at": last_crawled,
+        "sparkline": sparkline,
+        "competitors": competitors,
         "keywords": keywords_data,
         "margin": margin,
     }

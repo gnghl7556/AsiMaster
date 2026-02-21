@@ -24,10 +24,13 @@ async def get_products(
     category: str | None = None,
     search: str | None = None,
     sort: str | None = Query(None, description="urgency|margin|rank_drop|category"),
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    limit: int = Query(50, ge=1, le=200, description="페이지당 항목 수"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_product_list_items(
         db, user_id, sort_by=sort or "urgency", category=category, search=search,
+        page=page, limit=limit,
     )
 
 
@@ -53,20 +56,20 @@ async def create_product(user_id: int, data: ProductCreate, db: AsyncSession = D
     return product
 
 
-@router.get("/users/{user_id}/products/{product_id}", response_model=ProductDetail)
-async def get_product(user_id: int, product_id: int, db: AsyncSession = Depends(get_db)):
-    detail = await get_product_detail(db, user_id, product_id)
+@router.get("/products/{product_id}", response_model=ProductDetail)
+async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    detail = await get_product_detail(db, product_id)
     if not detail:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
     return detail
 
 
-@router.put("/users/{user_id}/products/{product_id}", response_model=ProductResponse)
+@router.put("/products/{product_id}", response_model=ProductResponse)
 async def update_product(
-    user_id: int, product_id: int, data: ProductUpdate, db: AsyncSession = Depends(get_db)
+    product_id: int, data: ProductUpdate, db: AsyncSession = Depends(get_db)
 ):
     product = await db.get(Product, product_id)
-    if not product or product.user_id != user_id:
+    if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -76,20 +79,20 @@ async def update_product(
     return product
 
 
-@router.delete("/users/{user_id}/products/{product_id}", status_code=204)
-async def delete_product(user_id: int, product_id: int, db: AsyncSession = Depends(get_db)):
+@router.delete("/products/{product_id}", status_code=204)
+async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
     product = await db.get(Product, product_id)
-    if not product or product.user_id != user_id:
+    if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
     await db.delete(product)
 
 
-@router.patch("/users/{user_id}/products/{product_id}/price-lock", response_model=ProductResponse)
+@router.patch("/products/{product_id}/price-lock", response_model=ProductResponse)
 async def toggle_price_lock(
-    user_id: int, product_id: int, data: PriceLockUpdate, db: AsyncSession = Depends(get_db)
+    product_id: int, data: PriceLockUpdate, db: AsyncSession = Depends(get_db)
 ):
     product = await db.get(Product, product_id)
-    if not product or product.user_id != user_id:
+    if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
     product.is_price_locked = data.is_locked
     product.price_lock_reason = data.reason if data.is_locked else None

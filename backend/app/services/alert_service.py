@@ -1,5 +1,7 @@
 """알림 자동 생성 서비스 (크롤링 후 호출)"""
 
+import logging
+
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,6 +9,9 @@ from app.models.alert import Alert, AlertSetting
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
+from app.services.push_service import send_push_to_user
+
+logger = logging.getLogger(__name__)
 
 
 async def _is_alert_enabled(db: AsyncSession, user_id: int, alert_type: str) -> tuple[bool, float | None]:
@@ -54,12 +59,14 @@ async def check_price_undercut(
     gap = product.selling_price - lowest.price
     gap_percent = (gap / product.selling_price) * 100 if product.selling_price > 0 else 0
 
+    title = f"{product.name} - 최저가 이탈"
+    message = f"{lowest.mall_name} {lowest.price:,}원 (내 가격 대비 -{gap:,}원, -{gap_percent:.1f}%)"
     alert = Alert(
         user_id=product.user_id,
         product_id=product.id,
         type="price_undercut",
-        title=f"{product.name} - 최저가 이탈",
-        message=f"{lowest.mall_name} {lowest.price:,}원 (내 가격 대비 -{gap:,}원, -{gap_percent:.1f}%)",
+        title=title,
+        message=message,
         data={
             "keyword": lowest.keyword.keyword if hasattr(lowest, 'keyword') and lowest.keyword else "",
             "my_price": product.selling_price,
@@ -70,6 +77,7 @@ async def check_price_undercut(
         },
     )
     db.add(alert)
+    await send_push_to_user(db, product.user_id, title, message, {"type": "price_undercut", "product_id": product.id})
 
 
 async def check_rank_drop(
@@ -122,12 +130,14 @@ async def check_rank_drop(
             continue
 
         if current_rank > prev_rank:
+            title = f"{product.name} - 순위 하락"
+            message = f"'{kw.keyword}' 키워드에서 {prev_rank}위 → {current_rank}위로 하락"
             alert = Alert(
                 user_id=product.user_id,
                 product_id=product.id,
                 type="rank_drop",
-                title=f"{product.name} - 순위 하락",
-                message=f"'{kw.keyword}' 키워드에서 {prev_rank}위 → {current_rank}위로 하락",
+                title=title,
+                message=message,
                 data={
                     "keyword_id": kw.id,
                     "keyword": kw.keyword,
@@ -136,6 +146,7 @@ async def check_rank_drop(
                 },
             )
             db.add(alert)
+            await send_push_to_user(db, product.user_id, title, message, {"type": "rank_drop", "product_id": product.id})
 
 
 async def check_new_competitor(

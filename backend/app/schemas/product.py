@@ -58,6 +58,7 @@ class ProductListItem(BaseModel):
     price_gap: int | None
     price_gap_percent: float | None
     my_rank: int | None
+    rank_change: int | None
     keyword_count: int
     margin_amount: int | None
     margin_percent: float | None
@@ -74,8 +75,17 @@ class MarginDetail(BaseModel):
     margin_percent: float
 
 
+class CompetitorSummary(BaseModel):
+    rank: int
+    product_name: str
+    price: int
+    mall_name: str
+    is_my_store: bool
+
+
 class ProductDetail(BaseModel):
     id: int
+    user_id: int
     name: str
     category: str | None
     selling_price: int
@@ -89,6 +99,10 @@ class ProductDetail(BaseModel):
     price_gap: int | None
     price_gap_percent: float | None
     my_rank: int | None
+    rank_change: int | None
+    keyword_count: int
     last_crawled_at: datetime | None
+    sparkline: list[int]
+    competitors: list[CompetitorSummary]
     keywords: list[KeywordWithRankings]
     margin: MarginDetail | None

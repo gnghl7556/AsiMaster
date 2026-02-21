@@ -64,10 +64,13 @@ npm run dev
 
 ## 핵심 API 엔드포인트
 - `POST /api/v1/users` - 사업체 등록
-- `PUT /api/v1/users/{id}` - 사업체 수정 (naver_store_name 설정)
+- `PUT /api/v1/users/{id}` - 사업체 수정 (naver_store_name, crawl_interval_min 설정)
+- `GET /api/v1/users/{user_id}/products` - 상품 목록
 - `POST /api/v1/users/{user_id}/products` - 상품 등록 (자동 키워드 등록)
-- `GET /api/v1/users/{user_id}/products/{id}` - 상품 상세 (키워드별 순위 포함)
-- `DELETE /api/v1/users/{user_id}/products/{id}` - 상품 삭제
+- `GET /api/v1/products/{id}` - 상품 상세 (키워드별 순위 포함)
+- `PUT /api/v1/products/{id}` - 상품 수정
+- `DELETE /api/v1/products/{id}` - 상품 삭제
+- `PATCH /api/v1/products/{id}/price-lock` - 가격고정 토글
 - `POST /api/v1/crawl/product/{id}` - 상품 크롤링 실행
 - `POST /api/v1/keywords/{product_id}` - 키워드 추가
 - `GET /api/v1/dashboard/{user_id}` - 대시보드 요약
@@ -111,3 +114,28 @@ Product → CostItems
 ### 작업 동기화 규칙
 - 두 AI는 같은 로컬 폴더(같은 Git 브랜치)를 바라보고 작업한다.
 - **API 명세 기록**: Claude가 백엔드 API를 신규 작성하거나 수정하면, 반드시 `docs/api-specs/` 폴더 등에 명세(Endpoint, Request/Response JSON)를 기록하거나 CLAUDE.md에 요약해야 한다. Antigravity는 이 문서를 보고 프론트엔드를 연동한다.
+
+## API 변경 이력
+
+### 2026-02-21: 상품 API 경로 정리 (R8)
+**변경된 API 경로 4개** (user_id 제거):
+| 기존 | 변경 후 |
+|------|---------|
+| `GET /api/v1/users/{user_id}/products/{product_id}` | `GET /api/v1/products/{product_id}` |
+| `PUT /api/v1/users/{user_id}/products/{product_id}` | `PUT /api/v1/products/{product_id}` |
+| `DELETE /api/v1/users/{user_id}/products/{product_id}` | `DELETE /api/v1/products/{product_id}` |
+| `PATCH /api/v1/users/{user_id}/products/{product_id}/price-lock` | `PATCH /api/v1/products/{product_id}/price-lock` |
+
+**유지되는 API 경로** (변경 없음):
+- `GET /api/v1/users/{user_id}/products` (목록)
+- `POST /api/v1/users/{user_id}/products` (생성)
+
+### 2026-02-21: 유저별 크롤링 주기 (R4)
+- `UserResponse`에 `crawl_interval_min: int` 필드 추가 (기본값 60분)
+- `UserUpdate`에 `crawl_interval_min: int | None` 필드 추가 (0~1440, 0=크롤링 중지)
+
+### 2026-02-21: 백엔드 최종 마무리 (R1, R2, R5, R6)
+- **R1 정렬/페이지네이션**: `GET /users/{user_id}/products`에 `page`, `limit` 쿼리 파라미터 추가. `rank_drop` 정렬이 실제 순위 변동 기반으로 동작. `ProductListItem`에 `rank_change` 필드 추가.
+- **R2 상품 상세 보강**: `ProductDetail`에 `user_id`, `rank_change`, `keyword_count`, `sparkline`, `competitors` 필드 추가.
+- **R5 크롤링 딜레이**: 키워드 간 크롤링에 `CRAWL_REQUEST_DELAY_MIN`~`MAX` 랜덤 딜레이 적용.
+- **R6 웹 푸시 뼈대**: `push_subscriptions` 테이블 추가. `GET /push/vapid-public-key`, `POST /push/subscribe`, `DELETE /push/subscribe` 엔드포인트 추가. 알림 생성 시 자동 웹 푸시 전송.

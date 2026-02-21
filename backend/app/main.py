@@ -20,21 +20,28 @@ logger = logging.getLogger(__name__)
 async def apply_schema_changes(session):
     """기존 테이블에 새 컬럼 추가 (create_all로 불가능한 ALTER TABLE)."""
     is_sqlite = "sqlite" in str(engine.url)
+    alter_statements = [
+        ("naver_store_name", "VARCHAR(200)", None),
+        ("crawl_interval_min", "INTEGER", "60"),
+    ]
     try:
         if is_sqlite:
-            # SQLite: pragma로 컬럼 존재 확인 후 추가
             result = await session.execute(text("PRAGMA table_info(users)"))
             columns = [row[1] for row in result.fetchall()]
-            if "naver_store_name" not in columns:
-                await session.execute(text(
-                    "ALTER TABLE users ADD COLUMN naver_store_name VARCHAR(200)"
-                ))
+            for col_name, col_type, default in alter_statements:
+                if col_name not in columns:
+                    default_clause = f" DEFAULT {default}" if default else ""
+                    await session.execute(text(
+                        f"ALTER TABLE users ADD COLUMN {col_name} {col_type}{default_clause}"
+                    ))
         else:
-            await session.execute(text(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS naver_store_name VARCHAR(200)"
-            ))
+            for col_name, col_type, default in alter_statements:
+                default_clause = f" DEFAULT {default}" if default else ""
+                await session.execute(text(
+                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}{default_clause}"
+                ))
         await session.commit()
-        logger.info("스키마 변경 적용 완료: users.naver_store_name")
+        logger.info("스키마 변경 적용 완료: users 테이블")
     except Exception as e:
         await session.rollback()
         logger.warning(f"스키마 변경 스킵 (이미 적용됨): {e}")

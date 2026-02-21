@@ -1,3 +1,6 @@
+import asyncio
+import logging
+import random
 import time
 from datetime import datetime
 
@@ -5,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.crawlers.base import KeywordCrawlResult
 from app.crawlers.naver import NaverCrawler
 from app.models.crawl_log import CrawlLog
@@ -14,6 +18,7 @@ from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.services.alert_service import check_and_create_alerts
 
+logger = logging.getLogger(__name__)
 
 crawler = NaverCrawler()
 
@@ -22,8 +27,25 @@ class CrawlManager:
     async def crawl_keyword(
         self, db: AsyncSession, keyword: SearchKeyword, naver_store_name: str | None
     ) -> KeywordCrawlResult:
+        max_retries = settings.CRAWL_MAX_RETRIES
         start_time = time.time()
-        result = await crawler.search_keyword(keyword.keyword)
+        result = None
+
+        for attempt in range(1, max_retries + 1):
+            result = await crawler.search_keyword(keyword.keyword)
+            if result.success:
+                break
+            if attempt < max_retries:
+                delay = random.uniform(
+                    settings.CRAWL_REQUEST_DELAY_MIN,
+                    settings.CRAWL_REQUEST_DELAY_MAX,
+                )
+                logger.warning(
+                    f"크롤링 재시도 {attempt}/{max_retries}: "
+                    f"'{keyword.keyword}' ({delay:.1f}s 대기)"
+                )
+                await asyncio.sleep(delay)
+
         duration_ms = int((time.time() - start_time) * 1000)
 
         # 크롤링 로그
@@ -78,7 +100,13 @@ class CrawlManager:
         keywords = result.scalars().all()
 
         results = []
-        for kw in keywords:
+        for idx, kw in enumerate(keywords):
+            if idx > 0:
+                delay = random.uniform(
+                    settings.CRAWL_REQUEST_DELAY_MIN,
+                    settings.CRAWL_REQUEST_DELAY_MAX,
+                )
+                await asyncio.sleep(delay)
             r = await self.crawl_keyword(db, kw, naver_store_name)
             results.append(r)
 
