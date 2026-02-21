@@ -18,6 +18,7 @@ class ExcludedProduct(Base):
     )
     naver_product_id: Mapped[str] = mapped_column(String(50), nullable=False)
     naver_product_name: Mapped[str | None] = mapped_column(String(500))
+    mall_name: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     product: Mapped["Product"] = relationship(back_populates="excluded_products")

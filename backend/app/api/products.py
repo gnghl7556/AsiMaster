@@ -141,14 +141,16 @@ async def exclude_product(
         product_id=product_id,
         naver_product_id=data.naver_product_id,
         naver_product_name=data.naver_product_name,
+        mall_name=data.mall_name,
     )
     db.add(excluded)
-    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=False로 즉시 반영
+    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=False로 즉시 반영
     keyword_ids_result = await db.execute(
         select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
     )
     keyword_ids = keyword_ids_result.scalars().all()
     if keyword_ids:
+        # naver_product_id 기반 업데이트
         await db.execute(
             update(KeywordRanking)
             .where(
@@ -157,6 +159,16 @@ async def exclude_product(
             )
             .values(is_relevant=False)
         )
+        # mall_name 기반 업데이트 (productId 변경 대비)
+        if data.mall_name:
+            await db.execute(
+                update(KeywordRanking)
+                .where(
+                    KeywordRanking.keyword_id.in_(keyword_ids),
+                    KeywordRanking.mall_name == data.mall_name,
+                )
+                .values(is_relevant=False)
+            )
     await db.flush()
     await db.refresh(excluded)
     return excluded
@@ -175,13 +187,15 @@ async def unexclude_product(
     excluded = result.scalars().first()
     if not excluded:
         raise HTTPException(404, "제외 목록에 없는 상품입니다.")
+    mall_name = excluded.mall_name
     await db.delete(excluded)
-    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=True로 복원
+    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=True로 복원
     keyword_ids_result = await db.execute(
         select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
     )
     keyword_ids = keyword_ids_result.scalars().all()
     if keyword_ids:
+        # naver_product_id 기반 복원
         await db.execute(
             update(KeywordRanking)
             .where(
@@ -190,6 +204,16 @@ async def unexclude_product(
             )
             .values(is_relevant=True)
         )
+        # mall_name 기반 복원
+        if mall_name:
+            await db.execute(
+                update(KeywordRanking)
+                .where(
+                    KeywordRanking.keyword_id.in_(keyword_ids),
+                    KeywordRanking.mall_name == mall_name,
+                )
+                .values(is_relevant=True)
+            )
 
 
 # --- 이전 경로 호환 (프론트엔드 마이그레이션 전까지 유지) ---

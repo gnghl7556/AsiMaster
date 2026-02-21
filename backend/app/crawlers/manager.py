@@ -68,6 +68,7 @@ class CrawlManager:
         duration_ms: int,
         product: Product | None = None,
         excluded_ids: set[str] | None = None,
+        excluded_malls: set[str] | None = None,
     ) -> None:
         """크롤링 결과를 DB에 저장 (순차 호출)."""
         log = CrawlLog(
@@ -80,8 +81,10 @@ class CrawlManager:
 
         if result.success and result.items:
             for item in result.items:
-                # 블랙리스트 체크
+                # 블랙리스트 체크 (naver_product_id OR mall_name)
                 if excluded_ids and item.naver_product_id in excluded_ids:
+                    continue
+                if excluded_malls and item.mall_name.strip().lower() in excluded_malls:
                     continue
 
                 is_my = (
@@ -130,12 +133,13 @@ class CrawlManager:
         if not keywords:
             return []
 
-        # 블랙리스트 조회
+        # 블랙리스트 조회 (naver_product_id + mall_name 이중 체크)
         excluded_result = await db.execute(
-            select(ExcludedProduct.naver_product_id)
-            .where(ExcludedProduct.product_id == product_id)
+            select(ExcludedProduct).where(ExcludedProduct.product_id == product_id)
         )
-        excluded_ids = set(excluded_result.scalars().all())
+        excluded_rows = excluded_result.scalars().all()
+        excluded_ids = {ep.naver_product_id for ep in excluded_rows}
+        excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
         # 병렬 API 호출
         sem = asyncio.Semaphore(settings.CRAWL_CONCURRENCY)
@@ -160,6 +164,7 @@ class CrawlManager:
             await self._save_keyword_result(
                 db, kw, crawl_result, naver_store_name, duration_ms,
                 product=product, excluded_ids=excluded_ids,
+                excluded_malls=excluded_malls,
             )
             results.append(crawl_result)
 
@@ -190,15 +195,19 @@ class CrawlManager:
         if not all_keywords:
             return {"total": 0, "success": 0, "failed": 0}
 
-        # 상품별 블랙리스트 조회
+        # 상품별 블랙리스트 조회 (naver_product_id + mall_name 이중 체크)
         product_ids = {kw.product_id for kw in all_keywords}
-        excluded_by_product: dict[int, set[str]] = {}
+        excluded_ids_by_product: dict[int, set[str]] = {}
+        excluded_malls_by_product: dict[int, set[str]] = {}
         for pid in product_ids:
             ex_result = await db.execute(
-                select(ExcludedProduct.naver_product_id)
-                .where(ExcludedProduct.product_id == pid)
+                select(ExcludedProduct).where(ExcludedProduct.product_id == pid)
             )
-            excluded_by_product[pid] = set(ex_result.scalars().all())
+            rows = ex_result.scalars().all()
+            excluded_ids_by_product[pid] = {ep.naver_product_id for ep in rows}
+            excluded_malls_by_product[pid] = {
+                ep.mall_name.strip().lower() for ep in rows if ep.mall_name
+            }
 
         # 상품 객체 캐시
         products_cache: dict[int, Product] = {}
@@ -237,10 +246,12 @@ class CrawlManager:
         for kw_str, crawl_result, duration_ms in fetch_results:
             for kw in unique_map[kw_str]:
                 product = products_cache.get(kw.product_id)
-                excluded_ids = excluded_by_product.get(kw.product_id, set())
+                excluded_ids = excluded_ids_by_product.get(kw.product_id, set())
+                excluded_malls = excluded_malls_by_product.get(kw.product_id, set())
                 await self._save_keyword_result(
                     db, kw, crawl_result, naver_store_name, duration_ms,
                     product=product, excluded_ids=excluded_ids,
+                    excluded_malls=excluded_malls,
                 )
                 total += 1
                 if crawl_result.success:
