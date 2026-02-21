@@ -28,7 +28,9 @@ async def preview_store_products(
         raise HTTPException(404, "사업체를 찾을 수 없습니다.")
 
     try:
-        products = await fetch_store_products(store_url)
+        products = await fetch_store_products(
+            store_url, fallback_store_name=user.naver_store_name,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
 

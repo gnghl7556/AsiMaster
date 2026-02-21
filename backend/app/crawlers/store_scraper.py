@@ -81,19 +81,34 @@ def parse_store_slug(store_url: str) -> str:
     return path.split("/")[0]
 
 
-async def fetch_store_products(store_url: str) -> list[StoreProduct]:
+async def fetch_store_products(
+    store_url: str,
+    fallback_store_name: str | None = None,
+) -> list[StoreProduct]:
     """스마트스토어 URL에서 상품 목록을 가져옴.
 
-    1단계: 페이지 스크래핑으로 channelName(=mallName) 확보
+    1단계: 페이지 스크래핑으로 channelName(=mallName) 확보 (실패 시 fallback 사용)
     2단계: 네이버 쇼핑 API로 상품 검색 + mallName 필터
     """
     slug = parse_store_slug(store_url)
     logger.info(f"스토어 스크래핑 시작: {slug}")
 
-    # 1단계: 스토어 정보 추출
-    store_info = await _get_store_info(slug)
-    channel_name = store_info.channel_name
-    logger.info(f"스토어 정보: channelName={channel_name}, channelNo={store_info.channel_no}")
+    # 1단계: 스토어 정보 추출 (해외 IP에서 실패 가능 → fallback)
+    channel_name = None
+    try:
+        store_info = await _get_store_info(slug)
+        channel_name = store_info.channel_name
+        logger.info(f"스토어 정보: channelName={channel_name}, channelNo={store_info.channel_no}")
+    except ValueError as e:
+        logger.warning(f"스토어 스크래핑 실패: {e}")
+        if fallback_store_name:
+            channel_name = fallback_store_name
+            logger.info(f"fallback 스토어명 사용: {channel_name}")
+        else:
+            raise ValueError(
+                "스토어 페이지 접근에 실패했습니다. "
+                "설정에서 '네이버 스토어명'을 먼저 입력해주세요."
+            )
 
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         raise ValueError("네이버 API 키가 설정되지 않았습니다.")
