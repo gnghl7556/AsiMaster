@@ -80,6 +80,8 @@ npm run dev
 - `GET /api/v1/push/vapid-public-key` - VAPID 공개키 조회
 - `POST /api/v1/push/subscribe` - 웹 푸시 구독 등록
 - `DELETE /api/v1/push/subscribe` - 웹 푸시 구독 해제
+- `GET /api/v1/users/{user_id}/store/products?store_url=...` - 스마트스토어 상품 미리보기 (스크래핑)
+- `POST /api/v1/users/{user_id}/store/import` - 선택한 상품 일괄 등록
 
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings
@@ -101,6 +103,7 @@ Product → CostItems
 10. 크롤링 성능 개선 (연결 풀링, 병렬 크롤링, 키워드 중복 제거)
 11. 상품 관련성 필터링 (model_code + spec_keywords 기반 is_relevant)
 12. 경쟁사 블랙리스트 (naver_product_id 기반 제외)
+13. 스마트스토어 상품 자동 불러오기 (URL 입력 → 미리보기 → 선택 등록)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -167,3 +170,18 @@ Product → CostItems
 - **프론트엔드 전용 기능**: 크롤링된 상위 10개 상품을 노출순(rank) 또는 가격순(price asc)으로 재정렬하여 표시
 - **백엔드 변경 없음**: 기존 API 응답(`rankings[].rank`, `rankings[].price`)을 그대로 활용
 - DB에 `search_keywords.sort_type` 컬럼이 존재하나 사용하지 않음 (마이그레이션 잔여)
+
+### 2026-02-21: 스마트스토어 상품 자동 불러오기
+**새 API:**
+- `GET /api/v1/users/{user_id}/store/products?store_url=<URL>` — 스토어 상품 미리보기
+  - Response: `[{name, price, image_url, category, naver_product_id}]`
+  - 스마트스토어 URL 입력 → 페이지 스크래핑(channelName 추출) → 네이버 쇼핑 API로 상품 검색
+- `POST /api/v1/users/{user_id}/store/import` — 선택한 상품 일괄 등록
+  - Request: `{products: [{name, selling_price, image_url?, category?}]}`
+  - Response: `{created, skipped, skipped_names}`
+  - 중복 상품(같은 이름) 자동 스킵, 등록된 상품마다 기본 키워드(상품명) 자동 생성
+
+**새 파일:**
+- `backend/app/crawlers/store_scraper.py` — 스마트스토어 페이지 스크래핑 + 네이버 쇼핑 API 검색
+- `backend/app/schemas/store_import.py` — StoreProductItem, StoreImportRequest, StoreImportResult
+- `backend/app/api/store_import.py` — 미리보기/등록 엔드포인트

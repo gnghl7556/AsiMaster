@@ -9,6 +9,7 @@ from app.api.margins import router as margins_router
 from app.api.prices import router as prices_router
 from app.api.products import router as products_router
 from app.api.push import router as push_router
+from app.api.store_import import router as store_import_router
 from app.api.users import router as users_router
 
 api_router = APIRouter()
@@ -22,3 +23,4 @@ api_router.include_router(prices_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(crawl_router)
 api_router.include_router(push_router)
+api_router.include_router(store_import_router)
