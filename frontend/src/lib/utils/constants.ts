@@ -5,14 +5,14 @@ export const STATUS_CONFIG: Record<
   { label: string; emoji: string; color: string; glow: string; bg: string }
 > = {
   winning: {
-    label: "1등",
+    label: "최저가",
     emoji: "\uD83D\uDFE2",
     color: "text-emerald-500 dark:text-emerald-400",
     glow: "shadow-[0_0_20px_rgba(16,185,129,0.15)] border-emerald-500/40 dark:shadow-[0_0_20px_rgba(52,211,153,0.25)] dark:border-emerald-400/40",
     bg: "bg-emerald-500/10 dark:bg-emerald-400/10",
   },
   close: {
-    label: "근접",
+    label: "근접가",
     emoji: "\uD83D\uDFE1",
     color: "text-amber-500 dark:text-amber-400",
     glow: "shadow-[0_0_20px_rgba(245,158,11,0.15)] border-amber-500/40 dark:shadow-[0_0_20px_rgba(251,191,36,0.25)] dark:border-amber-400/40",
