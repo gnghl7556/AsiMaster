@@ -104,9 +104,9 @@ async def check_rank_drop(
         if len(times) < 2:
             continue
 
-        # 현재 순위
+        # 현재 순위 (내 스토어 상품이 복수일 수 있으므로 최고 순위 사용)
         current_result = await db.execute(
-            select(KeywordRanking.rank)
+            select(func.min(KeywordRanking.rank))
             .where(
                 KeywordRanking.keyword_id == kw.id,
                 KeywordRanking.is_my_store == True,
@@ -117,7 +117,7 @@ async def check_rank_drop(
 
         # 이전 순위
         prev_result = await db.execute(
-            select(KeywordRanking.rank)
+            select(func.min(KeywordRanking.rank))
             .where(
                 KeywordRanking.keyword_id == kw.id,
                 KeywordRanking.is_my_store == True,
