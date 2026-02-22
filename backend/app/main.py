@@ -32,6 +32,14 @@ async def apply_schema_changes(session):
         ("keyword_rankings", "is_relevant", "BOOLEAN", "true"),
         ("search_keywords", "sort_type", "VARCHAR(10)", "'sim'"),
         ("excluded_products", "mall_name", "VARCHAR(200)", None),
+        ("keyword_rankings", "hprice", "INTEGER", "0"),
+        ("keyword_rankings", "brand", "VARCHAR(200)", None),
+        ("keyword_rankings", "maker", "VARCHAR(200)", None),
+        ("keyword_rankings", "product_type", "VARCHAR(10)", None),
+        ("keyword_rankings", "category1", "VARCHAR(100)", None),
+        ("keyword_rankings", "category2", "VARCHAR(100)", None),
+        ("keyword_rankings", "category3", "VARCHAR(100)", None),
+        ("keyword_rankings", "category4", "VARCHAR(100)", None),
     ]
     try:
         if is_sqlite:

@@ -110,6 +110,14 @@ class CrawlManager:
                     naver_product_id=item.naver_product_id,
                     is_my_store=is_my,
                     is_relevant=is_relevant,
+                    hprice=item.hprice,
+                    brand=item.brand,
+                    maker=item.maker,
+                    product_type=item.product_type,
+                    category1=item.category1,
+                    category2=item.category2,
+                    category3=item.category3,
+                    category4=item.category4,
                 )
                 db.add(ranking)
 

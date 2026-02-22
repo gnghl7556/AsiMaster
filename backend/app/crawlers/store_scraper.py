@@ -18,6 +18,8 @@ class StoreProduct:
     category: str
     naver_product_id: str
     mall_name: str
+    brand: str = ""
+    maker: str = ""
 
 
 @dataclass
@@ -277,6 +279,8 @@ async def fetch_store_products(
                     category=category,
                     naver_product_id=pid,
                     mall_name=mall,
+                    brand=item.get("brand", ""),
+                    maker=item.get("maker", ""),
                 )
 
             total = data.get("total", 0)

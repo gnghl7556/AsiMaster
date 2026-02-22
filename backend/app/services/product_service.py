@@ -328,6 +328,9 @@ async def get_product_detail(
             "is_my_store": r.is_my_store,
             "naver_product_id": r.naver_product_id,
             "is_relevant": r.is_relevant,
+            "hprice": r.hprice or 0,
+            "brand": r.brand,
+            "maker": r.maker,
         })
 
     # 키워드별 최신 순위
@@ -364,6 +367,14 @@ async def get_product_detail(
                     "naver_product_id": r.naver_product_id,
                     "is_my_store": r.is_my_store,
                     "is_relevant": r.is_relevant,
+                    "hprice": r.hprice or 0,
+                    "brand": r.brand,
+                    "maker": r.maker,
+                    "product_type": r.product_type,
+                    "category1": r.category1,
+                    "category2": r.category2,
+                    "category3": r.category3,
+                    "category4": r.category4,
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest

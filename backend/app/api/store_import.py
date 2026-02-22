@@ -41,6 +41,8 @@ async def preview_store_products(
             image_url=p.image_url,
             category=p.category,
             naver_product_id=p.naver_product_id,
+            brand=p.brand,
+            maker=p.maker,
             suggested_keywords=suggest_keywords(p.name, p.mall_name),
         )
         for p in products

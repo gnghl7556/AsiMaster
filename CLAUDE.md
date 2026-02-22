@@ -83,6 +83,7 @@ npm run dev
 - `DELETE /api/v1/push/subscribe` - 웹 푸시 구독 해제
 - `GET /api/v1/users/{user_id}/store/products?store_url=...` - 스마트스토어 상품 미리보기 (스크래핑)
 - `POST /api/v1/users/{user_id}/store/import` - 선택한 상품 일괄 등록
+- `GET /api/v1/naver-categories` - 크롤링 데이터 기반 네이버 카테고리 트리
 
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings
@@ -105,6 +106,8 @@ Product → CostItems
 11. 상품 관련성 필터링 (model_code + spec_keywords 기반 is_relevant)
 12. 경쟁사 블랙리스트 (naver_product_id 기반 제외)
 13. 스마트스토어 상품 자동 불러오기 (URL 입력 → 미리보기 → 선택 등록)
+14. 네이버 API 전체 필드 저장 (hprice, brand, maker, productType, category1~4)
+15. 네이버 카테고리 트리 API (크롤링 데이터 기반 계층 구조)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -206,3 +209,30 @@ Product → CostItems
 - `backend/app/crawlers/store_scraper.py` — 스마트스토어 페이지 스크래핑 + 네이버 쇼핑 API 검색
 - `backend/app/schemas/store_import.py` — StoreProductItem, StoreImportRequest, StoreImportResult
 - `backend/app/api/store_import.py` — 미리보기/등록 엔드포인트
+
+### 2026-02-22: Naver API 전체 필드 저장 + 카테고리 트리 API
+**KeywordRanking 모델 확장 (8개 필드 추가):**
+- `hprice` (INTEGER, 기본값 0): 최고가
+- `brand` (VARCHAR(200)): 브랜드명
+- `maker` (VARCHAR(200)): 제조사명
+- `product_type` (VARCHAR(10)): 상품 구분 (1=일반, 2=중고, 3=리퍼 등)
+- `category1~4` (VARCHAR(100)): 네이버 카테고리 1~4단계
+
+**스키마 변경:**
+- `RankingItemResponse`에 hprice, brand, maker, product_type, category1~4 필드 추가
+- `KeywordWithRankings`에 `sort_type` 필드 추가 (기존 누락)
+- `CompetitorSummary`에 hprice, brand, maker 필드 추가
+- `StoreProductItem`에 brand, maker 필드 추가
+
+**새 API:**
+- `GET /api/v1/naver-categories` — 크롤링 데이터 기반 네이버 카테고리 트리
+  - Response: `{categories: [{name, product_count, children: [...]}], total_paths}`
+  - keyword_rankings 테이블에서 DISTINCT (category1~4) GROUP BY 집계
+  - product_count 내림차순 정렬
+
+**크롤링 변경:**
+- 네이버 쇼핑 API 응답에서 hprice, brand, maker, productType, category1~4 추출 및 DB 저장
+- 스토어 상품 불러오기에서 brand, maker 추출 및 프리뷰 응답에 포함
+
+**새 파일:**
+- `backend/app/api/categories.py` — 카테고리 트리 엔드포인트

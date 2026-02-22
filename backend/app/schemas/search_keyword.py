@@ -34,6 +34,14 @@ class RankingItemResponse(BaseModel):
     naver_product_id: str | None
     is_my_store: bool
     is_relevant: bool
+    hprice: int = 0
+    brand: str | None = None
+    maker: str | None = None
+    product_type: str | None = None
+    category1: str | None = None
+    category2: str | None = None
+    category3: str | None = None
+    category4: str | None = None
     crawled_at: datetime
 
     model_config = {"from_attributes": True}
@@ -42,6 +50,7 @@ class RankingItemResponse(BaseModel):
 class KeywordWithRankings(BaseModel):
     id: int
     keyword: str
+    sort_type: str = "sim"
     is_primary: bool
     crawl_status: str
     last_crawled_at: datetime | None

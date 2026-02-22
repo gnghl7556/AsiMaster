@@ -8,6 +8,8 @@ class StoreProductItem(BaseModel):
     image_url: str
     category: str
     naver_product_id: str
+    brand: str = ""
+    maker: str = ""
     suggested_keywords: list[str] = []
 
 

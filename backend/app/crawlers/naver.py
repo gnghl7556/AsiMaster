@@ -61,6 +61,14 @@ class NaverCrawler(BaseCrawler):
                     product_url=item.get("link", ""),
                     image_url=item.get("image", ""),
                     naver_product_id=str(item.get("productId", "")),
+                    hprice=int(item.get("hprice", 0) or 0),
+                    brand=item.get("brand", ""),
+                    maker=item.get("maker", ""),
+                    product_type=str(item.get("productType", "")),
+                    category1=item.get("category1", ""),
+                    category2=item.get("category2", ""),
+                    category3=item.get("category3", ""),
+                    category4=item.get("category4", ""),
                 ))
 
             logger.info(f"키워드 검색 완료: '{keyword}' → {len(items)}개 결과")

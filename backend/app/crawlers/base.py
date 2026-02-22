@@ -11,6 +11,14 @@ class RankingItem:
     product_url: str = ""
     image_url: str = ""
     naver_product_id: str = ""
+    hprice: int = 0
+    brand: str = ""
+    maker: str = ""
+    product_type: str = ""
+    category1: str = ""
+    category2: str = ""
+    category3: str = ""
+    category4: str = ""
 
 
 @dataclass

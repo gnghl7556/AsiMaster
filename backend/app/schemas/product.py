@@ -92,6 +92,9 @@ class CompetitorSummary(BaseModel):
     is_my_store: bool
     naver_product_id: str | None
     is_relevant: bool
+    hprice: int = 0
+    brand: str | None = None
+    maker: str | None = None
 
 
 class ExcludeProductRequest(BaseModel):
