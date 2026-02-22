@@ -61,12 +61,24 @@ def _get_latest_rankings(keywords: list) -> list:
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
-def _calc_rank_change(keywords: list) -> int | None:
-    """키워드들의 is_my_store 순위에서 직전 크롤링 대비 변동 계산.
+def _is_my_exact_product(ranking, product_naver_id: str | None) -> bool:
+    """이 ranking이 정확히 내 상품인지 판별.
+    naver_product_id가 설정되어 있으면 정확히 매칭, 없으면 is_my_store로 fallback.
+    """
+    if product_naver_id:
+        return ranking.naver_product_id == product_naver_id
+    return ranking.is_my_store
+
+
+def _calc_rank_change(keywords: list, product_naver_id: str | None = None) -> int | None:
+    """키워드들의 내 상품 순위에서 직전 크롤링 대비 변동 계산.
     양수 = 순위 하락(나빠짐), 음수 = 순위 상승(좋아짐).
     """
     for kw in keywords:
-        my_rankings = [r for r in (kw.rankings or []) if r.is_my_store]
+        my_rankings = [
+            r for r in (kw.rankings or [])
+            if _is_my_exact_product(r, product_naver_id)
+        ]
         if len(my_rankings) < 2:
             continue
         # crawled_at 기준 정렬
@@ -149,8 +161,12 @@ async def get_product_list_items(
             lowest_price = None
             lowest_seller = None
 
-        # 내 순위 (is_my_store=True 중 가장 높은 순위)
-        my_rankings = [r for r in latest_rankings if r.is_my_store]
+        # 내 순위 (정확히 이 상품의 naver_product_id 매칭, 없으면 is_my_store fallback)
+        product_naver_id = product.naver_product_id
+        my_rankings = [
+            r for r in latest_rankings
+            if _is_my_exact_product(r, product_naver_id)
+        ]
         my_rank = min(r.rank for r in my_rankings) if my_rankings else None
 
         price_gap = (product.selling_price - lowest_price) if lowest_price else None
@@ -186,7 +202,7 @@ async def get_product_list_items(
                     last_crawled = kw.last_crawled_at
 
         # 이전 크롤링 대비 순위 변동 계산
-        rank_change = _calc_rank_change(active_keywords)
+        rank_change = _calc_rank_change(active_keywords, product_naver_id)
 
         items.append({
             "id": product.id,
@@ -276,8 +292,12 @@ async def get_product_detail(
         lowest_price = None
         lowest_seller = None
 
-    # 내 순위
-    my_rankings = [r for r in latest_rankings if r.is_my_store]
+    # 내 순위 (정확히 이 상품의 naver_product_id 매칭, 없으면 is_my_store fallback)
+    product_naver_id = product.naver_product_id
+    my_rankings = [
+        r for r in latest_rankings
+        if _is_my_exact_product(r, product_naver_id)
+    ]
     my_rank = min(r.rank for r in my_rankings) if my_rankings else None
 
     price_gap = (product.selling_price - lowest_price) if lowest_price else None
@@ -285,7 +305,7 @@ async def get_product_detail(
 
     status = calculate_status(product.selling_price, lowest_price)
 
-    rank_change = _calc_rank_change(active_keywords)
+    rank_change = _calc_rank_change(active_keywords, product_naver_id)
 
     # last_crawled_at
     last_crawled = None
