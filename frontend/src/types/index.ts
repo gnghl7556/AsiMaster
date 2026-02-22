@@ -57,6 +57,14 @@ export interface RankingItem {
   naver_product_id: string | null;
   is_my_store: boolean;
   is_relevant: boolean;
+  hprice: number;
+  brand: string | null;
+  maker: string | null;
+  product_type: string | null;
+  category1: string | null;
+  category2: string | null;
+  category3: string | null;
+  category4: string | null;
   crawled_at: string;
 }
 
@@ -74,7 +82,20 @@ export interface StoreProduct {
   image_url: string;
   category: string;
   naver_product_id: string;
+  brand: string;
+  maker: string;
   suggested_keywords: string[];
+}
+
+export interface NaverCategory {
+  name: string;
+  product_count: number;
+  children: NaverCategory[];
+}
+
+export interface NaverCategoryTree {
+  categories: NaverCategory[];
+  total_paths: number;
 }
 
 export interface StoreImportResult {

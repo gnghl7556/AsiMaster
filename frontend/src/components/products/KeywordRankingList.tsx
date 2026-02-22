@@ -121,6 +121,24 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     swipeRef.current.key = null;
   };
 
+  const renderBrandMaker = (brand: string | null, maker: string | null) => {
+    if (!brand && !maker) return null;
+    return (
+      <div className="mt-0.5 flex items-center gap-1 text-[10px] text-[var(--muted-foreground)]">
+        {brand && (
+          <span className="inline-flex items-center rounded-full bg-purple-500/10 px-1.5 py-0.5 font-medium text-purple-500">
+            {brand}
+          </span>
+        )}
+        {maker && (
+          <span className="truncate">
+            {brand && "· "}{maker}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {keywords.map((kw) => (
@@ -332,6 +350,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           <div className="truncate text-sm text-[var(--muted-foreground)]">
                             {item.product_name}
                           </div>
+                          {renderBrandMaker(item.brand, item.maker)}
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-base font-bold tabular-nums">
@@ -395,6 +414,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         <div className="text-xs text-[var(--muted-foreground)] truncate">
                           {item.product_name}
                         </div>
+                        {renderBrandMaker(item.brand, item.maker)}
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm font-bold tabular-nums">

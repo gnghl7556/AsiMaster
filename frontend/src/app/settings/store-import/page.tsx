@@ -343,6 +343,11 @@ export default function StoreImportPage() {
                       <div className="truncate text-xs text-[var(--muted-foreground)]">
                         {p.category}
                       </div>
+                      {(p.brand || p.maker) && (
+                        <div className="truncate text-xs text-[var(--muted-foreground)]">
+                          {[p.brand, p.maker].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
                     </div>
                     <div className="shrink-0 text-right text-sm font-medium tabular-nums">
                       {formatPrice(p.price)}원

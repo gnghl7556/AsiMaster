@@ -178,6 +178,16 @@ export default function ProductDetailPage({
     );
   }
 
+  const firstRanking = product.keywords?.[0]?.rankings?.[0];
+  const naverCategoryPath = [
+    firstRanking?.category1,
+    firstRanking?.category2,
+    firstRanking?.category3,
+    firstRanking?.category4,
+  ]
+    .filter(Boolean)
+    .join(" > ");
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* 헤더 */}
@@ -190,11 +200,24 @@ export default function ProductDetailPage({
         </Link>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{product.name}</h1>
-          {product.category && (
-            <span className="text-sm text-[var(--muted-foreground)]">
-              {product.category}
-            </span>
-          )}
+          <div className="flex flex-col">
+            {naverCategoryPath ? (
+              <span className="text-sm text-[var(--muted-foreground)]">
+                {naverCategoryPath}
+              </span>
+            ) : (
+              product.category && (
+                <span className="text-sm text-[var(--muted-foreground)]">
+                  {product.category}
+                </span>
+              )
+            )}
+            {naverCategoryPath && product.category && product.category !== naverCategoryPath && (
+              <span className="text-xs text-[var(--muted-foreground)]/80">
+                내부 분류: {product.category}
+              </span>
+            )}
+          </div>
         </div>
         <StatusBadge status={product.status} />
       </div>

@@ -6,6 +6,7 @@ import type {
   ExcludedProduct,
   StoreProduct,
   StoreImportResult,
+  NaverCategoryTree,
 } from "@/types";
 import apiClient from "./client";
 
@@ -62,6 +63,11 @@ export const productsApi = {
   previewStoreProducts: (userId: number, storeUrl: string) =>
     apiClient
       .get<StoreProduct[]>(`/users/${userId}/store/products`, { params: { store_url: storeUrl } })
+      .then((r) => r.data),
+
+  getNaverCategories: () =>
+    apiClient
+      .get<NaverCategoryTree>("/naver-categories")
       .then((r) => r.data),
 
   importStoreProducts: (
