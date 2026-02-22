@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils/cn";
 interface Props {
   margin: MarginDetailType;
   simulatedMargin?: MarginDetailType | null;
+  costPriceInput: string;
+  setCostPriceInput: (value: string) => void;
+  currentCostPrice: number;
+  isSavingCostPrice: boolean;
+  onSaveCostPrice: () => void;
   simPrice: string;
   setSimPrice: (value: string) => void;
   currentSellingPrice: number;
@@ -20,6 +25,11 @@ interface Props {
 export function MarginDetail({
   margin,
   simulatedMargin,
+  costPriceInput,
+  setCostPriceInput,
+  currentCostPrice,
+  isSavingCostPrice,
+  onSaveCostPrice,
   simPrice,
   setSimPrice,
   currentSellingPrice,
@@ -73,6 +83,41 @@ export function MarginDetail({
             className="overflow-hidden"
           >
             <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
+              {/* 기준값 설정 */}
+              <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+                <h4 className="text-sm font-medium">기준값 설정</h4>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  수익성 계산에 사용하는 매입비용을 수정할 수 있습니다
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="number"
+                    value={costPriceInput}
+                    onChange={(e) => setCostPriceInput(e.target.value)}
+                    placeholder={`현재 ${formatPrice(currentCostPrice)}원`}
+                    min={1}
+                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors tabular-nums"
+                  />
+                  <button
+                    type="button"
+                    onClick={onSaveCostPrice}
+                    disabled={
+                      isSavingCostPrice ||
+                      !costPriceInput.trim() ||
+                      Number(costPriceInput) <= 0 ||
+                      Number(costPriceInput) === currentCostPrice
+                    }
+                    className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                  >
+                    {isSavingCostPrice ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "매입비용 저장"
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {/* 수식 */}
               <div className="mb-3 flex items-center gap-2 text-sm">
                 <span className="rounded bg-[var(--muted)] px-2 py-0.5">판매가</span>

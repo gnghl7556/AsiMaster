@@ -139,6 +139,13 @@ export default function ProductDetailPage({
     if (price > 0) simMutation.mutate(price);
   };
 
+  const handleSaveCostPrice = () => {
+    const nextCostPrice = Number(editableCostPrice);
+    if (!Number.isFinite(nextCostPrice) || nextCostPrice <= 0) return;
+    if (nextCostPrice === product?.cost_price) return;
+    updateCostPriceMutation.mutate(nextCostPrice);
+  };
+
   useEffect(() => {
     if (!product) return;
     setEditableName(product.name ?? "");
@@ -192,8 +199,14 @@ export default function ProductDetailPage({
         <StatusBadge status={product.status} />
       </div>
 
-      {/* 상품명 수정 */}
+      {/* 상품 기본 정보 */}
       <div className="glass-card p-4">
+        <div className="mb-3">
+          <h3 className="font-medium">상품 기본 정보</h3>
+          <p className="text-xs text-[var(--muted-foreground)] mt-1">
+            상품명은 여기서 수정하고, 매입비용은 수익성 분석 영역에서 수정할 수 있습니다.
+          </p>
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -221,41 +234,6 @@ export default function ProductDetailPage({
             className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
             {updateNameMutation.isPending ? "저장 중..." : "상품명 저장"}
-          </button>
-        </form>
-      </div>
-
-      {/* 매입비용 수정 */}
-      <div className="glass-card p-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const nextCostPrice = Number(editableCostPrice);
-            if (!Number.isFinite(nextCostPrice) || nextCostPrice <= 0) return;
-            if (nextCostPrice === product.cost_price) return;
-            updateCostPriceMutation.mutate(nextCostPrice);
-          }}
-          className="flex flex-col gap-2 sm:flex-row"
-        >
-          <input
-            type="number"
-            value={editableCostPrice}
-            onChange={(e) => setEditableCostPrice(e.target.value)}
-            placeholder="매입비용 입력"
-            min={1}
-            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors tabular-nums"
-          />
-          <button
-            type="submit"
-            disabled={
-              updateCostPriceMutation.isPending ||
-              !editableCostPrice.trim() ||
-              Number(editableCostPrice) <= 0 ||
-              Number(editableCostPrice) === product.cost_price
-            }
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
-            {updateCostPriceMutation.isPending ? "저장 중..." : "매입비용 저장"}
           </button>
         </form>
       </div>
@@ -387,6 +365,11 @@ export default function ProductDetailPage({
         <MarginDetail
           margin={product.margin}
           simulatedMargin={simulatedMargin}
+          costPriceInput={editableCostPrice}
+          setCostPriceInput={setEditableCostPrice}
+          currentCostPrice={product.cost_price}
+          isSavingCostPrice={updateCostPriceMutation.isPending}
+          onSaveCostPrice={handleSaveCostPrice}
           simPrice={simPrice}
           setSimPrice={setSimPrice}
           currentSellingPrice={product.selling_price}
