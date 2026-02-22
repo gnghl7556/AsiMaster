@@ -69,6 +69,7 @@ class CrawlManager:
         product: Product | None = None,
         excluded_ids: set[str] | None = None,
         excluded_malls: set[str] | None = None,
+        my_product_ids: set[str] | None = None,
     ) -> None:
         """크롤링 결과를 DB에 저장 (순차 호출)."""
         log = CrawlLog(
@@ -91,13 +92,13 @@ class CrawlManager:
                     bool(naver_store_name)
                     and item.mall_name.strip().lower() == naver_store_name.strip().lower()
                 )
-                # 모니터링 대상 상품 자체이면 경쟁 대상에서 제외
-                is_self = (
-                    product
-                    and product.naver_product_id
-                    and item.naver_product_id == product.naver_product_id
+                # 내 등록 상품이면 경쟁 대상에서 제외 (자기 자신 + 내 스토어의 다른 상품)
+                is_my_product = (
+                    my_product_ids
+                    and item.naver_product_id
+                    and item.naver_product_id in my_product_ids
                 )
-                is_relevant = False if is_self else _check_relevance(item, product)
+                is_relevant = False if is_my_product else _check_relevance(item, product)
 
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,
@@ -155,6 +156,16 @@ class CrawlManager:
         excluded_ids = {ep.naver_product_id for ep in excluded_rows}
         excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
+        # 유저의 모든 등록 상품 naver_product_id 수집 (내 스토어 다른 제품 제외용)
+        all_products_result = await db.execute(
+            select(Product.naver_product_id).where(
+                Product.user_id == product.user_id,
+                Product.is_active == True,
+                Product.naver_product_id.isnot(None),
+            )
+        )
+        my_product_ids = {pid for pid in all_products_result.scalars().all() if pid}
+
         # 병렬 API 호출
         sem = asyncio.Semaphore(settings.CRAWL_CONCURRENCY)
 
@@ -179,6 +190,7 @@ class CrawlManager:
                 db, kw, crawl_result, naver_store_name, duration_ms,
                 product=product, excluded_ids=excluded_ids,
                 excluded_malls=excluded_malls,
+                my_product_ids=my_product_ids,
             )
             results.append(crawl_result)
 
@@ -228,6 +240,16 @@ class CrawlManager:
         for pid in product_ids:
             products_cache[pid] = await db.get(Product, pid)
 
+        # 유저의 모든 등록 상품 naver_product_id 수집 (내 스토어 다른 제품 제외용)
+        all_products_result = await db.execute(
+            select(Product.naver_product_id).where(
+                Product.user_id == user_id,
+                Product.is_active == True,
+                Product.naver_product_id.isnot(None),
+            )
+        )
+        my_product_ids = {pid for pid in all_products_result.scalars().all() if pid}
+
         # 2. 키워드 문자열+정렬유형 기준 중복 제거
         unique_map: dict[tuple[str, str], list[SearchKeyword]] = {}
         for kw in all_keywords:
@@ -267,6 +289,7 @@ class CrawlManager:
                     db, kw, crawl_result, naver_store_name, duration_ms,
                     product=product, excluded_ids=excluded_ids,
                     excluded_malls=excluded_malls,
+                    my_product_ids=my_product_ids,
                 )
                 total += 1
                 if crawl_result.success:
