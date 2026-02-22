@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.alert import Alert, AlertSetting
+from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -35,19 +36,37 @@ async def check_price_undercut(
     if not enabled:
         return
 
-    # 각 키워드의 최신 rankings에서 최저가 찾기
+    # 블랙리스트 조회
+    ex_result = await db.execute(
+        select(ExcludedProduct).where(ExcludedProduct.product_id == product.id)
+    )
+    excluded_rows = ex_result.scalars().all()
+    excluded_ids = {ep.naver_product_id for ep in excluded_rows}
+    excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
+
+    # 각 키워드의 최신 rankings에서 최저가 찾기 (관련 상품만, 블랙리스트 제외)
     all_latest = []
     for kw in keywords:
         result = await db.execute(
             select(KeywordRanking)
-            .where(KeywordRanking.keyword_id == kw.id)
+            .where(
+                KeywordRanking.keyword_id == kw.id,
+                KeywordRanking.is_relevant == True,
+            )
             .order_by(KeywordRanking.crawled_at.desc())
             .limit(10)
         )
         rankings = result.scalars().all()
         if rankings:
             latest_time = rankings[0].crawled_at
-            all_latest.extend([r for r in rankings if r.crawled_at == latest_time])
+            for r in rankings:
+                if r.crawled_at != latest_time:
+                    break
+                if r.naver_product_id and r.naver_product_id in excluded_ids:
+                    continue
+                if r.mall_name and r.mall_name.strip().lower() in excluded_malls:
+                    continue
+                all_latest.append(r)
 
     if not all_latest:
         return

@@ -37,6 +37,7 @@ class NaverCrawler(BaseCrawler):
                     "query": keyword,
                     "display": self.MAX_RESULTS,
                     "sort": sort_type,
+                    "exclude": "used:rental:cbshop",
                 },
                 headers={
                     "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
@@ -50,16 +51,8 @@ class NaverCrawler(BaseCrawler):
             if not raw_items:
                 return KeywordCrawlResult(keyword=keyword, success=False, error=f"검색 결과 없음: {keyword}")
 
-            # 중고/리퍼 제외 (productType: 1=일반)
-            new_items = [
-                item for item in raw_items
-                if str(item.get("productType", "1")) == "1"
-            ]
-            if not new_items:
-                new_items = raw_items
-
             items = []
-            for idx, item in enumerate(new_items[:self.MAX_RESULTS], start=1):
+            for idx, item in enumerate(raw_items[:self.MAX_RESULTS], start=1):
                 items.append(RankingItem(
                     rank=idx,
                     product_name=_strip_html(item.get("title", "")),
