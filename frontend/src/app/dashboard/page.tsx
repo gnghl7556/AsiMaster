@@ -1,8 +1,9 @@
 "use client";
 
+import { ActionQueue } from "@/components/dashboard/ActionQueue";
 import { DashboardSummary } from "@/components/dashboard/DashboardSummary";
-import { ProductList } from "@/components/products/ProductList";
-import { SortDropdown } from "@/components/products/SortDropdown";
+import { QuickLinksPanel } from "@/components/dashboard/QuickLinksPanel";
+import { RecentAlertsPanel } from "@/components/dashboard/RecentAlertsPanel";
 import { useUserStore } from "@/stores/useUserStore";
 import { useCrawlAll } from "@/lib/hooks/useCrawl";
 
@@ -28,12 +29,12 @@ export default function DashboardPage() {
         isRefreshing={crawlAll.isPending}
       />
 
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">상품 한눈에 보기</h2>
-          <SortDropdown />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
+        <ActionQueue />
+        <div className="space-y-4">
+          <RecentAlertsPanel />
+          <QuickLinksPanel />
         </div>
-        <ProductList hideMeta />
       </div>
     </div>
   );
