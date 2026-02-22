@@ -136,6 +136,7 @@ export default function StoreImportPage() {
           selling_price: p.price,
           image_url: p.image_url || undefined,
           category: p.category || undefined,
+          naver_product_id: p.naver_product_id,
           keywords: Array.from(selectedKeywords.get(p.naver_product_id) || []),
         }))
       ),

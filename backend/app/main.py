@@ -25,6 +25,7 @@ async def apply_schema_changes(session):
     alter_statements = [
         ("users", "naver_store_name", "VARCHAR(200)", None),
         ("users", "crawl_interval_min", "INTEGER", "60"),
+        ("products", "naver_product_id", "VARCHAR(50)", None),
         ("products", "model_code", "VARCHAR(100)", None),
         ("products", "spec_keywords", "JSONB", "'[]'"),
         ("keyword_rankings", "naver_product_id", "VARCHAR(50)", None),

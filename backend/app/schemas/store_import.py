@@ -17,6 +17,7 @@ class StoreImportItem(BaseModel):
     selling_price: int = Field(..., ge=0)
     image_url: str | None = None
     category: str | None = None
+    naver_product_id: str | None = None
     keywords: list[str] | None = None
 
 

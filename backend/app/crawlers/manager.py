@@ -91,7 +91,13 @@ class CrawlManager:
                     bool(naver_store_name)
                     and item.mall_name.strip().lower() == naver_store_name.strip().lower()
                 )
-                is_relevant = _check_relevance(item, product)
+                # 모니터링 대상 상품 자체이면 경쟁 대상에서 제외
+                is_self = (
+                    product
+                    and product.naver_product_id
+                    and item.naver_product_id == product.naver_product_id
+                )
+                is_relevant = False if is_self else _check_relevance(item, product)
 
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,

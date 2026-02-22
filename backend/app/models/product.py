@@ -23,6 +23,7 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String(500))
     is_price_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     price_lock_reason: Mapped[str | None] = mapped_column(String(200))
+    naver_product_id: Mapped[str | None] = mapped_column(String(50))
     model_code: Mapped[str | None] = mapped_column(String(100))
     spec_keywords: Mapped[list | None] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

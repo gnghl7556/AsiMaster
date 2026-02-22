@@ -84,6 +84,7 @@ async def import_store_products(
             cost_price=0,
             image_url=item.image_url,
             category=item.category,
+            naver_product_id=item.naver_product_id,
         )
         db.add(product)
         await db.flush()

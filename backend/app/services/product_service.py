@@ -385,6 +385,7 @@ async def get_product_detail(
         "selling_price": product.selling_price,
         "cost_price": product.cost_price,
         "image_url": product.image_url,
+        "naver_product_id": product.naver_product_id,
         "model_code": product.model_code,
         "spec_keywords": product.spec_keywords,
         "is_price_locked": product.is_price_locked,

@@ -11,6 +11,7 @@ class ProductCreate(BaseModel):
     cost_price: int = Field(..., ge=0)
     selling_price: int = Field(..., ge=0)
     image_url: str | None = None
+    naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
 
@@ -21,6 +22,7 @@ class ProductUpdate(BaseModel):
     cost_price: int | None = Field(None, ge=0)
     selling_price: int | None = Field(None, ge=0)
     image_url: str | None = None
+    naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
 
@@ -38,6 +40,7 @@ class ProductResponse(BaseModel):
     cost_price: int
     selling_price: int
     image_url: str | None
+    naver_product_id: str | None
     model_code: str | None
     spec_keywords: list[str] | None
     is_price_locked: bool
@@ -123,6 +126,7 @@ class ProductDetail(BaseModel):
     selling_price: int
     cost_price: int
     image_url: str | None
+    naver_product_id: str | None
     model_code: str | None
     spec_keywords: list[str] | None
     is_price_locked: bool

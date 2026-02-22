@@ -66,7 +66,7 @@ export const productsApi = {
 
   importStoreProducts: (
     userId: number,
-    products: { name: string; selling_price: number; image_url?: string; category?: string; keywords?: string[] }[]
+    products: { name: string; selling_price: number; image_url?: string; category?: string; naver_product_id?: string; keywords?: string[] }[]
   ) =>
     apiClient
       .post<StoreImportResult>(`/users/${userId}/store/import`, { products })

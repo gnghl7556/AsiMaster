@@ -131,6 +131,14 @@ Product → CostItems
 
 ## API 변경 이력
 
+### 2026-02-21: 상품 naver_product_id 매칭 + 자기 상품 자동 제외
+- `Product` 모델에 `naver_product_id` 필드 추가 (네이버 쇼핑 고유 상품번호)
+- 스토어 상품 불러오기 시 `naver_product_id` 자동 저장
+- `ProductCreate`, `ProductUpdate` 스키마에 `naver_product_id` 필드 추가
+- `StoreImportItem`에 `naver_product_id` 필드 추가
+- 크롤링 시 검색 결과의 `naver_product_id`가 모니터링 상품과 동일하면 `is_relevant=false` 자동 처리
+- 내 스토어의 **다른** 상품은 경쟁 목록에 정상 표시 (Ban도 가능)
+
 ### 2026-02-21: 상품 복수 삭제 + 크롤링 주기 설정 수정
 - `POST /api/v1/users/{user_id}/products/bulk-delete` — 상품 복수 삭제
   - Request: `{ product_ids: [1, 2, 3] }` (최소 1개)
