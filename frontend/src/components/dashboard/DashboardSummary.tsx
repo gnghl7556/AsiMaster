@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingDown, Minus, RefreshCw, Loader2 } from "lucide-react";
+import { TrendingDown, Minus, RefreshCw, Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 import { useProductList } from "@/lib/hooks/useProducts";
@@ -28,8 +28,8 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   if (isLoading) {
     return (
       <div className="flex gap-2">
-        <div className="grid grid-cols-2 gap-2 flex-1">
-          {[...Array(2)].map((_, i) => (
+        <div className="grid grid-cols-3 gap-2 flex-1">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="skeleton h-24" />
           ))}
         </div>
@@ -41,6 +41,9 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   if (!data) return null;
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
+  const normalProducts = activeProducts.filter(
+    (p) => p.status === "winning" || p.status === "close"
+  );
   const samePriceCount = products.filter(
     (p) => !p.is_price_locked && p.price_gap === 0
   ).length;
@@ -60,6 +63,13 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
 
   const cards: SummaryCard[] = [
     {
+      label: "정상",
+      value: normalProducts.length,
+      time: latestDetectedAt(normalProducts),
+      icon: ShieldCheck,
+      color: "text-emerald-500",
+    },
+    {
       label: "밀림",
       value: data.status_counts.losing,
       time: latestDetectedAt(losingProducts),
@@ -78,7 +88,7 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   return (
     <div>
       <div className="flex gap-2">
-        <div className="grid grid-cols-2 gap-2 flex-1">
+        <div className="grid grid-cols-3 gap-2 flex-1">
           {cards.map((card, idx) => (
             <motion.div
               key={card.label}
