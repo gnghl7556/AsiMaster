@@ -15,7 +15,11 @@ type QueueItem = ProductListItem & {
 function buildQueue(products: ProductListItem[]): QueueItem[] {
   const active = products.filter((p) => !p.is_price_locked);
   const queue = active
-    .filter((p) => p.status === "losing" || p.price_gap === 0)
+    .filter(
+      (p) =>
+        p.status === "losing" ||
+        (p.price_gap === 0 && p.status !== "winning")
+    )
     .map((p): QueueItem => ({
       ...p,
       issueType: p.status === "losing" ? "losing" : "same_price",
