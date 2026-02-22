@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -18,6 +18,58 @@ import { formatPrice } from "@/lib/utils/format";
 import type { StoreProduct } from "@/types";
 import { cn } from "@/lib/utils/cn";
 
+const SMARTSTORE_URL_PREFIX = "https://smartstore.naver.com/";
+const LAST_STORE_URL_KEY = "asimaster:last-smartstore-url";
+
+type StoreInputParseResult =
+  | { kind: "empty" }
+  | { kind: "url"; normalizedUrl: string }
+  | { kind: "slug"; normalizedUrl: string; slug: string }
+  | { kind: "business_name"; input: string }
+  | { kind: "invalid_url"; input: string };
+
+function parseStoreInput(raw: string): StoreInputParseResult {
+  const value = raw.trim();
+  if (!value) return { kind: "empty" };
+
+  if (/^smartstore\.naver\.com\//i.test(value)) {
+    return {
+      kind: "url",
+      normalizedUrl: `https://${value.replace(/^https?:\/\//i, "")}`,
+    };
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const url = new URL(value);
+      if (url.hostname !== "smartstore.naver.com") {
+        return { kind: "invalid_url", input: value };
+      }
+      return { kind: "url", normalizedUrl: url.toString() };
+    } catch {
+      return { kind: "invalid_url", input: value };
+    }
+  }
+
+  const hasKorean = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(value);
+  const hasWhitespace = /\s/.test(value);
+  const looksLikeSlug = /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,49}$/.test(value);
+
+  if (looksLikeSlug) {
+    return {
+      kind: "slug",
+      slug: value,
+      normalizedUrl: `${SMARTSTORE_URL_PREFIX}${value}`,
+    };
+  }
+
+  if (hasKorean || hasWhitespace) {
+    return { kind: "business_name", input: value };
+  }
+
+  return { kind: "invalid_url", input: value };
+}
+
 export default function StoreImportPage() {
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
@@ -27,6 +79,9 @@ export default function StoreImportPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedKeywords, setSelectedKeywords] = useState<Map<string, Set<string>>>(new Map());
   const [hasPreviewed, setHasPreviewed] = useState(false);
+  const [lastStoreUrl, setLastStoreUrl] = useState<string>("");
+
+  const parsedStoreInput = useMemo(() => parseStoreInput(storeUrl), [storeUrl]);
 
   const selectedCount = selectedIds.size;
   const allSelected =
@@ -37,9 +92,18 @@ export default function StoreImportPage() {
     [storeProducts, selectedIds]
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(LAST_STORE_URL_KEY);
+    if (saved) {
+      setLastStoreUrl(saved);
+      setStoreUrl(saved);
+    }
+  }, []);
+
   const previewMutation = useMutation({
     mutationFn: (url: string) => productsApi.previewStoreProducts(userId!, url),
-    onSuccess: (data) => {
+    onSuccess: (data, url) => {
       setHasPreviewed(true);
       setStoreProducts(data);
       setSelectedIds(new Set(data.map((p) => p.naver_product_id)));
@@ -48,6 +112,11 @@ export default function StoreImportPage() {
         kwMap.set(p.naver_product_id, new Set(p.suggested_keywords || []));
       });
       setSelectedKeywords(kwMap);
+      setStoreUrl(url);
+      setLastStoreUrl(url);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(LAST_STORE_URL_KEY, url);
+      }
       if (data.length === 0) {
         toast.info("해당 스토어에서 상품을 찾을 수 없습니다");
       }
@@ -118,9 +187,21 @@ export default function StoreImportPage() {
       toast.error("사업체를 먼저 선택해주세요");
       return;
     }
-    const url = storeUrl.trim();
-    if (!url) return;
-    previewMutation.mutate(url);
+    if (parsedStoreInput.kind === "empty") return;
+
+    if (parsedStoreInput.kind === "business_name") {
+      toast.error(
+        "상호명만으로는 스토어 주소를 찾기 어렵습니다. 스마트스토어 URL 또는 주소 마지막 아이디를 입력해주세요."
+      );
+      return;
+    }
+
+    if (parsedStoreInput.kind === "invalid_url") {
+      toast.error("스마트스토어 URL 또는 스토어 아이디를 확인해주세요");
+      return;
+    }
+
+    previewMutation.mutate(parsedStoreInput.normalizedUrl);
   };
 
   const handleImport = () => {
@@ -146,14 +227,24 @@ export default function StoreImportPage() {
           <h2 className="font-medium">스마트스토어 상품 불러오기</h2>
         </div>
         <p className="text-sm text-[var(--muted-foreground)]">
-          스토어 URL을 입력하면 판매 중인 상품을 미리보고 선택 등록할 수 있습니다.
+          스마트스토어 URL 또는 스토어 아이디를 입력하면 상품을 미리보고 선택 등록할 수 있습니다.
         </p>
+        {lastStoreUrl && (
+          <button
+            type="button"
+            onClick={() => setStoreUrl(lastStoreUrl)}
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)] px-2.5 py-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          >
+            최근 사용
+            <span className="truncate text-[var(--foreground)]">{lastStoreUrl}</span>
+          </button>
+        )}
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
-            type="url"
+            type="text"
             value={storeUrl}
             onChange={(e) => setStoreUrl(e.target.value)}
-            placeholder="https://smartstore.naver.com/내스토어"
+            placeholder="스토어 URL 또는 주소 마지막 아이디 (예: asmt)"
             className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
           />
           <button
@@ -169,6 +260,36 @@ export default function StoreImportPage() {
             )}
             상품 불러오기
           </button>
+        </div>
+        <div className="min-h-5 text-xs text-[var(--muted-foreground)]">
+          {parsedStoreInput.kind === "slug" && (
+            <span>
+              스토어 아이디로 인식됨:{" "}
+              <span className="text-[var(--foreground)]">
+                {parsedStoreInput.normalizedUrl}
+              </span>
+            </span>
+          )}
+          {parsedStoreInput.kind === "business_name" && (
+            <span className="text-amber-600 dark:text-amber-400">
+              현재 입력은 상호명처럼 보입니다. 스토어 URL 또는 주소 마지막 아이디를 입력해주세요.
+            </span>
+          )}
+          {parsedStoreInput.kind === "invalid_url" && (
+            <span className="text-rose-600 dark:text-rose-400">
+              `smartstore.naver.com/스토어아이디` 형식의 URL 또는 스토어 아이디를 입력해주세요.
+            </span>
+          )}
+          {(parsedStoreInput.kind === "empty" || parsedStoreInput.kind === "url") && (
+            <span>
+              예:{" "}
+              <span className="text-[var(--foreground)]">
+                https://smartstore.naver.com/내스토어
+              </span>{" "}
+              또는{" "}
+              <span className="text-[var(--foreground)]">내스토어</span>
+            </span>
+          )}
         </div>
       </div>
 
