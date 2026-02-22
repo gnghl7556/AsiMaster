@@ -43,6 +43,7 @@ export default function ProductDetailPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
+  const [editableCostPrice, setEditableCostPrice] = useState("");
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -113,6 +114,17 @@ export default function ProductDetailPage({
     onError: () => toast.error("상품명 수정에 실패했습니다"),
   });
 
+  const updateCostPriceMutation = useMutation({
+    mutationFn: (cost_price: number) =>
+      productsApi.update(userId!, productId, { cost_price }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("매입비용이 수정되었습니다");
+    },
+    onError: () => toast.error("매입비용 수정에 실패했습니다"),
+  });
+
   // 마진 시뮬레이션
   const [simPrice, setSimPrice] = useState("");
   const [simulatedMargin, setSimulatedMargin] = useState<MarginDetailType | null>(null);
@@ -128,10 +140,10 @@ export default function ProductDetailPage({
   };
 
   useEffect(() => {
-    if (product?.name) {
-      setEditableName(product.name);
-    }
-  }, [product?.name]);
+    if (!product) return;
+    setEditableName(product.name ?? "");
+    setEditableCostPrice(String(product.cost_price ?? ""));
+  }, [product]);
 
   if (isLoading) {
     return (
@@ -209,6 +221,41 @@ export default function ProductDetailPage({
             className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
             {updateNameMutation.isPending ? "저장 중..." : "상품명 저장"}
+          </button>
+        </form>
+      </div>
+
+      {/* 매입비용 수정 */}
+      <div className="glass-card p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const nextCostPrice = Number(editableCostPrice);
+            if (!Number.isFinite(nextCostPrice) || nextCostPrice <= 0) return;
+            if (nextCostPrice === product.cost_price) return;
+            updateCostPriceMutation.mutate(nextCostPrice);
+          }}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <input
+            type="number"
+            value={editableCostPrice}
+            onChange={(e) => setEditableCostPrice(e.target.value)}
+            placeholder="매입비용 입력"
+            min={1}
+            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors tabular-nums"
+          />
+          <button
+            type="submit"
+            disabled={
+              updateCostPriceMutation.isPending ||
+              !editableCostPrice.trim() ||
+              Number(editableCostPrice) <= 0 ||
+              Number(editableCostPrice) === product.cost_price
+            }
+            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+          >
+            {updateCostPriceMutation.isPending ? "저장 중..." : "매입비용 저장"}
           </button>
         </form>
       </div>
