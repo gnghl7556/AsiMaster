@@ -19,6 +19,7 @@ class RankingItem:
     category2: str = ""
     category3: str = ""
     category4: str = ""
+    shipping_fee: int = 0
 
 
 @dataclass

@@ -95,6 +95,7 @@ class CompetitorSummary(BaseModel):
     hprice: int = 0
     brand: str | None = None
     maker: str | None = None
+    shipping_fee: int = 0
 
 
 class ExcludeProductRequest(BaseModel):

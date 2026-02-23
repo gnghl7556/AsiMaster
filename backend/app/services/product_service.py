@@ -62,11 +62,11 @@ def _filter_relevant(rankings: list, excluded_ids: set[str], excluded_malls: set
 
 
 def _find_lowest(relevant_rankings: list) -> tuple[int | None, str | None]:
-    """최저가 + 판매자 반환."""
+    """배송비 포함 최저 총액 + 판매자 반환."""
     if not relevant_rankings:
         return None, None
-    lowest = min(relevant_rankings, key=lambda r: r.price)
-    return lowest.price, lowest.mall_name
+    lowest = min(relevant_rankings, key=lambda r: r.price + (r.shipping_fee or 0))
+    return lowest.price + (lowest.shipping_fee or 0), lowest.mall_name
 
 
 def _calc_price_gap(selling_price: int, lowest_price: int | None) -> tuple[int | None, float | None]:
@@ -153,7 +153,7 @@ async def _fetch_sparkline_data(
     query = (
         select(
             func.date(KeywordRanking.crawled_at).label("day"),
-            func.min(KeywordRanking.price).label("min_price"),
+            func.min(KeywordRanking.price + func.coalesce(KeywordRanking.shipping_fee, 0)).label("min_price"),
         )
         .where(
             KeywordRanking.keyword_id.in_(keyword_ids),
@@ -444,6 +444,7 @@ async def get_product_detail(
             "hprice": r.hprice or 0,
             "brand": r.brand,
             "maker": r.maker,
+            "shipping_fee": r.shipping_fee or 0,
         })
 
     # 키워드별 최신 순위
@@ -484,6 +485,7 @@ async def get_product_detail(
                     "category2": r.category2,
                     "category3": r.category3,
                     "category4": r.category4,
+                    "shipping_fee": r.shipping_fee or 0,
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest

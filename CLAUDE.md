@@ -110,6 +110,7 @@ Product → CostItems
 14. 네이버 API 전체 필드 저장 (hprice, brand, maker, productType, category1~4)
 15. 네이버 카테고리 트리 API (크롤링 데이터 기반 계층 구조)
 16. SEO 키워드 엔진 (토큰 분류 + 가중치 기반 키워드 추천 API)
+17. 배송비 포함 가격 비교 (스마트스토어 배송비 스크래핑 + 총액 기준 최저가)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -271,3 +272,25 @@ Product → CostItems
 
 **변경된 파일:**
 - `store_scraper.py`: `suggest_keywords()` 내부를 키워드 엔진 분류기 기반으로 교체
+
+### 2026-02-24: 배송비 포함 가격 비교 (Shipping Fee Integration)
+
+**KeywordRanking 모델 확장:**
+- `shipping_fee` (INTEGER, 기본값 0): 배송비
+
+**크롤링 변경:**
+- 네이버 쇼핑 API 검색 후, 스마트스토어 상품(`smartstore.naver.com`, `brand.naver.com`)의 배송비를 페이지 스크래핑으로 추출
+- `__PRELOADED_STATE__` JSON에서 delivery.deliveryFee.baseFee 추출
+- 비스마트스토어(옥션, 11번가 등)는 `shipping_fee=0` 기본값
+- Semaphore(3)으로 동시 배송비 스크래핑 제한, 실패 시 graceful fallback(0)
+
+**가격 비교 로직 변경:**
+- `lowest_price`: 기존 상품가격만 → **배송비 포함 총액** (`price + shipping_fee`)
+- `sparkline`: 일별 최저가가 **배송비 포함 총액** 기준
+- `price_gap`, `price_gap_percent`: 총액 기준으로 자동 반영
+- `status` (winning/close/losing): 총액 기준으로 자동 반영
+
+**스키마 변경:**
+- `RankingItemResponse`에 `shipping_fee: int = 0` 필드 추가
+- `CompetitorSummary`에 `shipping_fee: int = 0` 필드 추가
+- 상품 상세 API keywords[].rankings[]에 `shipping_fee` 필드 포함

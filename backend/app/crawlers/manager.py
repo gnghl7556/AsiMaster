@@ -145,6 +145,7 @@ class CrawlManager:
                     category2=item.category2,
                     category3=item.category3,
                     category4=item.category4,
+                    shipping_fee=item.shipping_fee,
                 )
                 db.add(ranking)
 
