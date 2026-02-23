@@ -117,7 +117,7 @@ export function ActionQueue() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-[var(--muted-foreground)]">최저가</div>
+                      <div className="text-[var(--muted-foreground)]">최저 총액</div>
                       <div className="tabular-nums font-semibold">
                         {formatPrice(product.lowest_price)}원
                       </div>

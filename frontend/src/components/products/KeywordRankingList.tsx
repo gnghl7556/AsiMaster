@@ -251,7 +251,8 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                     ) : (
                       visibleRankings.map((item, index) => {
                 const displayRank = index + 1;
-                const diffFromMe = item.price - myPrice;
+                const totalPrice = item.price + (item.shipping_fee || 0);
+                const diffFromMe = totalPrice - myPrice;
                 const itemKey = getItemKey(kw.id, item.id);
                 const canOpenLink = Boolean(item.product_url);
                 const canBan = !item.is_my_store && Boolean(item.naver_product_id);
@@ -354,8 +355,13 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-base font-bold tabular-nums">
-                            {formatPrice(item.price)}원
+                            {formatPrice(totalPrice)}원
                           </div>
+                          {item.shipping_fee > 0 && (
+                            <div className="text-[10px] text-[var(--muted-foreground)]">
+                              배송비 +{formatPrice(item.shipping_fee)}원
+                            </div>
+                          )}
                           <div
                             className={cn(
                               "text-xs tabular-nums",
@@ -418,8 +424,13 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm font-bold tabular-nums">
-                          {formatPrice(item.price)}원
+                          {formatPrice(totalPrice)}원
                         </div>
+                        {item.shipping_fee > 0 && (
+                          <div className="text-[10px] text-[var(--muted-foreground)]">
+                            배송비 +{formatPrice(item.shipping_fee)}원
+                          </div>
+                        )}
                         <div
                           className={cn(
                             "text-xs tabular-nums",

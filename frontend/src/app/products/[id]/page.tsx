@@ -270,7 +270,7 @@ export default function ProductDetailPage({
           </div>
         </div>
         <div className="glass-card p-4 text-center">
-          <div className="text-sm text-[var(--muted-foreground)]">최저가</div>
+          <div className="text-sm text-[var(--muted-foreground)]">최저 총액</div>
           <div className="text-lg font-bold mt-1 tabular-nums">
             {formatPrice(product.lowest_price)}
           </div>

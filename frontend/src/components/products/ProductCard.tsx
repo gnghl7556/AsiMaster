@@ -86,7 +86,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <div className="text-right">
-            <div className="text-[11px] text-[var(--muted-foreground)]">최저가</div>
+            <div className="text-[11px] text-[var(--muted-foreground)]">최저 총액</div>
             <div className="font-semibold tabular-nums">{formatPrice(product.lowest_price)}</div>
             {product.lowest_seller && (
               <div className="truncate text-[11px] text-[var(--muted-foreground)]">

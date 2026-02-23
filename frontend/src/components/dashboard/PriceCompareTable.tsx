@@ -24,7 +24,7 @@ export function PriceCompareTable() {
             <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)]">
               <th className="px-4 py-2 text-left font-medium">상품명</th>
               <th className="px-4 py-2 text-right font-medium">내 가격</th>
-              <th className="px-4 py-2 text-right font-medium">최저가</th>
+              <th className="px-4 py-2 text-right font-medium">최저 총액</th>
               <th className="px-4 py-2 text-right font-medium">차이</th>
               <th className="px-4 py-2 text-center font-medium">상태</th>
             </tr>

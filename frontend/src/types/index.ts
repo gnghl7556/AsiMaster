@@ -65,6 +65,7 @@ export interface RankingItem {
   category2: string | null;
   category3: string | null;
   category4: string | null;
+  shipping_fee: number;
   crawled_at: string;
 }
 

@@ -10,7 +10,7 @@ import type { Alert } from "@/types";
 import { cn } from "@/lib/utils/cn";
 
 const ALERT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  price_undercut: { label: "최저가 이탈", color: "text-red-500" },
+  price_undercut: { label: "최저 총액 이탈", color: "text-red-500" },
   new_competitor: { label: "신규 경쟁자", color: "text-amber-500" },
   price_surge: { label: "가격 급변동", color: "text-blue-500" },
 };

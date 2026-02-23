@@ -7,8 +7,8 @@ import { alertsApi } from "@/lib/api/alerts";
 
 const TYPE_LABELS: Record<string, { label: string; description: string }> = {
   price_undercut: {
-    label: "최저가 이탈",
-    description: "내 상품이 최저가에서 밀릴 때",
+    label: "최저 총액 이탈",
+    description: "배송비 포함 최저 총액 기준에서 밀릴 때",
   },
   new_competitor: {
     label: "신규 경쟁자",
