@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import re
 from dataclasses import dataclass
@@ -48,12 +50,13 @@ def suggest_keywords(
     product_name: str,
     store_name: str | None = None,
 ) -> list[str]:
-    """상품명에서 검색 키워드 5개 자동 추출.
+    """상품명에서 검색 키워드 5개 자동 추출 (키워드 엔진 활용).
 
-    우선순위:
-    - 모델명(5자리+ 숫자) > 규격/단위 > 브랜드 + 제품종류 조합
-    - 모델명 없는 경우 fallback 로직 적용
+    DB 세션 없이 호출되므로 db_brands/db_types=None으로 분류기 사용.
     """
+    from app.services.keyword_engine.classifier import classify_tokens
+    from app.services.keyword_engine.generator import generate_keywords
+
     name = product_name.strip()
 
     # 스토어명 제거
@@ -61,92 +64,14 @@ def suggest_keywords(
         for variant in [store_name, store_name.replace(" ", "")]:
             name = re.sub(re.escape(variant), "", name, flags=re.IGNORECASE).strip()
 
-    # --- 요소 추출 ---
-    # 모델명 (5자리 이상 연속 숫자)
-    model_match = re.search(r"(\d{5,})", name)
-    model = model_match.group(1) if model_match else None
+    # 키워드 엔진으로 분류 + 생성
+    tokens = classify_tokens(name)
+    generated = generate_keywords(tokens, max_count=5)
 
-    # 수량/단위 (200개입, 30개, 500ml 등)
-    qty_pattern = (
-        r"\d+(?:\.\d+)?(?:개입|개|매|장|롤|팩|박스|캔|병|봉|포|세트|묶음|켤레|족"
-        r"|ea|pcs|pack|ml|mL|ML|L|g|kg|KG|cm|mm|oz)"
-    )
-    quantities = re.findall(qty_pattern, name, re.IGNORECASE)
-
-    # 규격 (소형, 중형, 대형 등)
-    size_pattern = r"(소형|중형|대형|특대형|특대|미니|점보)"
-    sizes = re.findall(size_pattern, name)
-
-    # --- 핵심 단어 추출 (모델/수량/규격 제거) ---
-    core = name
-    if model:
-        core = core.replace(model, "", 1)
-    for q in quantities:
-        core = core.replace(q, "", 1)
-    for s in sizes:
-        core = core.replace(s, "", 1)
-    core_words = [w for w in core.split() if w.strip()]
-
-    all_core = " ".join(core_words)
-    # 첫 단어 = 브랜드, 마지막 단어 = 제품종류 (휴리스틱)
-    first_brand = core_words[0] if core_words else ""
-    type_word = core_words[-1] if core_words else ""
-    # type_word가 brand와 같으면 (단어 1개뿐) 구분 없음
-    if first_brand == type_word and len(core_words) == 1:
-        first_brand = ""
-
-    first_spec = sizes[0] if sizes else ""
-    first_qty = quantities[0] if quantities else ""
-
-    # --- 키워드 생성 ---
-    keywords: list[str] = []
-
-    if model:
-        # 모델명 있는 경우
-        keywords.append(model)
-        if type_word:
-            keywords.append(f"{type_word} {model}")
-        if first_brand:
-            keywords.append(f"{first_brand} {model}")
-        if all_core and first_spec:
-            keywords.append(f"{all_core} {first_spec}")
-        elif all_core:
-            keywords.append(all_core)
-        if type_word and first_qty:
-            keywords.append(f"{type_word} {model} {first_qty}")
-        elif type_word and first_spec:
-            keywords.append(f"{type_word} {model} {first_spec}")
-        elif all_core and first_qty:
-            keywords.append(f"{all_core} {first_qty}")
-    else:
-        # 모델명 없는 경우 (fallback)
-        if all_core:
-            keywords.append(all_core)
-        if type_word and type_word != all_core:
-            keywords.append(type_word)
-        if all_core and first_spec:
-            keywords.append(f"{all_core} {first_spec}")
-        if type_word and first_qty:
-            keywords.append(f"{type_word} {first_qty}")
-        if first_brand and type_word:
-            keywords.append(f"{first_brand} {type_word}")
-        if all_core and first_qty:
-            keywords.append(f"{all_core} {first_qty}")
-        if type_word and first_spec:
-            keywords.append(f"{type_word} {first_spec}")
-
-    # 중복 제거 + 최대 5개
-    seen: set[str] = set()
-    result: list[str] = []
-    for kw in keywords:
-        kw = kw.strip()
-        if kw and kw.lower() not in seen:
-            seen.add(kw.lower())
-            result.append(kw)
-        if len(result) >= 5:
-            break
+    result = [g.keyword for g in generated]
 
     # 5개 미만이면 전체 상품명(클린)으로 보충
+    seen = {kw.lower() for kw in result}
     clean = name.strip()
     if len(result) < 5 and clean and clean.lower() not in seen:
         result.append(clean)
@@ -173,7 +98,9 @@ async def _get_store_info(store_slug: str) -> StoreInfo:
     m = re.search(r'"channelName"\s*:\s*"([^"]+)"', html)
     if not m:
         raise ValueError("스토어 이름을 찾을 수 없습니다. URL을 확인해주세요.")
-    channel_name = m.group(1)
+    channel_name = _sanitize_channel_name(m.group(1))
+    if not channel_name:
+        raise ValueError("스토어 이름이 비어있습니다.")
 
     # channelNo 추출
     channel_no = None
@@ -193,6 +120,16 @@ ALLOWED_STORE_HOSTS = {
 }
 
 
+_MAX_SLUG_LEN = 50
+_DANGEROUS_CHARS = re.compile(r'[<>"\';&]')
+
+
+def _sanitize_channel_name(name: str) -> str:
+    """channel_name에서 위험 문자 제거 및 길이 제한."""
+    name = _DANGEROUS_CHARS.sub("", name).strip()
+    return name[:100]
+
+
 def parse_store_slug(store_url: str) -> str:
     """스마트스토어 URL에서 slug 추출.
 
@@ -209,6 +146,8 @@ def parse_store_slug(store_url: str) -> str:
         slug = store_url.split("/")[0]
         if not re.match(r'^[a-zA-Z0-9_-]+$', slug):
             raise ValueError("잘못된 스토어 slug입니다.")
+        if len(slug) > _MAX_SLUG_LEN:
+            raise ValueError(f"스토어 slug는 {_MAX_SLUG_LEN}자 이하여야 합니다.")
         return slug
 
     parsed = urlparse(store_url)
@@ -220,7 +159,10 @@ def parse_store_slug(store_url: str) -> str:
     if not path:
         raise ValueError("URL에서 스토어명을 찾을 수 없습니다.")
 
-    return path.split("/")[0]
+    slug = path.split("/")[0]
+    if len(slug) > _MAX_SLUG_LEN:
+        raise ValueError(f"스토어 slug는 {_MAX_SLUG_LEN}자 이하여야 합니다.")
+    return slug
 
 
 async def fetch_store_products(

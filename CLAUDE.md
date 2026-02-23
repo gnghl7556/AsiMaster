@@ -77,6 +77,7 @@ npm run dev
 - `DELETE /api/v1/products/{id}/excluded/{naver_product_id}` - 블랙리스트 해제
 - `POST /api/v1/crawl/product/{id}` - 상품 크롤링 실행
 - `POST /api/v1/keywords/{product_id}` - 키워드 추가
+- `POST /api/v1/keywords/suggest` - SEO 기반 키워드 추천
 - `GET /api/v1/dashboard/{user_id}` - 대시보드 요약
 - `GET /api/v1/push/vapid-public-key` - VAPID 공개키 조회
 - `POST /api/v1/push/subscribe` - 웹 푸시 구독 등록
@@ -108,6 +109,7 @@ Product → CostItems
 13. 스마트스토어 상품 자동 불러오기 (URL 입력 → 미리보기 → 선택 등록)
 14. 네이버 API 전체 필드 저장 (hprice, brand, maker, productType, category1~4)
 15. 네이버 카테고리 트리 API (크롤링 데이터 기반 계층 구조)
+16. SEO 키워드 엔진 (토큰 분류 + 가중치 기반 키워드 추천 API)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -236,3 +238,36 @@ Product → CostItems
 
 **새 파일:**
 - `backend/app/api/categories.py` — 카테고리 트리 엔드포인트
+
+### 2026-02-23: SEO 키워드 엔진 + 보안 강화 + 메모리 최적화
+
+**보안 강화:**
+- `config.py`: 사용하지 않던 `ALLOWED_HOSTS` 필드 삭제
+- `config.py`: VAPID 키 쌍 일관성 검증 (하나만 설정 시 경고 로그)
+- `store_scraper.py`: slug 길이 제한 50자, `channel_name` 위험문자(`<>"';&`) 필터링
+- `store_import.py`: `store_url` 파라미터 `max_length=500` 추가
+- `schemas/store_import.py`: `StoreImportRequest.products` `max_length=100` 추가
+
+**메모리 최적화:**
+- `product_service.py`: `selectinload(SearchKeyword.rankings)` 제거
+- 별도 DB 쿼리로 최신 rankings / 7일 sparkline(DB GROUP BY) / rank_change만 조회
+- 상품 50개 기준 메모리 사용량 대폭 감소 (25,000행 → ~500행)
+
+**새 API:**
+- `POST /api/v1/keywords/suggest` — SEO 기반 키워드 추천
+  - Request: `{ product_name: str, store_name?: str, category_hint?: str }`
+  - Response: `{ tokens: [{text, category, weight}], keywords: [{keyword, score, level}], field_guide: {brand?, category?} }`
+  - 토큰 분류: 11종 (MODEL, BRAND, TYPE, SERIES, CAPACITY, QUANTITY, SIZE, COLOR, MATERIAL, FEATURE, MODIFIER)
+  - 키워드 생성: specific(MODEL 포함), medium(BRAND+TYPE), broad 조합
+  - DB 사전: keyword_rankings의 brand/maker → BRAND, category1~4 → TYPE (24시간 캐시)
+
+**새 패키지:**
+- `backend/app/services/keyword_engine/` — SEO 키워드 엔진
+  - `classifier.py` — 토큰 분류기 (정규식 → 내장사전 → DB사전 3단계)
+  - `weights.py` — SEO 가중치
+  - `generator.py` — 키워드 조합 생성기
+  - `dictionary.py` — DB 기반 브랜드/카테고리 사전 (TTL 24h)
+- `backend/app/schemas/keyword_suggest.py` — 키워드 추천 스키마
+
+**변경된 파일:**
+- `store_scraper.py`: `suggest_keywords()` 내부를 키워드 엔진 분류기 기반으로 교체

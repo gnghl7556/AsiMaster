@@ -25,7 +25,7 @@ class StoreImportItem(BaseModel):
 
 class StoreImportRequest(BaseModel):
     """선택한 상품 일괄 등록 요청."""
-    products: list[StoreImportItem] = Field(..., min_length=1)
+    products: list[StoreImportItem] = Field(..., min_length=1, max_length=100)
 
 
 class StoreImportResult(BaseModel):

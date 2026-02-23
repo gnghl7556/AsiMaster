@@ -19,7 +19,7 @@ router = APIRouter(tags=["store-import"])
 @router.get("/users/{user_id}/store/products", response_model=list[StoreProductItem])
 async def preview_store_products(
     user_id: int,
-    store_url: str = Query(..., description="스마트스토어 URL (예: https://smartstore.naver.com/asmt)"),
+    store_url: str = Query(..., max_length=500, description="스마트스토어 URL (예: https://smartstore.naver.com/asmt)"),
     db: AsyncSession = Depends(get_db),
 ):
     """스마트스토어 상품 목록 미리보기 (DB 저장 안함)."""
