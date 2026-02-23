@@ -1,0 +1,246 @@
+{
+  "timestamp": "2026-02-21T09:08:38.908Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-21T09:08:38.694Z",
+    "activeFeatures": [
+      "crawl-performance",
+      "core",
+      "crawlers",
+      "backend",
+      "schemas",
+      "api",
+      "product_service.py"
+    ],
+    "primaryFeature": "crawl-performance",
+    "features": {
+      "crawl-performance": {
+        "phase": "design",
+        "phaseNumber": 2,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [
+          "FR-01",
+          "FR-02",
+          "FR-03",
+          "FR-04",
+          "FR-05",
+          "FR-06"
+        ],
+        "documents": {
+          "plan": "docs/01-plan/features/crawl-performance.plan.md",
+          "design": "docs/02-design/features/crawl-performance.design.md"
+        },
+        "timestamps": {
+          "started": "2026-02-21T07:00:00.000Z",
+          "lastUpdated": "2026-02-21T07:30:00.000Z"
+        }
+      },
+      "core": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:04:51.391Z",
+          "lastUpdated": "2026-02-21T09:04:51.391Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/core/config.py"
+      },
+      "crawlers": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:05:10.614Z",
+          "lastUpdated": "2026-02-21T09:08:14.934Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/crawlers/manager.py"
+      },
+      "backend": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:05:21.585Z",
+          "lastUpdated": "2026-02-21T09:06:31.084Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/main.py"
+      },
+      "schemas": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:06:13.020Z",
+          "lastUpdated": "2026-02-21T09:07:01.562Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/schemas/product.py"
+      },
+      "api": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:07:18.646Z",
+          "lastUpdated": "2026-02-21T09:07:30.558Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/api/products.py"
+      },
+      "product_service.py": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-21T09:08:38.694Z",
+          "lastUpdated": "2026-02-21T09:08:38.694Z"
+        },
+        "lastFile": "/Users/mac/Documents/Dev/AsiMaster/backend/app/services/product_service.py"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-21T06:30:00.000Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-21T09:08:38.694Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-21T07:00:00.000Z",
+        "feature": "crawl-performance",
+        "phase": "plan",
+        "action": "started"
+      },
+      {
+        "timestamp": "2026-02-21T07:30:00.000Z",
+        "feature": "crawl-performance",
+        "phase": "design",
+        "action": "completed"
+      },
+      {
+        "timestamp": "2026-02-21T09:04:51.391Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:10.614Z",
+        "feature": "crawlers",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:15.750Z",
+        "feature": "crawlers",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:21.585Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:34.691Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:41.975Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:48.729Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:05:54.774Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:06:05.723Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:06:13.020Z",
+        "feature": "schemas",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:06:31.084Z",
+        "feature": "backend",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:06:55.133Z",
+        "feature": "schemas",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:07:01.562Z",
+        "feature": "schemas",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:07:18.646Z",
+        "feature": "api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:07:30.558Z",
+        "feature": "api",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:08:14.934Z",
+        "feature": "crawlers",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-21T09:08:38.694Z",
+        "feature": "product_service.py",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}
