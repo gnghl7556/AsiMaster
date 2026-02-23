@@ -2,8 +2,6 @@ import asyncio
 import logging
 import random
 import time
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,11 +14,17 @@ from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
+from app.core.utils import utcnow
 from app.services.alert_service import check_and_create_alerts
 
 logger = logging.getLogger(__name__)
 
 crawler = NaverCrawler()
+
+
+class CrawlAlreadyRunningError(Exception):
+    """크롤링이 이미 진행 중일 때 발생."""
+    pass
 
 
 def _check_relevance(item: RankingItem, product: Product | None) -> bool:
@@ -38,6 +42,28 @@ def _check_relevance(item: RankingItem, product: Product | None) -> bool:
 
 
 class CrawlManager:
+
+    def __init__(self):
+        self._user_locks: dict[int, asyncio.Lock] = {}
+        self._product_locks: dict[int, asyncio.Lock] = {}
+
+    def _get_user_lock(self, user_id: int) -> asyncio.Lock:
+        if user_id not in self._user_locks:
+            self._user_locks[user_id] = asyncio.Lock()
+        return self._user_locks[user_id]
+
+    def _get_product_lock(self, product_id: int) -> asyncio.Lock:
+        if product_id not in self._product_locks:
+            self._product_locks[product_id] = asyncio.Lock()
+        return self._product_locks[product_id]
+
+    def is_user_crawling(self, user_id: int) -> bool:
+        lock = self._user_locks.get(user_id)
+        return lock.locked() if lock else False
+
+    def is_product_crawling(self, product_id: int) -> bool:
+        lock = self._product_locks.get(product_id)
+        return lock.locked() if lock else False
 
     async def _fetch_keyword(self, keyword_str: str, sort_type: str = "sim") -> KeywordCrawlResult:
         """네이버 API 호출만 수행 (DB 접근 없음, 병렬 안전)."""
@@ -122,7 +148,7 @@ class CrawlManager:
                 )
                 db.add(ranking)
 
-            keyword.last_crawled_at = datetime.utcnow()
+            keyword.last_crawled_at = utcnow()
             keyword.crawl_status = "success"
         else:
             keyword.crawl_status = "failed"
@@ -131,6 +157,13 @@ class CrawlManager:
 
     async def crawl_product(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
         """단일 상품 크롤링 (API 수동 호출용). 키워드 병렬 처리."""
+        lock = self._get_product_lock(product_id)
+        if lock.locked():
+            raise CrawlAlreadyRunningError(f"상품 {product_id} 크롤링이 이미 진행 중입니다.")
+        async with lock:
+            return await self._crawl_product_impl(db, product_id)
+
+    async def _crawl_product_impl(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
         product = await db.get(Product, product_id)
         if not product:
             return []
@@ -186,12 +219,15 @@ class CrawlManager:
         # 순차 DB 기록
         results = []
         for kw, crawl_result, duration_ms in fetch_results:
-            await self._save_keyword_result(
-                db, kw, crawl_result, naver_store_name, duration_ms,
-                product=product, excluded_ids=excluded_ids,
-                excluded_malls=excluded_malls,
-                my_product_ids=my_product_ids,
-            )
+            try:
+                await self._save_keyword_result(
+                    db, kw, crawl_result, naver_store_name, duration_ms,
+                    product=product, excluded_ids=excluded_ids,
+                    excluded_malls=excluded_malls,
+                    my_product_ids=my_product_ids,
+                )
+            except Exception as e:
+                logger.error(f"키워드 '{kw.keyword}' 저장 실패: {e}")
             results.append(crawl_result)
 
         # 알림 체크
@@ -202,6 +238,13 @@ class CrawlManager:
 
     async def crawl_user_all(self, db: AsyncSession, user_id: int) -> dict:
         """유저 전체 크롤링. 키워드 중복 제거 + 병렬 처리."""
+        lock = self._get_user_lock(user_id)
+        if lock.locked():
+            raise CrawlAlreadyRunningError(f"유저 {user_id} 크롤링이 이미 진행 중입니다.")
+        async with lock:
+            return await self._crawl_user_all_impl(db, user_id)
+
+    async def _crawl_user_all_impl(self, db: AsyncSession, user_id: int) -> dict:
         user = await db.get(User, user_id)
         if not user:
             return {"total": 0, "success": 0, "failed": 0}
@@ -221,24 +264,23 @@ class CrawlManager:
         if not all_keywords:
             return {"total": 0, "success": 0, "failed": 0}
 
-        # 상품별 블랙리스트 조회 (naver_product_id + mall_name 이중 체크)
+        # 상품별 블랙리스트 조회 (배치 쿼리)
         product_ids = {kw.product_id for kw in all_keywords}
-        excluded_ids_by_product: dict[int, set[str]] = {}
-        excluded_malls_by_product: dict[int, set[str]] = {}
-        for pid in product_ids:
-            ex_result = await db.execute(
-                select(ExcludedProduct).where(ExcludedProduct.product_id == pid)
-            )
-            rows = ex_result.scalars().all()
-            excluded_ids_by_product[pid] = {ep.naver_product_id for ep in rows}
-            excluded_malls_by_product[pid] = {
-                ep.mall_name.strip().lower() for ep in rows if ep.mall_name
-            }
+        excluded_ids_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
+        excluded_malls_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
+        ex_result = await db.execute(
+            select(ExcludedProduct).where(ExcludedProduct.product_id.in_(product_ids))
+        )
+        for ep in ex_result.scalars().all():
+            excluded_ids_by_product[ep.product_id].add(ep.naver_product_id)
+            if ep.mall_name:
+                excluded_malls_by_product[ep.product_id].add(ep.mall_name.strip().lower())
 
-        # 상품 객체 캐시
-        products_cache: dict[int, Product] = {}
-        for pid in product_ids:
-            products_cache[pid] = await db.get(Product, pid)
+        # 상품 객체 캐시 (배치 쿼리)
+        prod_result = await db.execute(
+            select(Product).where(Product.id.in_(product_ids))
+        )
+        products_cache: dict[int, Product] = {p.id: p for p in prod_result.scalars().all()}
 
         # 유저의 모든 등록 상품 naver_product_id 수집 (내 스토어 다른 제품 제외용)
         all_products_result = await db.execute(
@@ -285,12 +327,15 @@ class CrawlManager:
                 product = products_cache.get(kw.product_id)
                 excluded_ids = excluded_ids_by_product.get(kw.product_id, set())
                 excluded_malls = excluded_malls_by_product.get(kw.product_id, set())
-                await self._save_keyword_result(
-                    db, kw, crawl_result, naver_store_name, duration_ms,
-                    product=product, excluded_ids=excluded_ids,
-                    excluded_malls=excluded_malls,
-                    my_product_ids=my_product_ids,
-                )
+                try:
+                    await self._save_keyword_result(
+                        db, kw, crawl_result, naver_store_name, duration_ms,
+                        product=product, excluded_ids=excluded_ids,
+                        excluded_malls=excluded_malls,
+                        my_product_ids=my_product_ids,
+                    )
+                except Exception as e:
+                    logger.error(f"키워드 '{kw.keyword}' 저장 실패: {e}")
                 total += 1
                 if crawl_result.success:
                     success += 1
@@ -305,3 +350,6 @@ class CrawlManager:
                 await check_and_create_alerts(db, product, product_keywords, naver_store_name)
 
         return {"total": total, "success": success, "failed": failed}
+
+
+shared_manager = CrawlManager()

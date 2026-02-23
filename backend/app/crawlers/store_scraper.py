@@ -9,6 +9,22 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=15)
+    return _client
+
+
+async def close_client():
+    global _client
+    if _client and not _client.is_closed:
+        await _client.aclose()
+        _client = None
+
 
 @dataclass
 class StoreProduct:
@@ -141,12 +157,12 @@ def suggest_keywords(
 async def _get_store_info(store_slug: str) -> StoreInfo:
     """m.smartstore.naver.com에서 channelName, channelNo 추출."""
     url = f"https://m.smartstore.naver.com/{store_slug}"
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-            "Accept": "text/html",
-            "Accept-Language": "ko-KR,ko;q=0.9",
-        }, follow_redirects=True)
+    client = _get_client()
+    resp = await client.get(url, headers={
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Accept": "text/html",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+    }, follow_redirects=False)
 
     if resp.status_code >= 400:
         raise ValueError(f"스토어 페이지 접근 실패 (HTTP {resp.status_code})")
@@ -170,6 +186,13 @@ async def _get_store_info(store_slug: str) -> StoreInfo:
     return StoreInfo(channel_name=channel_name, channel_no=channel_no or "")
 
 
+ALLOWED_STORE_HOSTS = {
+    "smartstore.naver.com",
+    "m.smartstore.naver.com",
+    "brand.naver.com",
+}
+
+
 def parse_store_slug(store_url: str) -> str:
     """스마트스토어 URL에서 slug 추출.
 
@@ -183,9 +206,16 @@ def parse_store_slug(store_url: str) -> str:
 
     # URL이 아닌 경우 slug로 간주
     if not store_url.startswith("http"):
-        return store_url.split("/")[0]
+        slug = store_url.split("/")[0]
+        if not re.match(r'^[a-zA-Z0-9_-]+$', slug):
+            raise ValueError("잘못된 스토어 slug입니다.")
+        return slug
 
     parsed = urlparse(store_url)
+    if parsed.hostname not in ALLOWED_STORE_HOSTS:
+        raise ValueError("허용되지 않는 도메인입니다. 스마트스토어 URL만 입력해주세요.")
+    if parsed.scheme != "https":
+        raise ValueError("HTTPS URL만 허용됩니다.")
     path = parsed.path.strip("/")
     if not path:
         raise ValueError("URL에서 스토어명을 찾을 수 없습니다.")
@@ -228,64 +258,64 @@ async def fetch_store_products(
     # 2단계: 네이버 쇼핑 API로 상품 검색
     products: dict[str, StoreProduct] = {}
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        # 최대 1000개까지 (display=100, start 1~901)
-        for start in range(1, 902, 100):
-            resp = await client.get(
-                "https://openapi.naver.com/v1/search/shop.json",
-                params={
-                    "query": channel_name,
-                    "display": 100,
-                    "start": start,
-                    "sort": "date",
-                },
-                headers={
-                    "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
-                    "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET,
-                },
+    client = _get_client()
+    # 최대 1000개까지 (display=100, start 1~901)
+    for start in range(1, 902, 100):
+        resp = await client.get(
+            "https://openapi.naver.com/v1/search/shop.json",
+            params={
+                "query": channel_name,
+                "display": 100,
+                "start": start,
+                "sort": "date",
+            },
+            headers={
+                "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
+                "X-Naver-Client-Secret": settings.NAVER_CLIENT_SECRET,
+            },
+        )
+
+        if resp.status_code != 200:
+            logger.warning(f"쇼핑 API 오류: {resp.status_code}")
+            break
+
+        data = resp.json()
+        items = data.get("items", [])
+        if not items:
+            break
+
+        for item in items:
+            mall = item.get("mallName", "")
+            # mallName이 channelName과 일치하는 상품만 수집
+            if mall != channel_name and channel_name not in mall and mall not in channel_name:
+                continue
+
+            pid = str(item.get("productId", ""))
+            if not pid or pid in products:
+                continue
+
+            name = re.sub(r"<[^>]+>", "", item.get("title", ""))
+            cat_parts = [
+                item.get("category1", ""),
+                item.get("category2", ""),
+                item.get("category3", ""),
+            ]
+            category = "/".join(p for p in cat_parts if p)
+
+            products[pid] = StoreProduct(
+                name=name,
+                price=int(item.get("lprice", 0)),
+                image_url=item.get("image", ""),
+                category=category,
+                naver_product_id=pid,
+                mall_name=mall,
+                brand=item.get("brand", ""),
+                maker=item.get("maker", ""),
             )
 
-            if resp.status_code != 200:
-                logger.warning(f"쇼핑 API 오류: {resp.status_code}")
-                break
-
-            data = resp.json()
-            items = data.get("items", [])
-            if not items:
-                break
-
-            for item in items:
-                mall = item.get("mallName", "")
-                # mallName이 channelName과 일치하는 상품만 수집
-                if mall != channel_name and channel_name not in mall and mall not in channel_name:
-                    continue
-
-                pid = str(item.get("productId", ""))
-                if not pid or pid in products:
-                    continue
-
-                name = re.sub(r"<[^>]+>", "", item.get("title", ""))
-                cat_parts = [
-                    item.get("category1", ""),
-                    item.get("category2", ""),
-                    item.get("category3", ""),
-                ]
-                category = "/".join(p for p in cat_parts if p)
-
-                products[pid] = StoreProduct(
-                    name=name,
-                    price=int(item.get("lprice", 0)),
-                    image_url=item.get("image", ""),
-                    category=category,
-                    naver_product_id=pid,
-                    mall_name=mall,
-                    brand=item.get("brand", ""),
-                    maker=item.get("maker", ""),
-                )
-
-            total = data.get("total", 0)
-            if start + 100 > total:
-                break
+        total = data.get("total", 0)
+        if start + 100 > total:
+            break
 
     result = list(products.values())
     logger.info(f"스토어 '{channel_name}' 상품 {len(result)}개 수집 완료")

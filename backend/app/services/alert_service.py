@@ -1,6 +1,7 @@
 """알림 자동 생성 서비스 (크롤링 후 호출)"""
 
 import logging
+from collections import defaultdict
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,29 +45,36 @@ async def check_price_undercut(
     excluded_ids = {ep.naver_product_id for ep in excluded_rows}
     excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
-    # 각 키워드의 최신 rankings에서 최저가 찾기 (관련 상품만, 블랙리스트 제외)
-    all_latest = []
-    for kw in keywords:
-        result = await db.execute(
-            select(KeywordRanking)
-            .where(
-                KeywordRanking.keyword_id == kw.id,
-                KeywordRanking.is_relevant == True,
-            )
-            .order_by(KeywordRanking.crawled_at.desc())
-            .limit(10)
+    # 각 키워드의 최신 rankings에서 최저가 찾기 (배치 쿼리)
+    keyword_ids = [kw.id for kw in keywords]
+    result = await db.execute(
+        select(KeywordRanking)
+        .where(
+            KeywordRanking.keyword_id.in_(keyword_ids),
+            KeywordRanking.is_relevant == True,
         )
-        rankings = result.scalars().all()
-        if rankings:
-            latest_time = rankings[0].crawled_at
-            for r in rankings:
-                if r.crawled_at != latest_time:
-                    break
-                if r.naver_product_id and r.naver_product_id in excluded_ids:
-                    continue
-                if r.mall_name and r.mall_name.strip().lower() in excluded_malls:
-                    continue
-                all_latest.append(r)
+        .order_by(KeywordRanking.crawled_at.desc())
+    )
+    all_rankings = result.scalars().all()
+
+    # 키워드별 그룹핑 → 최신 크롤링 시각만 필터
+    by_keyword: dict[int, list] = defaultdict(list)
+    for r in all_rankings:
+        by_keyword[r.keyword_id].append(r)
+
+    all_latest = []
+    for kw_id, rankings in by_keyword.items():
+        if not rankings:
+            continue
+        latest_time = rankings[0].crawled_at  # already desc sorted
+        for r in rankings:
+            if r.crawled_at != latest_time:
+                break
+            if r.naver_product_id and r.naver_product_id in excluded_ids:
+                continue
+            if r.mall_name and r.mall_name.strip().lower() in excluded_malls:
+                continue
+            all_latest.append(r)
 
     if not all_latest:
         return
@@ -110,47 +118,51 @@ async def check_rank_drop(
     if not enabled:
         return
 
-    for kw in keywords:
-        # 최신 2번의 크롤링 결과 비교
-        result = await db.execute(
-            select(KeywordRanking.crawled_at)
-            .where(KeywordRanking.keyword_id == kw.id, KeywordRanking.is_my_store == True)
-            .order_by(KeywordRanking.crawled_at.desc())
-            .distinct()
-            .limit(2)
+    # 배치 쿼리: 내 스토어 rankings 전체 조회
+    keyword_ids = [kw.id for kw in keywords]
+    result = await db.execute(
+        select(KeywordRanking)
+        .where(
+            KeywordRanking.keyword_id.in_(keyword_ids),
+            KeywordRanking.is_my_store == True,
         )
-        times = result.scalars().all()
-        if len(times) < 2:
+        .order_by(KeywordRanking.crawled_at.desc())
+    )
+    all_my_rankings = result.scalars().all()
+
+    # 키워드별 그룹핑
+    by_keyword: dict[int, list] = defaultdict(list)
+    for r in all_my_rankings:
+        by_keyword[r.keyword_id].append(r)
+
+    kw_map = {kw.id: kw for kw in keywords}
+
+    for kw_id, rankings in by_keyword.items():
+        if not rankings:
+            continue
+        # distinct crawled_at 시각 추출 (이미 desc 정렬)
+        seen_times = []
+        for r in rankings:
+            if not seen_times or r.crawled_at != seen_times[-1]:
+                seen_times.append(r.crawled_at)
+            if len(seen_times) >= 2:
+                break
+        if len(seen_times) < 2:
             continue
 
-        # 현재 순위 (내 스토어 상품이 복수일 수 있으므로 최고 순위 사용)
-        current_result = await db.execute(
-            select(func.min(KeywordRanking.rank))
-            .where(
-                KeywordRanking.keyword_id == kw.id,
-                KeywordRanking.is_my_store == True,
-                KeywordRanking.crawled_at == times[0],
-            )
-        )
-        current_rank = current_result.scalar_one_or_none()
-
-        # 이전 순위
-        prev_result = await db.execute(
-            select(func.min(KeywordRanking.rank))
-            .where(
-                KeywordRanking.keyword_id == kw.id,
-                KeywordRanking.is_my_store == True,
-                KeywordRanking.crawled_at == times[1],
-            )
-        )
-        prev_rank = prev_result.scalar_one_or_none()
-
-        if current_rank is None or prev_rank is None:
+        current_ranks = [r.rank for r in rankings if r.crawled_at == seen_times[0]]
+        prev_ranks = [r.rank for r in rankings if r.crawled_at == seen_times[1]]
+        if not current_ranks or not prev_ranks:
             continue
+
+        current_rank = min(current_ranks)
+        prev_rank = min(prev_ranks)
 
         if current_rank > prev_rank:
+            kw = kw_map.get(kw_id)
+            kw_name = kw.keyword if kw else ""
             title = f"{product.name} - 순위 하락"
-            message = f"'{kw.keyword}' 키워드에서 {prev_rank}위 → {current_rank}위로 하락"
+            message = f"'{kw_name}' 키워드에서 {prev_rank}위 → {current_rank}위로 하락"
             alert = Alert(
                 user_id=product.user_id,
                 product_id=product.id,
@@ -158,8 +170,8 @@ async def check_rank_drop(
                 title=title,
                 message=message,
                 data={
-                    "keyword_id": kw.id,
-                    "keyword": kw.keyword,
+                    "keyword_id": kw_id,
+                    "keyword": kw_name,
                     "prev_rank": prev_rank,
                     "current_rank": current_rank,
                 },

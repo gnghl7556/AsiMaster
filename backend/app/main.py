@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -57,6 +57,17 @@ async def apply_schema_changes(session):
                 await session.execute(text(
                     f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}{default_clause}"
                 ))
+        # 인덱스 추가
+        index_statements = [
+            "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_naver_product_id ON keyword_rankings (naver_product_id)",
+            "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_crawled_at ON keyword_rankings (crawled_at)",
+        ]
+        for stmt in index_statements:
+            try:
+                await session.execute(text(stmt))
+            except Exception:
+                pass  # 이미 존재하는 경우 무시
+
         await session.commit()
         logger.info("스키마 변경 적용 완료")
     except Exception as e:
@@ -165,6 +176,8 @@ async def lifespan(app: FastAPI):
     # httpx 클라이언트 정리
     from app.crawlers.manager import crawler
     await crawler.close()
+    from app.crawlers.store_scraper import close_client as close_scraper_client
+    await close_scraper_client()
 
 
 app = FastAPI(
@@ -176,8 +189,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
@@ -185,4 +198,31 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    from app.scheduler.setup import scheduler
+
+    checks = {}
+    status = "healthy"
+
+    # DB ping + 마지막 크롤링 시각 (단일 세션)
+    try:
+        async with async_session() as session:
+            await session.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+
+            from app.models.crawl_log import CrawlLog
+            result = await session.execute(
+                select(func.max(CrawlLog.created_at))
+            )
+            last_crawl = result.scalar_one_or_none()
+            checks["last_crawl_at"] = last_crawl.isoformat() if last_crawl else None
+    except Exception as e:
+        checks["database"] = checks.get("database", f"error: {e}")
+        checks.setdefault("last_crawl_at", None)
+        status = "unhealthy"
+
+    # 스케줄러 상태
+    checks["scheduler"] = "running" if scheduler.running else "stopped"
+    if not scheduler.running:
+        status = "degraded" if status == "healthy" else status
+
+    return {"status": status, "checks": checks}

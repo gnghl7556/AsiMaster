@@ -1,19 +1,18 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.crawlers.manager import CrawlManager
+from app.core.utils import utcnow
+from app.crawlers.manager import shared_manager as manager, CrawlAlreadyRunningError
 from app.models.crawl_log import CrawlLog
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.schemas.crawl import CrawlBatchResult, CrawlKeywordResult, CrawlLogResponse
 
 router = APIRouter(prefix="/crawl", tags=["crawl"])
-
-manager = CrawlManager()
 
 
 @router.post("/product/{product_id}")
@@ -22,7 +21,10 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
 
-    results = await manager.crawl_product(db, product_id)
+    try:
+        results = await manager.crawl_product(db, product_id)
+    except CrawlAlreadyRunningError:
+        raise HTTPException(409, "이미 크롤링이 진행 중입니다.")
     return [
         CrawlKeywordResult(
             keyword_id=0,
@@ -37,7 +39,10 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/user/{user_id}")
 async def crawl_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    result = await manager.crawl_user_all(db, user_id)
+    try:
+        result = await manager.crawl_user_all(db, user_id)
+    except CrawlAlreadyRunningError:
+        raise HTTPException(409, "이미 크롤링이 진행 중입니다.")
     return CrawlBatchResult(
         total=result["total"],
         success=result["success"],
@@ -57,7 +62,7 @@ async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
     total = total_q.scalar_one()
 
     # 최근 24시간 성공/실패
-    since = datetime.utcnow() - timedelta(hours=24)
+    since = utcnow() - timedelta(hours=24)
     log_q = await db.execute(
         select(CrawlLog.status, func.count())
         .where(CrawlLog.created_at >= since)

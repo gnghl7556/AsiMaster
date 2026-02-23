@@ -1,19 +1,20 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.cost import CostItem
 from app.models.excluded_product import ExcludedProduct
-from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
+from app.core.utils import utcnow
 
 
 def calculate_status(selling_price: int, lowest_price: int | None) -> str:
     if lowest_price is None:
         return "winning"
+    if lowest_price == 0:
+        return "losing"
     if selling_price <= lowest_price:
         return "winning"
     gap_percent = ((selling_price - lowest_price) / lowest_price) * 100
@@ -61,6 +62,50 @@ def _get_latest_rankings(keywords: list) -> list:
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
+def _filter_relevant(rankings: list, excluded_ids: set[str], excluded_malls: set[str]) -> list:
+    """is_relevant=True + 블랙리스트 제외 필터."""
+    return [
+        r for r in rankings
+        if r.is_relevant
+        and r.naver_product_id not in excluded_ids
+        and (r.mall_name or "").strip().lower() not in excluded_malls
+    ]
+
+
+def _find_lowest(relevant_rankings: list) -> tuple[int | None, str | None]:
+    """최저가 + 판매자 반환."""
+    if not relevant_rankings:
+        return None, None
+    lowest = min(relevant_rankings, key=lambda r: r.price)
+    return lowest.price, lowest.mall_name
+
+
+def _build_sparkline(
+    keywords: list, since, excluded_ids: set[str], excluded_malls: set[str],
+) -> list[int]:
+    """최근 N일 일별 최저가 sparkline."""
+    data: dict = {}
+    for kw in keywords:
+        for r in kw.rankings:
+            if (r.crawled_at and r.crawled_at >= since
+                    and r.is_relevant
+                    and r.naver_product_id not in excluded_ids
+                    and (r.mall_name or "").strip().lower() not in excluded_malls):
+                day_key = r.crawled_at.date()
+                if day_key not in data or r.price < data[day_key]:
+                    data[day_key] = r.price
+    return [v for _, v in sorted(data.items())]
+
+
+def _calc_price_gap(selling_price: int, lowest_price: int | None) -> tuple[int | None, float | None]:
+    """가격 차이 + 퍼센트 반환 (ZeroDivision 방어)."""
+    if not lowest_price:
+        return None, None
+    gap = selling_price - lowest_price
+    pct = round((gap / lowest_price) * 100, 1) if lowest_price > 0 else None
+    return gap, pct
+
+
 def _is_my_exact_product(ranking, product_naver_id: str | None) -> bool:
     """이 ranking이 정확히 내 상품인지 판별.
     naver_product_id가 설정되어 있으면 정확히 매칭, 없으면 is_my_store로 fallback.
@@ -96,6 +141,25 @@ def _calc_rank_change(keywords: list, product_naver_id: str | None = None) -> in
     return None
 
 
+def _calc_my_rank(latest_rankings: list, product_naver_id: str | None) -> int | None:
+    """최신 rankings에서 내 상품 순위 추출."""
+    my_rankings = [
+        r for r in latest_rankings
+        if _is_my_exact_product(r, product_naver_id)
+    ]
+    return min(r.rank for r in my_rankings) if my_rankings else None
+
+
+def _calc_last_crawled(active_keywords: list):
+    """활성 키워드 중 가장 최근 크롤링 시각."""
+    last_crawled = None
+    for kw in active_keywords:
+        if kw.last_crawled_at:
+            if last_crawled is None or kw.last_crawled_at > last_crawled:
+                last_crawled = kw.last_crawled_at
+    return last_crawled
+
+
 async def get_product_list_items(
     db: AsyncSession,
     user_id: int,
@@ -116,7 +180,8 @@ async def get_product_list_items(
     if category:
         query = query.where(Product.category == category)
     if search:
-        query = query.where(Product.name.ilike(f"%{search}%"))
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.where(Product.name.ilike(f"%{escaped}%"))
 
     result = await db.execute(query)
     products = result.scalars().unique().all()
@@ -135,7 +200,7 @@ async def get_product_list_items(
                 excluded_malls_by_product[ep.product_id].add(ep.mall_name.strip().lower())
 
     items = []
-    now = datetime.utcnow()
+    now = utcnow()
     seven_days_ago = now - timedelta(days=7)
 
     for product in products:
@@ -144,64 +209,23 @@ async def get_product_list_items(
         excluded_ids = excluded_ids_by_product.get(product.id, set())
         excluded_malls = excluded_malls_by_product.get(product.id, set())
 
-        # 관련 상품만 필터 (is_relevant=True + 블랙리스트 제외: productId OR mall_name)
-        relevant_rankings = [
-            r for r in latest_rankings
-            if r.is_relevant
-            and r.naver_product_id not in excluded_ids
-            and (r.mall_name or "").strip().lower() not in excluded_malls
-        ]
+        relevant_rankings = _filter_relevant(latest_rankings, excluded_ids, excluded_malls)
+        lowest_price, lowest_seller = _find_lowest(relevant_rankings)
 
-        # 최저가 계산 (관련 상품 기준)
-        if relevant_rankings:
-            lowest_ranking = min(relevant_rankings, key=lambda r: r.price)
-            lowest_price = lowest_ranking.price
-            lowest_seller = lowest_ranking.mall_name
-        else:
-            lowest_price = None
-            lowest_seller = None
-
-        # 내 순위 (정확히 이 상품의 naver_product_id 매칭, 없으면 is_my_store fallback)
         product_naver_id = product.naver_product_id
-        my_rankings = [
-            r for r in latest_rankings
-            if _is_my_exact_product(r, product_naver_id)
-        ]
-        my_rank = min(r.rank for r in my_rankings) if my_rankings else None
+        my_rank = _calc_my_rank(latest_rankings, product_naver_id)
 
-        price_gap = (product.selling_price - lowest_price) if lowest_price else None
-        price_gap_pct = round((price_gap / lowest_price) * 100, 1) if price_gap and lowest_price else None
-
+        price_gap, price_gap_pct = _calc_price_gap(product.selling_price, lowest_price)
         status = calculate_status(product.selling_price, lowest_price)
 
-        # 마진 계산
         cost_items_data = [
             {"name": ci.name, "type": ci.type, "value": float(ci.value)}
             for ci in product.cost_items
         ]
         margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
 
-        # sparkline: 최근 7일 일별 최저가 (관련 상품 + 블랙리스트 제외)
-        sparkline_data = {}
-        for kw in active_keywords:
-            for r in kw.rankings:
-                if (r.crawled_at and r.crawled_at >= seven_days_ago
-                        and r.is_relevant
-                        and r.naver_product_id not in excluded_ids
-                        and (r.mall_name or "").strip().lower() not in excluded_malls):
-                    day_key = r.crawled_at.date()
-                    if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
-                        sparkline_data[day_key] = r.price
-        sparkline = [v for _, v in sorted(sparkline_data.items())]
-
-        # last_crawled_at
-        last_crawled = None
-        for kw in active_keywords:
-            if kw.last_crawled_at:
-                if last_crawled is None or kw.last_crawled_at > last_crawled:
-                    last_crawled = kw.last_crawled_at
-
-        # 이전 크롤링 대비 순위 변동 계산
+        sparkline = _build_sparkline(active_keywords, seven_days_ago, excluded_ids, excluded_malls)
+        last_crawled = _calc_last_crawled(active_keywords)
         rank_change = _calc_rank_change(active_keywords, product_naver_id)
 
         items.append({
@@ -275,59 +299,20 @@ async def get_product_detail(
     excluded_ids = {ep.naver_product_id for ep in excluded_rows}
     excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
-    # 관련 상품만 필터 (is_relevant=True + 블랙리스트 제외: productId OR mall_name)
-    relevant_rankings = [
-        r for r in latest_rankings
-        if r.is_relevant
-        and r.naver_product_id not in excluded_ids
-        and (r.mall_name or "").strip().lower() not in excluded_malls
-    ]
+    relevant_rankings = _filter_relevant(latest_rankings, excluded_ids, excluded_malls)
+    lowest_price, lowest_seller = _find_lowest(relevant_rankings)
 
-    # 최저가 (관련 상품 기준)
-    if relevant_rankings:
-        lowest_ranking = min(relevant_rankings, key=lambda r: r.price)
-        lowest_price = lowest_ranking.price
-        lowest_seller = lowest_ranking.mall_name
-    else:
-        lowest_price = None
-        lowest_seller = None
-
-    # 내 순위 (정확히 이 상품의 naver_product_id 매칭, 없으면 is_my_store fallback)
     product_naver_id = product.naver_product_id
-    my_rankings = [
-        r for r in latest_rankings
-        if _is_my_exact_product(r, product_naver_id)
-    ]
-    my_rank = min(r.rank for r in my_rankings) if my_rankings else None
+    my_rank = _calc_my_rank(latest_rankings, product_naver_id)
 
-    price_gap = (product.selling_price - lowest_price) if lowest_price else None
-    price_gap_pct = round((price_gap / lowest_price) * 100, 1) if price_gap and lowest_price else None
-
+    price_gap, price_gap_pct = _calc_price_gap(product.selling_price, lowest_price)
     status = calculate_status(product.selling_price, lowest_price)
 
     rank_change = _calc_rank_change(active_keywords, product_naver_id)
+    last_crawled = _calc_last_crawled(active_keywords)
 
-    # last_crawled_at
-    last_crawled = None
-    for kw in active_keywords:
-        if kw.last_crawled_at:
-            if last_crawled is None or kw.last_crawled_at > last_crawled:
-                last_crawled = kw.last_crawled_at
-
-    # sparkline: 최근 7일 일별 최저가 (관련 상품 + 블랙리스트 제외)
-    now = datetime.utcnow()
-    seven_days_ago = now - timedelta(days=7)
-    sparkline_data = {}
-    for kw in active_keywords:
-        for r in kw.rankings:
-            if (r.crawled_at and r.crawled_at >= seven_days_ago
-                    and r.is_relevant
-                    and r.naver_product_id not in excluded_ids
-                    and (r.mall_name or "").strip().lower() not in excluded_malls):
-                day_key = r.crawled_at.date()
-                if day_key not in sparkline_data or r.price < sparkline_data[day_key]:
-                    sparkline_data[day_key] = r.price
-    sparkline = [v for _, v in sorted(sparkline_data.items())]
+    seven_days_ago = utcnow() - timedelta(days=7)
+    sparkline = _build_sparkline(active_keywords, seven_days_ago, excluded_ids, excluded_malls)
 
     # 경쟁사 요약 (최신 rankings에서 순위별 요약, 블랙리스트 제외)
     competitors = []
