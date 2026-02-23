@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.models.excluded_product import ExcludedProduct
-from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
@@ -20,6 +18,7 @@ from app.schemas.product import (
     ProductResponse,
     ProductUpdate,
 )
+from app.services.excluded_service import add_excluded, get_excluded_list, remove_excluded
 from app.services.product_service import get_product_detail, get_product_list_items
 
 router = APIRouter(tags=["products"])
@@ -128,110 +127,23 @@ async def toggle_price_lock(
 
 @router.get("/products/{product_id}/excluded", response_model=list[ExcludedProductResponse])
 async def get_excluded_products(product_id: int, db: AsyncSession = Depends(get_db)):
-    product = await db.get(Product, product_id)
-    if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    result = await db.execute(
-        select(ExcludedProduct)
-        .where(ExcludedProduct.product_id == product_id)
-        .order_by(ExcludedProduct.created_at.desc())
-    )
-    return result.scalars().all()
+    return await get_excluded_list(db, product_id)
 
 
 @router.post("/products/{product_id}/excluded", response_model=ExcludedProductResponse, status_code=201)
 async def exclude_product(
     product_id: int, data: ExcludeProductRequest, db: AsyncSession = Depends(get_db)
 ):
-    product = await db.get(Product, product_id)
-    if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    # 중복 체크
-    existing = await db.execute(
-        select(ExcludedProduct).where(
-            ExcludedProduct.product_id == product_id,
-            ExcludedProduct.naver_product_id == data.naver_product_id,
-        )
+    return await add_excluded(
+        db, product_id, data.naver_product_id, data.naver_product_name, data.mall_name,
     )
-    if existing.scalars().first():
-        raise HTTPException(409, "이미 제외된 상품입니다.")
-    excluded = ExcludedProduct(
-        product_id=product_id,
-        naver_product_id=data.naver_product_id,
-        naver_product_name=data.naver_product_name,
-        mall_name=data.mall_name,
-    )
-    db.add(excluded)
-    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=False로 즉시 반영
-    keyword_ids_result = await db.execute(
-        select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
-    )
-    keyword_ids = keyword_ids_result.scalars().all()
-    if keyword_ids:
-        # naver_product_id 기반 업데이트
-        await db.execute(
-            update(KeywordRanking)
-            .where(
-                KeywordRanking.keyword_id.in_(keyword_ids),
-                KeywordRanking.naver_product_id == data.naver_product_id,
-            )
-            .values(is_relevant=False)
-        )
-        # mall_name 기반 업데이트 (productId 변경 대비)
-        if data.mall_name:
-            await db.execute(
-                update(KeywordRanking)
-                .where(
-                    KeywordRanking.keyword_id.in_(keyword_ids),
-                    KeywordRanking.mall_name == data.mall_name,
-                )
-                .values(is_relevant=False)
-            )
-    await db.flush()
-    await db.refresh(excluded)
-    return excluded
 
 
 @router.delete("/products/{product_id}/excluded/{naver_product_id}", status_code=204)
 async def unexclude_product(
     product_id: int, naver_product_id: str, db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
-        select(ExcludedProduct).where(
-            ExcludedProduct.product_id == product_id,
-            ExcludedProduct.naver_product_id == naver_product_id,
-        )
-    )
-    excluded = result.scalars().first()
-    if not excluded:
-        raise HTTPException(404, "제외 목록에 없는 상품입니다.")
-    mall_name = excluded.mall_name
-    await db.delete(excluded)
-    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=True로 복원
-    keyword_ids_result = await db.execute(
-        select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
-    )
-    keyword_ids = keyword_ids_result.scalars().all()
-    if keyword_ids:
-        # naver_product_id 기반 복원
-        await db.execute(
-            update(KeywordRanking)
-            .where(
-                KeywordRanking.keyword_id.in_(keyword_ids),
-                KeywordRanking.naver_product_id == naver_product_id,
-            )
-            .values(is_relevant=True)
-        )
-        # mall_name 기반 복원
-        if mall_name:
-            await db.execute(
-                update(KeywordRanking)
-                .where(
-                    KeywordRanking.keyword_id.in_(keyword_ids),
-                    KeywordRanking.mall_name == mall_name,
-                )
-                .values(is_relevant=True)
-            )
+    await remove_excluded(db, product_id, naver_product_id)
 
 
 # --- 이전 경로 호환 (프론트엔드 마이그레이션 전까지 유지) ---

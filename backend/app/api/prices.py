@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
+from app.core.utils import utcnow
 from app.models.keyword_ranking import KeywordRanking
 from app.models.search_keyword import SearchKeyword
 
@@ -22,7 +23,7 @@ async def get_price_history(
     db: AsyncSession = Depends(get_db),
 ):
     days = PERIOD_DAYS[period]
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
 
     query = (
         select(KeywordRanking)
