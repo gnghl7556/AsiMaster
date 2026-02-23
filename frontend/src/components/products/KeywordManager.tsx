@@ -1,20 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, Loader2, Tag } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, X, Loader2, Tag, Wand2, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { useCreateKeyword, useDeleteKeyword } from "@/lib/hooks/useKeywords";
-import type { SearchKeyword } from "@/types";
+import { keywordsApi } from "@/lib/api/keywords";
+import type { KeywordSuggestion, SearchKeyword } from "@/types";
 import { cn } from "@/lib/utils/cn";
+import {
+  getKeywordLevelBadgeStyle,
+  getTokenCategoryStyle,
+} from "@/lib/utils/keywordSuggestion";
 
 interface Props {
   productId: number;
   keywords: SearchKeyword[];
   maxKeywords?: number;
+  productName?: string;
+  categoryHint?: string | null;
+  storeName?: string;
 }
 
-export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) {
+export function KeywordManager({
+  productId,
+  keywords,
+  maxKeywords = 5,
+  productName,
+  categoryHint,
+  storeName,
+}: Props) {
   const [input, setInput] = useState("");
   const [sortType, setSortType] = useState<"sim" | "asc">("sim");
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<KeywordSuggestion | null>(null);
+  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const createMutation = useCreateKeyword(productId);
   const deleteMutation = useDeleteKeyword(productId);
 
@@ -31,6 +50,39 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
   };
 
   const activeCount = keywords.filter((k) => k.is_active).length;
+  const existingKeywords = useMemo(
+    () => new Set(keywords.filter((k) => k.is_active).map((k) => k.keyword.trim().toLowerCase())),
+    [keywords]
+  );
+
+  useEffect(() => {
+    setAiSuggestion(null);
+    setIsAiPanelOpen(false);
+  }, [productName, categoryHint, storeName]);
+
+  const handleOpenAiSuggestion = async () => {
+    if (!productName?.trim()) {
+      return;
+    }
+    setIsAiPanelOpen(true);
+    if (aiSuggestion || isAiSuggesting) return;
+    setIsAiSuggesting(true);
+    try {
+      const data = await keywordsApi.suggest(
+        productName.trim(),
+        storeName || undefined,
+        categoryHint || undefined
+      );
+      setAiSuggestion(data);
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "AI 키워드 추천을 불러오지 못했습니다";
+      setIsAiPanelOpen(false);
+      setAiSuggestion(null);
+      toast.error(msg);
+    } finally {
+      setIsAiSuggesting(false);
+    }
+  };
 
   return (
     <div className="glass-card p-4">
@@ -39,9 +91,29 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
           <Tag className="h-4 w-4" />
           검색 키워드
         </h3>
-        <span className="text-xs text-[var(--muted-foreground)]">
-          {activeCount} / {maxKeywords}
-        </span>
+        <div className="flex items-center gap-2">
+          {productName && (
+            <button
+              type="button"
+              onClick={handleOpenAiSuggestion}
+              disabled={isAiSuggesting}
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-2 py-1 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:opacity-60"
+            >
+              {isAiSuggesting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wand2 className="h-3.5 w-3.5 text-blue-500" />
+              )}
+              AI 추천
+              <ChevronDown
+                className={cn("h-3 w-3 transition-transform", isAiPanelOpen && "rotate-180")}
+              />
+            </button>
+          )}
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {activeCount} / {maxKeywords}
+          </span>
+        </div>
       </div>
 
       {/* 키워드 목록 */}
@@ -74,6 +146,114 @@ export function KeywordManager({ productId, keywords, maxKeywords = 5 }: Props) 
           </div>
         ))}
       </div>
+
+      {isAiPanelOpen && (
+        <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-medium">AI 추천 키워드</div>
+              <div className="text-[11px] text-[var(--muted-foreground)]">
+                상품명 기반 SEO 조합 추천
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAiPanelOpen(false)}
+              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--card)]"
+              aria-label="닫기"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {isAiSuggesting ? (
+            <div className="flex items-center gap-2 rounded-lg bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              추천 키워드를 분석 중입니다
+            </div>
+          ) : aiSuggestion ? (
+            <div className="space-y-2">
+              {aiSuggestion.tokens.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {aiSuggestion.tokens.map((token, idx) => {
+                    const tokenStyle = getTokenCategoryStyle(token.category);
+                    return (
+                      <span
+                        key={`${token.text}-${idx}`}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          tokenStyle.tag,
+                          tokenStyle.text,
+                          tokenStyle.strike && "line-through"
+                        )}
+                        title={`${token.category} · weight ${token.weight}`}
+                      >
+                        <span className={cn("h-1.5 w-1.5 rounded-full", tokenStyle.dot)} />
+                        {token.text}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {aiSuggestion.keywords.length > 0 ? (
+                  aiSuggestion.keywords.map((sug) => {
+                    const exists = existingKeywords.has(sug.keyword.trim().toLowerCase());
+                    const disabled = exists || createMutation.isPending || activeCount >= maxKeywords;
+                    return (
+                      <div
+                        key={sug.keyword}
+                        className="flex items-center gap-2 rounded-lg bg-[var(--card)] px-2.5 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{sug.keyword}</div>
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                getKeywordLevelBadgeStyle(sug.level)
+                              )}
+                            >
+                              {sug.level}
+                            </span>
+                            <span className="text-[10px] text-[var(--muted-foreground)]">
+                              점수 {sug.score}
+                            </span>
+                            {exists && (
+                              <span className="text-[10px] text-[var(--muted-foreground)]">
+                                이미 등록됨
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() =>
+                            createMutation.mutate({ keyword: sug.keyword, sort_type: "sim" })
+                          }
+                          className="shrink-0 rounded-lg border border-[var(--border)] px-2 py-1 text-xs transition-colors hover:bg-[var(--muted)] disabled:opacity-50"
+                        >
+                          추가
+                        </button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-lg bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
+                    추천 키워드를 생성하지 못했습니다
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
+              AI 추천 버튼을 눌러 키워드를 생성하세요
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 키워드 추가 */}
       {activeCount < maxKeywords && (

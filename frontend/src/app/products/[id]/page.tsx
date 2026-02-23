@@ -405,6 +405,8 @@ export default function ProductDetailPage({
       <KeywordManager
         productId={productId}
         keywords={keywords}
+        productName={product.name}
+        categoryHint={product.category}
       />
 
       {/* 키워드별 경쟁사 순위 */}

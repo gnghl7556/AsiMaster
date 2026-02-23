@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -13,10 +13,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { productsApi } from "@/lib/api/products";
+import { keywordsApi } from "@/lib/api/keywords";
 import { useUserStore } from "@/stores/useUserStore";
 import { formatPrice } from "@/lib/utils/format";
-import type { StoreProduct } from "@/types";
+import type { KeywordSuggestion, StoreProduct } from "@/types";
 import { cn } from "@/lib/utils/cn";
+import {
+  findSuggestedKeywordMeta,
+  getKeywordLevelBadgeStyle,
+  getTokenCategoryStyle,
+} from "@/lib/utils/keywordSuggestion";
 
 const SMARTSTORE_URL_PREFIX = "https://smartstore.naver.com/";
 const LAST_STORE_URL_KEY = "asimaster:last-smartstore-url";
@@ -80,6 +86,13 @@ export default function StoreImportPage() {
   const [selectedKeywords, setSelectedKeywords] = useState<Map<string, Set<string>>>(new Map());
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [lastStoreUrl, setLastStoreUrl] = useState<string>("");
+  const [keywordMetaByProduct, setKeywordMetaByProduct] = useState<Record<string, KeywordSuggestion>>({});
+  const [loadingKeywordMetaIds, setLoadingKeywordMetaIds] = useState<Set<string>>(new Set());
+  const [failedKeywordMetaIds, setFailedKeywordMetaIds] = useState<Set<string>>(new Set());
+
+  const suggestQueueRef = useRef<StoreProduct[]>([]);
+  const queuedSuggestIdsRef = useRef<Set<string>>(new Set());
+  const activeSuggestWorkersRef = useRef(0);
 
   const parsedStoreInput = useMemo(() => parseStoreInput(storeUrl), [storeUrl]);
 
@@ -101,6 +114,62 @@ export default function StoreImportPage() {
     }
   }, []);
 
+  const runSuggestQueue = () => {
+    while (activeSuggestWorkersRef.current < 2 && suggestQueueRef.current.length > 0) {
+      const product = suggestQueueRef.current.shift();
+      if (!product) break;
+      const pid = product.naver_product_id;
+      queuedSuggestIdsRef.current.delete(pid);
+      activeSuggestWorkersRef.current += 1;
+      setLoadingKeywordMetaIds((prev) => {
+        const next = new Set(prev);
+        next.add(pid);
+        return next;
+      });
+
+      keywordsApi
+        .suggest(product.name, undefined, product.category || undefined)
+        .then((data) => {
+          setKeywordMetaByProduct((prev) => ({ ...prev, [pid]: data }));
+          setFailedKeywordMetaIds((prev) => {
+            const next = new Set(prev);
+            next.delete(pid);
+            return next;
+          });
+        })
+        .catch(() => {
+          setFailedKeywordMetaIds((prev) => {
+            const next = new Set(prev);
+            next.add(pid);
+            return next;
+          });
+        })
+        .finally(() => {
+          activeSuggestWorkersRef.current -= 1;
+          setLoadingKeywordMetaIds((prev) => {
+            const next = new Set(prev);
+            next.delete(pid);
+            return next;
+          });
+          runSuggestQueue();
+        });
+    }
+  };
+
+  const enqueueSuggestMeta = (product: StoreProduct) => {
+    const pid = product.naver_product_id;
+    if (
+      keywordMetaByProduct[pid] ||
+      loadingKeywordMetaIds.has(pid) ||
+      queuedSuggestIdsRef.current.has(pid)
+    ) {
+      return;
+    }
+    queuedSuggestIdsRef.current.add(pid);
+    suggestQueueRef.current.push(product);
+    runSuggestQueue();
+  };
+
   const previewMutation = useMutation({
     mutationFn: (url: string) => productsApi.previewStoreProducts(userId!, url),
     onSuccess: (data, url) => {
@@ -112,6 +181,12 @@ export default function StoreImportPage() {
         kwMap.set(p.naver_product_id, new Set(p.suggested_keywords || []));
       });
       setSelectedKeywords(kwMap);
+      setKeywordMetaByProduct({});
+      setLoadingKeywordMetaIds(new Set());
+      setFailedKeywordMetaIds(new Set());
+      suggestQueueRef.current = [];
+      queuedSuggestIdsRef.current = new Set();
+      activeSuggestWorkersRef.current = 0;
       setStoreUrl(url);
       setLastStoreUrl(url);
       if (typeof window !== "undefined") {
@@ -148,6 +223,12 @@ export default function StoreImportPage() {
       setStoreProducts([]);
       setSelectedIds(new Set());
       setSelectedKeywords(new Map());
+      setKeywordMetaByProduct({});
+      setLoadingKeywordMetaIds(new Set());
+      setFailedKeywordMetaIds(new Set());
+      suggestQueueRef.current = [];
+      queuedSuggestIdsRef.current = new Set();
+      activeSuggestWorkersRef.current = 0;
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.detail || "상품 등록에 실패했습니다";
@@ -182,6 +263,15 @@ export default function StoreImportPage() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (storeProducts.length === 0) return;
+    for (const product of storeProducts) {
+      if (!selectedIds.has(product.naver_product_id)) continue;
+      if (!product.suggested_keywords?.length) continue;
+      enqueueSuggestMeta(product);
+    }
+  }, [selectedIds, storeProducts]);
 
   const handlePreview = () => {
     if (!userId) {
@@ -315,6 +405,9 @@ export default function StoreImportPage() {
           <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border)]">
             {storeProducts.map((p) => {
               const checked = selectedIds.has(p.naver_product_id);
+              const keywordMeta = keywordMetaByProduct[p.naver_product_id];
+              const isKeywordMetaLoading = loadingKeywordMetaIds.has(p.naver_product_id);
+              const keywordMetaFailed = failedKeywordMetaIds.has(p.naver_product_id);
               return (
                 <div
                   key={p.naver_product_id}
@@ -356,9 +449,26 @@ export default function StoreImportPage() {
 
                   {checked && p.suggested_keywords.length > 0 && (
                     <div className="mt-2 ml-7 flex flex-wrap gap-1.5">
+                      {isKeywordMetaLoading && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-1 text-[11px] text-[var(--muted-foreground)]">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          AI 분류 분석 중
+                        </span>
+                      )}
+                      {keywordMetaFailed && !isKeywordMetaLoading && (
+                        <button
+                          type="button"
+                          onClick={() => enqueueSuggestMeta(p)}
+                          className="inline-flex items-center gap-1 rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-500 transition-colors hover:bg-rose-500/15"
+                        >
+                          AI 분류 재시도
+                        </button>
+                      )}
                       {p.suggested_keywords.map((kw) => {
                         const kwSelected =
                           selectedKeywords.get(p.naver_product_id)?.has(kw) ?? false;
+                        const kwMeta = findSuggestedKeywordMeta(kw, keywordMeta);
+                        const tokenStyle = getTokenCategoryStyle(kwMeta.tokenCategory);
                         return (
                           <button
                             key={kw}
@@ -368,15 +478,36 @@ export default function StoreImportPage() {
                               "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
                               kwSelected
                                 ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
-                                : "bg-[var(--muted)] text-[var(--muted-foreground)] border border-transparent"
+                                : "bg-[var(--muted)] text-[var(--muted-foreground)] border border-transparent",
+                              tokenStyle.strike && "line-through"
                             )}
                           >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full shrink-0",
+                                tokenStyle.dot
+                              )}
+                            />
                             {kwSelected ? (
                               <CheckSquare className="h-3 w-3" />
                             ) : (
                               <Square className="h-3 w-3" />
                             )}
                             {kw}
+                            {kwMeta.level && (
+                              <span
+                                className={cn(
+                                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                                  getKeywordLevelBadgeStyle(kwMeta.level)
+                                )}
+                              >
+                                {kwMeta.level === "specific"
+                                  ? "S"
+                                  : kwMeta.level === "medium"
+                                  ? "M"
+                                  : "B"}
+                              </span>
+                            )}
                           </button>
                         );
                       })}

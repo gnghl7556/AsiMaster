@@ -104,6 +104,27 @@ export interface StoreImportResult {
   skipped_names: string[];
 }
 
+export interface ClassifiedToken {
+  text: string;
+  category: string;
+  weight: number;
+}
+
+export interface SuggestedKeyword {
+  keyword: string;
+  score: number;
+  level: "specific" | "medium" | "broad";
+}
+
+export interface KeywordSuggestion {
+  tokens: ClassifiedToken[];
+  keywords: SuggestedKeyword[];
+  field_guide: {
+    brand: string | null;
+    category: string | null;
+  };
+}
+
 export interface KeywordDetail {
   id: number;
   keyword: string;
