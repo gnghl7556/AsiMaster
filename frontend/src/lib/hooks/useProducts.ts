@@ -9,6 +9,7 @@ interface UseProductListOptions {
   page?: number;
   limit?: number;
   refetchInterval?: number | false;
+  ignoreStoreFilters?: boolean;
 }
 
 export function useProductList(options?: UseProductListOptions) {
@@ -16,16 +17,29 @@ export function useProductList(options?: UseProductListOptions) {
   const sortBy = useProductStore((s) => s.sortBy);
   const category = useProductStore((s) => s.category);
   const search = useProductStore((s) => s.search);
+  const ignoreStoreFilters = options?.ignoreStoreFilters ?? false;
   const page = options?.page;
   const limit = options?.limit;
+  const effectiveSort = ignoreStoreFilters ? undefined : sortBy;
+  const effectiveCategory = ignoreStoreFilters ? undefined : category;
+  const effectiveSearch = ignoreStoreFilters ? undefined : search;
 
   return useQuery({
-    queryKey: ["products", userId, sortBy, category, search, page ?? null, limit ?? null],
+    queryKey: [
+      "products",
+      userId,
+      ignoreStoreFilters ? "all" : "filtered",
+      effectiveSort ?? null,
+      effectiveCategory ?? null,
+      effectiveSearch ?? null,
+      page ?? null,
+      limit ?? null,
+    ],
     queryFn: () =>
       productsApi.getList(userId!, {
-        sort: sortBy,
-        category: category || undefined,
-        search: search || undefined,
+        sort: effectiveSort,
+        category: effectiveCategory || undefined,
+        search: effectiveSearch || undefined,
         page,
         limit,
       }),

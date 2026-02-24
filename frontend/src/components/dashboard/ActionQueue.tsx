@@ -43,7 +43,11 @@ function buildQueue(
 }
 
 export function ActionQueue() {
-  const { data: products = [], isLoading } = useProductList({ page: 1, limit: 500 });
+  const { data: products = [], isLoading } = useProductList({
+    page: 1,
+    limit: 500,
+    ignoreStoreFilters: true,
+  });
   const [includeSameTotal, setIncludeSameTotal] = useState(true);
 
   useEffect(() => {
