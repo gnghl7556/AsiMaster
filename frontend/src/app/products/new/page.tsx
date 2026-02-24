@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,29 +14,13 @@ import {
   Search,
   TrendingUp,
   Loader2,
-  ChevronDown,
-  Plus,
   Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { productsApi } from "@/lib/api/products";
 import { useUserStore } from "@/stores/useUserStore";
-import { useProductList } from "@/lib/hooks/useProducts";
 import { formatPrice } from "@/lib/utils/format";
 import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascader";
-
-const PRESET_CATEGORIES = [
-  "전자기기",
-  "패션/의류",
-  "뷰티/화장품",
-  "식품",
-  "생활/주방",
-  "스포츠/레저",
-  "유아/아동",
-  "반려동물",
-  "가구/인테리어",
-  "자동차용품",
-];
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -55,34 +39,6 @@ export default function NewProductPage() {
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const categoryRef = useRef<HTMLDivElement>(null);
-
-  // 드롭다운 외부 클릭 닫기
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        categoryRef.current &&
-        !categoryRef.current.contains(e.target as Node)
-      ) {
-        setIsCategoryOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  // 기존 상품에서 카테고리 추출
-  const { data: products = [] } = useProductList();
-  const categoryOptions = useMemo(() => {
-    const existing = products
-      .map((p) => p.category)
-      .filter((c): c is string => !!c);
-    const unique = Array.from(new Set([...existing, ...PRESET_CATEGORIES]));
-    return unique.sort((a, b) => a.localeCompare(b, "ko"));
-  }, [products]);
-
   const mutation = useMutation({
     mutationFn: () =>
       productsApi.create(userId!, {
@@ -251,100 +207,15 @@ export default function NewProductPage() {
               <NaverCategoryCascader
                 value={form.category}
                 onChange={(next) => setForm({ ...form, category: next })}
-                helperText="선택하면 아래 카테고리 입력값에 자동 반영됩니다"
+                helperText="선택하거나 아래에 직접 입력할 수 있습니다"
               />
             </div>
-
-            {isCustomCategory ? (
-              <div className="flex gap-2">
-                <input
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value })
-                  }
-                  className={`${inputClass("")} flex-1`}
-                  placeholder="카테고리명 직접 입력"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCustomCategory(false);
-                    setForm({ ...form, category: "" });
-                  }}
-                  className="shrink-0 rounded-xl border border-[var(--border)] px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
-                >
-                  목록
-                </button>
-              </div>
-            ) : (
-              <div className="relative" ref={categoryRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                  className={`w-full rounded-xl border bg-[var(--card)] px-3.5 py-2.5 text-sm outline-none transition-all text-left flex items-center justify-between border-[var(--border)] ${isCategoryOpen ? "border-blue-500 ring-2 ring-blue-500/20" : ""}`}
-                >
-                  <span
-                    className={
-                      form.category
-                        ? ""
-                        : "text-[var(--muted-foreground)]/50"
-                    }
-                  >
-                    {form.category || "카테고리 선택"}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${isCategoryOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {isCategoryOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg overflow-hidden">
-                    <div className="max-h-52 overflow-y-auto py-1">
-                      {form.category && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm({ ...form, category: "" });
-                            setIsCategoryOpen(false);
-                          }}
-                          className="w-full px-3.5 py-2 text-sm text-left text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
-                        >
-                          선택 안함
-                        </button>
-                      )}
-                      {categoryOptions.map((cat) => (
-                        <button
-                          type="button"
-                          key={cat}
-                          onClick={() => {
-                            setForm({ ...form, category: cat });
-                            setIsCategoryOpen(false);
-                          }}
-                          className={`w-full px-3.5 py-2 text-sm text-left hover:bg-[var(--muted)] transition-colors ${form.category === cat ? "text-blue-500 font-medium bg-blue-500/5" : ""}`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="border-t border-[var(--border)]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomCategory(true);
-                          setIsCategoryOpen(false);
-                          setForm({ ...form, category: "" });
-                        }}
-                        className="w-full px-3.5 py-2.5 text-sm text-left text-blue-500 hover:bg-[var(--muted)] transition-colors flex items-center gap-1.5 font-medium"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        직접 입력
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <input
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className={inputClass("")}
+              placeholder="카테고리 직접 입력 (예: 생활/건강/생활용품)"
+            />
           </div>
         </div>
 
