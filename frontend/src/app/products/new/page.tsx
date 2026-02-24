@@ -21,6 +21,7 @@ import { productsApi } from "@/lib/api/products";
 import { useUserStore } from "@/stores/useUserStore";
 import { formatPrice } from "@/lib/utils/format";
 import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascader";
+import { parseSpecKeywordsInput } from "@/lib/utils/productMatching";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -49,13 +50,7 @@ export default function NewProductPage() {
         image_url: form.image_url || undefined,
         naver_product_id: form.naver_product_id.trim() || undefined,
         model_code: form.model_code.trim() || undefined,
-        spec_keywords: (() => {
-          const values = form.spec_keywords
-            .split(/[,\n]/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-          return values.length > 0 ? values : undefined;
-        })(),
+        spec_keywords: parsedSpecKeywords.length > 0 ? parsedSpecKeywords : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -85,6 +80,7 @@ export default function NewProductPage() {
   const margin = sell - cost;
   const marginPercent = sell > 0 ? (margin / sell) * 100 : 0;
   const showMargin = cost > 0 && sell > 0;
+  const parsedSpecKeywords = parseSpecKeywordsInput(form.spec_keywords);
 
   const isFieldError = (field: string) =>
     touched[field] && !form[field as keyof typeof form];
@@ -193,6 +189,23 @@ export default function NewProductPage() {
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
               쉼표로 구분 입력. 크롤링 시 제목에 모두 포함된 상품만 관련 상품으로 판단합니다.
             </p>
+            {parsedSpecKeywords.length > 0 && (
+              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-2">
+                <div className="mb-1 text-[11px] text-[var(--muted-foreground)]">
+                  저장 시 적용될 규격 키워드 ({parsedSpecKeywords.length}개)
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {parsedSpecKeywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

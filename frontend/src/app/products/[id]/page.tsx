@@ -33,6 +33,7 @@ import { CompetitorTotalSummary } from "@/components/products/CompetitorTotalSum
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import { parseSpecKeywordsInput } from "@/lib/utils/productMatching";
 import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
 
 export default function ProductDetailPage({
@@ -172,10 +173,7 @@ export default function ProductDetailPage({
   const handleSaveTrackingFields = () => {
     const normalizedNaverProductId = editableNaverProductId.trim() || null;
     const normalizedModelCode = editableModelCode.trim() || null;
-    const normalizedSpecKeywords = editableSpecKeywords
-      .split(/[,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const normalizedSpecKeywords = parseSpecKeywordsInput(editableSpecKeywords);
 
     updateTrackingFieldsMutation.mutate({
       naver_product_id: normalizedNaverProductId,
@@ -230,11 +228,8 @@ export default function ProductDetailPage({
     .filter(Boolean)
     .join(" > ");
   const currentSpecKeywordsString = (product.spec_keywords ?? []).join(", ");
-  const normalizedEditedSpecKeywordsString = editableSpecKeywords
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .join(", ");
+  const parsedEditedSpecKeywords = parseSpecKeywordsInput(editableSpecKeywords);
+  const normalizedEditedSpecKeywordsString = parsedEditedSpecKeywords.join(", ");
   const isTrackingFieldsChanged =
     editableNaverProductId.trim() !== (product.naver_product_id ?? "") ||
     editableModelCode.trim() !== (product.model_code ?? "") ||
@@ -384,6 +379,23 @@ export default function ProductDetailPage({
               placeholder="예: 43035, 중형, 200매"
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
             />
+            {parsedEditedSpecKeywords.length > 0 && (
+              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2">
+                <div className="mb-1 text-[11px] text-[var(--muted-foreground)]">
+                  적용 예정 필터 ({parsedEditedSpecKeywords.length}개)
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {parsedEditedSpecKeywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="mt-3 flex justify-end">
             <button
