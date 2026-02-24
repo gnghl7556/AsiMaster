@@ -354,7 +354,14 @@ export default function ProductDetailPage({
 
         <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
           <div className="mb-2">
-            <h4 className="text-sm font-medium">검색 정확도 설정</h4>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-medium">검색 정확도 설정</h4>
+              {isTrackingFieldsChanged && (
+                <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                  저장 필요
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
               모델코드/규격 키워드를 설정하면 관련 없는 검색 결과가 경쟁상품으로 잡히는 문제를 줄일 수 있습니다.
             </p>
@@ -426,7 +433,12 @@ export default function ProductDetailPage({
               type="button"
               onClick={handleSaveTrackingFields}
               disabled={updateTrackingFieldsMutation.isPending || !isTrackingFieldsChanged}
-              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+              className={cn(
+                "rounded-lg border bg-[var(--card)] px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
+                isTrackingFieldsChanged
+                  ? "border-blue-500/30 text-blue-500 hover:bg-blue-500/5"
+                  : "border-[var(--border)] hover:bg-[var(--muted)]"
+              )}
             >
               {updateTrackingFieldsMutation.isPending ? "저장 중..." : "정확도 설정 저장"}
             </button>
