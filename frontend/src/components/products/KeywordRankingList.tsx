@@ -153,6 +153,26 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     setExcludeTarget(item);
   };
 
+  const excludeImpactPreview = excludeTarget
+    ? (() => {
+        const targetMall = excludeTarget.mall_name.trim().toLowerCase();
+        const matches = keywords.flatMap((kw) =>
+          kw.rankings
+            .filter(
+              (item) =>
+                !item.is_my_store &&
+                (item.mall_name || "").trim().toLowerCase() === targetMall
+            )
+            .map((item) => ({ item, keywordId: kw.id }))
+        );
+        const keywordCount = new Set(matches.map((match) => match.keywordId)).size;
+        return {
+          rowCount: matches.length,
+          keywordCount,
+        };
+      })()
+    : null;
+
   return (
     <div className="space-y-4">
       {keywords.map((kw) => (
@@ -538,6 +558,15 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                 같은 판매자명으로 노출된 항목도 함께 제외될 수 있습니다.
               </p>
+              {excludeImpactPreview && (
+                <p className="mt-1 text-xs text-amber-500">
+                  현재 로드된 결과 기준 {excludeImpactPreview.rowCount}개 항목
+                  {excludeImpactPreview.keywordCount > 1
+                    ? ` (키워드 ${excludeImpactPreview.keywordCount}개)`
+                    : ""}{" "}
+                  이 영향을 받을 수 있습니다.
+                </p>
+              )}
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
               <div className="text-xs text-[var(--muted-foreground)]">판매자</div>
