@@ -284,6 +284,28 @@ export default function ProductDetailPage({
     editableName.trim() !== product.name ||
     isCategoryChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
+  const excludedProductGroups = Object.values(
+    excludedProducts.reduce<Record<string, { mallName: string; items: ExcludedProduct[] }>>(
+      (acc, ep) => {
+        const mallName = ep.mall_name?.trim() || "판매자 정보 없음";
+        if (!acc[mallName]) {
+          acc[mallName] = { mallName, items: [] };
+        }
+        acc[mallName].items.push(ep);
+        return acc;
+      },
+      {}
+    )
+  )
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+      latestCreatedAt: [...group.items]
+        .map((item) => item.created_at)
+        .sort()
+        .pop() ?? null,
+    }))
+    .sort((a, b) => (b.latestCreatedAt ?? "").localeCompare(a.latestCreatedAt ?? ""));
   const priceFilterRangePreview = {
     minPct: Number.isFinite(normalizedEditedMinPct as number)
       ? normalizedEditedMinPct
@@ -778,38 +800,57 @@ export default function ProductDetailPage({
             </button>
             {isExcludedOpen && (
               <div className="divide-y divide-[var(--border)]">
-                {excludedProducts.map((ep) => (
-                  <div key={ep.id} className="flex items-start gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        {ep.mall_name && (
-                          <span className="inline-flex items-center rounded-full border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
-                            {ep.mall_name}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-[var(--muted-foreground)]">
-                          제외 {timeAgo(ep.created_at)}
+                {excludedProductGroups.map((group) => (
+                  <div key={group.mallName} className="px-4 py-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="inline-flex items-center rounded-full border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                          {group.mallName}
+                        </span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">
+                          {group.items.length}개
                         </span>
                       </div>
-                      <div className="text-sm font-medium leading-snug break-words">
-                        {ep.naver_product_name || "상품명 정보 없음"}
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--muted-foreground)] font-mono break-all">
-                        ID: {ep.naver_product_id}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => restoreMutation.mutate(ep.naver_product_id)}
-                      disabled={restoreMutation.isPending}
-                      className="mt-0.5 flex items-center gap-1 shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
-                    >
-                      {restoreMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <RotateCcw className="h-3 w-3" />
+                      {group.latestCreatedAt && (
+                        <span className="text-[10px] text-[var(--muted-foreground)] shrink-0">
+                          최근 제외 {timeAgo(group.latestCreatedAt)}
+                        </span>
                       )}
-                      복원
-                    </button>
+                    </div>
+                    <div className="space-y-2">
+                      {group.items.map((ep) => (
+                        <div
+                          key={ep.id}
+                          className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)]/50 px-3 py-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                              <span className="text-[10px] text-[var(--muted-foreground)]">
+                                제외 {timeAgo(ep.created_at)}
+                              </span>
+                            </div>
+                            <div className="text-sm font-medium leading-snug break-words">
+                              {ep.naver_product_name || "상품명 정보 없음"}
+                            </div>
+                            <div className="mt-1 text-xs text-[var(--muted-foreground)] font-mono break-all">
+                              ID: {ep.naver_product_id}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => restoreMutation.mutate(ep.naver_product_id)}
+                            disabled={restoreMutation.isPending}
+                            className="mt-0.5 flex items-center gap-1 shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
+                          >
+                            {restoreMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3 w-3" />
+                            )}
+                            복원
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
