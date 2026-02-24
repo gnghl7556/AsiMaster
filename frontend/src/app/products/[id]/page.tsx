@@ -13,6 +13,8 @@ import {
   RotateCcw,
   Ban,
   ChevronDown,
+  Hash,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -44,6 +46,9 @@ export default function ProductDetailPage({
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
   const [editableCostPrice, setEditableCostPrice] = useState("");
+  const [editableNaverProductId, setEditableNaverProductId] = useState("");
+  const [editableModelCode, setEditableModelCode] = useState("");
+  const [editableSpecKeywords, setEditableSpecKeywords] = useState("");
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -114,6 +119,20 @@ export default function ProductDetailPage({
     onError: () => toast.error("상품명 수정에 실패했습니다"),
   });
 
+  const updateTrackingFieldsMutation = useMutation({
+    mutationFn: (data: {
+      naver_product_id: string | null;
+      model_code: string | null;
+      spec_keywords: string[] | null;
+    }) => productsApi.update(userId!, productId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("정확도 설정이 저장되었습니다");
+    },
+    onError: () => toast.error("정확도 설정 저장에 실패했습니다"),
+  });
+
   const updateCostPriceMutation = useMutation({
     mutationFn: (cost_price: number) =>
       productsApi.update(userId!, productId, { cost_price }),
@@ -146,10 +165,28 @@ export default function ProductDetailPage({
     updateCostPriceMutation.mutate(nextCostPrice);
   };
 
+  const handleSaveTrackingFields = () => {
+    const normalizedNaverProductId = editableNaverProductId.trim() || null;
+    const normalizedModelCode = editableModelCode.trim() || null;
+    const normalizedSpecKeywords = editableSpecKeywords
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    updateTrackingFieldsMutation.mutate({
+      naver_product_id: normalizedNaverProductId,
+      model_code: normalizedModelCode,
+      spec_keywords: normalizedSpecKeywords.length > 0 ? normalizedSpecKeywords : null,
+    });
+  };
+
   useEffect(() => {
     if (!product) return;
     setEditableName(product.name ?? "");
     setEditableCostPrice(String(product.cost_price ?? ""));
+    setEditableNaverProductId(product.naver_product_id ?? "");
+    setEditableModelCode(product.model_code ?? "");
+    setEditableSpecKeywords((product.spec_keywords ?? []).join(", "));
   }, [product]);
 
   if (isLoading) {
@@ -187,6 +224,16 @@ export default function ProductDetailPage({
   ]
     .filter(Boolean)
     .join(" > ");
+  const currentSpecKeywordsString = (product.spec_keywords ?? []).join(", ");
+  const normalizedEditedSpecKeywordsString = editableSpecKeywords
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(", ");
+  const isTrackingFieldsChanged =
+    editableNaverProductId.trim() !== (product.naver_product_id ?? "") ||
+    editableModelCode.trim() !== (product.model_code ?? "") ||
+    normalizedEditedSpecKeywordsString !== currentSpecKeywordsString;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -227,7 +274,7 @@ export default function ProductDetailPage({
         <div className="mb-3">
           <h3 className="font-medium">상품 기본 정보</h3>
           <p className="text-xs text-[var(--muted-foreground)] mt-1">
-            상품명은 여기서 수정하고, 매입비용은 수익성 분석 영역에서 수정할 수 있습니다.
+            상품명과 검색 정확도 설정을 관리합니다. 매입비용은 수익성 분석 영역에서 수정할 수 있습니다.
           </p>
         </div>
         <form
@@ -259,6 +306,70 @@ export default function ProductDetailPage({
             {updateNameMutation.isPending ? "저장 중..." : "상품명 저장"}
           </button>
         </form>
+
+        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+          <div className="mb-2">
+            <h4 className="text-sm font-medium">검색 정확도 설정</h4>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+              모델코드/규격 키워드를 설정하면 관련 없는 검색 결과가 경쟁상품으로 잡히는 문제를 줄일 수 있습니다.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                <span className="inline-flex items-center gap-1">
+                  <Hash className="h-3 w-3" />
+                  네이버 상품번호
+                </span>
+              </label>
+              <input
+                type="text"
+                value={editableNaverProductId}
+                onChange={(e) => setEditableNaverProductId(e.target.value)}
+                placeholder="예: 87265928596"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+                inputMode="numeric"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                <span className="inline-flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  모델코드
+                </span>
+              </label>
+              <input
+                type="text"
+                value={editableModelCode}
+                onChange={(e) => setEditableModelCode(e.target.value)}
+                placeholder="예: RF85B9121AP"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+          </div>
+          <div className="mt-2">
+            <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+              규격 키워드 (쉼표 구분)
+            </label>
+            <input
+              type="text"
+              value={editableSpecKeywords}
+              onChange={(e) => setEditableSpecKeywords(e.target.value)}
+              placeholder="예: 43035, 중형, 200매"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveTrackingFields}
+              disabled={updateTrackingFieldsMutation.isPending || !isTrackingFieldsChanged}
+              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+            >
+              {updateTrackingFieldsMutation.isPending ? "저장 중..." : "정확도 설정 저장"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 핵심 지표 카드 3개 */}

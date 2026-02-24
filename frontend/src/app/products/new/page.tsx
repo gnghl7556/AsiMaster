@@ -16,6 +16,7 @@ import {
   Loader2,
   ChevronDown,
   Plus,
+  Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { productsApi } from "@/lib/api/products";
@@ -47,6 +48,9 @@ export default function NewProductPage() {
     cost_price: "",
     selling_price: "",
     image_url: "",
+    naver_product_id: "",
+    model_code: "",
+    spec_keywords: "",
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -86,6 +90,15 @@ export default function NewProductPage() {
         cost_price: Number(form.cost_price),
         selling_price: Number(form.selling_price),
         image_url: form.image_url || undefined,
+        naver_product_id: form.naver_product_id.trim() || undefined,
+        model_code: form.model_code.trim() || undefined,
+        spec_keywords: (() => {
+          const values = form.spec_keywords
+            .split(/[,\n]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return values.length > 0 ? values : undefined;
+        })(),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -166,6 +179,63 @@ export default function NewProductPage() {
             {isFieldError("name") && (
               <p className="mt-1 text-xs text-red-400">상품명을 입력해주세요</p>
             )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Hash className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+                  네이버 상품번호
+                </span>
+              </label>
+              <input
+                value={form.naver_product_id}
+                onChange={(e) => setForm({ ...form, naver_product_id: e.target.value })}
+                className={inputClass("")}
+                placeholder="예: 87265928596"
+                inputMode="numeric"
+              />
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                있으면 내 상품 매칭 정확도가 올라갑니다
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Tag className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+                  모델코드
+                </span>
+              </label>
+              <input
+                value={form.model_code}
+                onChange={(e) => setForm({ ...form, model_code: e.target.value })}
+                className={inputClass("")}
+                placeholder="예: RF85B9121AP"
+              />
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                관련 상품 필터링의 핵심 기준
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              <span className="flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+                규격 키워드 (선택)
+              </span>
+            </label>
+            <input
+              value={form.spec_keywords}
+              onChange={(e) => setForm({ ...form, spec_keywords: e.target.value })}
+              className={inputClass("")}
+              placeholder="예: 43035, 중형, 200매"
+            />
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              쉼표로 구분 입력. 크롤링 시 제목에 모두 포함된 상품만 관련 상품으로 판단합니다.
+            </p>
           </div>
 
           <div>

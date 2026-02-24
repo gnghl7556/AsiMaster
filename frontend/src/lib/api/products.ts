@@ -28,7 +28,19 @@ export const productsApi = {
       .get<ProductDetail>(`/products/${productId}`)
       .then((r) => r.data),
 
-  create: (userId: number, data: { name: string; category?: string; cost_price: number; selling_price: number; image_url?: string }) =>
+  create: (
+    userId: number,
+    data: {
+      name: string;
+      category?: string;
+      cost_price: number;
+      selling_price: number;
+      image_url?: string;
+      naver_product_id?: string;
+      model_code?: string;
+      spec_keywords?: string[];
+    }
+  ) =>
     apiClient.post<Product>(`/users/${userId}/products`, data).then((r) => r.data),
 
   update: (userId: number, productId: number, data: Partial<Product>) =>
