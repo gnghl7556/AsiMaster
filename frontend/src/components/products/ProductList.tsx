@@ -18,6 +18,9 @@ interface Props {
   hideMeta?: boolean;
 }
 
+const PAGE_SIZE_STORAGE_KEY = "asimaster:products-page-size";
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
 export function ProductList({ hideMeta = false }: Props) {
   const userId = useUserStore((s) => s.currentUserId);
   const sortBy = useProductStore((s) => s.sortBy);
@@ -25,7 +28,7 @@ export function ProductList({ hideMeta = false }: Props) {
   const search = useProductStore((s) => s.search);
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState<number>(20);
   const { data: products, isLoading, isFetching } = useProductList(
     hideMeta ? undefined : { page, limit: pageSize }
   );
@@ -35,10 +38,19 @@ export function ProductList({ hideMeta = false }: Props) {
 
   useEffect(() => {
     if (hideMeta) return;
+    if (typeof window === "undefined") return;
+    const saved = Number(window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    if (PAGE_SIZE_OPTIONS.includes(saved as (typeof PAGE_SIZE_OPTIONS)[number])) {
+      setPageSize(saved);
+    }
+  }, [hideMeta]);
+
+  useEffect(() => {
+    if (hideMeta) return;
     setPage(1);
     setSelectedIds(new Set());
     setIsSelectMode(false);
-  }, [hideMeta, sortBy, category, search]);
+  }, [hideMeta, sortBy, category, search, pageSize]);
 
   useEffect(() => {
     if (hideMeta) return;
@@ -125,6 +137,17 @@ export function ProductList({ hideMeta = false }: Props) {
     });
   };
 
+  const handleChangePageSize = (nextSize: number) => {
+    if (nextSize === pageSize) return;
+    setPageSize(nextSize);
+    setPage(1);
+    setSelectedIds(new Set());
+    setShowDeleteConfirm(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(nextSize));
+    }
+  };
+
   return (
     <div>
       {!hideMeta && (
@@ -182,9 +205,25 @@ export function ProductList({ hideMeta = false }: Props) {
 
       {!hideMeta && (
         <div className="mb-3 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-xs">
-          <div className="text-[var(--muted-foreground)]">
-            페이지 {page}
-            {isFetching && !isLoading ? " · 갱신 중" : ""}
+          <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+            <span>
+              페이지 {page}
+              {isFetching && !isLoading ? " · 갱신 중" : ""}
+            </span>
+            <div className="inline-flex items-center gap-1">
+              <span>표시</span>
+              <select
+                value={pageSize}
+                onChange={(e) => handleChangePageSize(Number(e.target.value))}
+                className="rounded-md border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 text-[11px] text-[var(--foreground)] outline-none"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}개
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <button
