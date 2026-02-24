@@ -21,11 +21,13 @@ interface Props {
   isRefreshing: boolean;
 }
 
+const DASHBOARD_SCAN_LIMIT = 500;
+
 export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const { data, isLoading } = useDashboard();
   const { data: products = [] } = useProductList({
     page: 1,
-    limit: 500,
+    limit: DASHBOARD_SCAN_LIMIT,
     ignoreStoreFilters: true,
   });
 
@@ -45,9 +47,7 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   if (!data) return null;
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
-  const normalProducts = activeProducts.filter(
-    (p) => p.status === "winning" || p.status === "close"
-  );
+  const normalProductsCount = data.status_counts.winning + data.status_counts.close;
   const samePriceCount = products.filter(
     (p) => !p.is_price_locked && p.price_gap === 0
   ).length;
@@ -55,6 +55,8 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
     (p) => !p.is_price_locked && p.status === "losing"
   );
   const samePriceProducts = activeProducts.filter((p) => p.price_gap === 0);
+
+  const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
 
   const latestDetectedAt = (items: typeof activeProducts) => {
     const latest = items
@@ -68,8 +70,10 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const cards: SummaryCard[] = [
     {
       label: "정상",
-      value: normalProducts.length,
-      time: latestDetectedAt(normalProducts),
+      value: normalProductsCount,
+      time: latestDetectedAt(
+        activeProducts.filter((p) => p.status === "winning" || p.status === "close")
+      ),
       icon: ShieldCheck,
       color: "text-emerald-500",
     },
@@ -140,6 +144,11 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
       {data.last_crawled_at && (
         <div className="mt-2 text-right text-xs text-[var(--muted-foreground)]">
           {timeAgo(data.last_crawled_at)}
+        </div>
+      )}
+      {mayBeTruncated && (
+        <div className="mt-1 text-right text-[11px] text-amber-500">
+          동일총액/감지 시각 일부는 최대 {DASHBOARD_SCAN_LIMIT}개 상품 기준
         </div>
       )}
     </div>

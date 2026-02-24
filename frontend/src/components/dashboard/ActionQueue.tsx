@@ -14,6 +14,7 @@ type QueueItem = ProductListItem & {
 };
 
 const ACTION_QUEUE_MODE_KEY = "asimaster:dashboard-action-queue-mode";
+const DASHBOARD_SCAN_LIMIT = 500;
 
 function buildQueue(
   products: ProductListItem[],
@@ -45,7 +46,7 @@ function buildQueue(
 export function ActionQueue() {
   const { data: products = [], isLoading } = useProductList({
     page: 1,
-    limit: 500,
+    limit: DASHBOARD_SCAN_LIMIT,
     ignoreStoreFilters: true,
   });
   const [includeSameTotal, setIncludeSameTotal] = useState(true);
@@ -81,6 +82,7 @@ export function ActionQueue() {
   }
 
   const queue = buildQueue(products, { includeSameTotal });
+  const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
 
   return (
     <section className="glass-card p-4">
@@ -121,6 +123,11 @@ export function ActionQueue() {
           동일총액 포함
         </button>
       </div>
+      {mayBeTruncated && (
+        <div className="mb-3 text-[11px] text-amber-500">
+          조치 큐는 현재 최대 {DASHBOARD_SCAN_LIMIT}개 상품 기준으로 계산됩니다.
+        </div>
+      )}
 
       {queue.length === 0 ? (
         <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/60 text-center">
