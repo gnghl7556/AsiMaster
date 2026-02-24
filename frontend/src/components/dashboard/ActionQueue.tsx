@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Equal, RefreshCw } from "lucide-react";
 import { useProductList } from "@/lib/hooks/useProducts";
@@ -12,13 +13,18 @@ type QueueItem = ProductListItem & {
   issueType: "losing" | "same_price";
 };
 
-function buildQueue(products: ProductListItem[]): QueueItem[] {
+const ACTION_QUEUE_MODE_KEY = "asimaster:dashboard-action-queue-mode";
+
+function buildQueue(
+  products: ProductListItem[],
+  options: { includeSameTotal: boolean }
+): QueueItem[] {
   const active = products.filter((p) => !p.is_price_locked);
   const queue = active
     .filter(
       (p) =>
         p.status === "losing" ||
-        (p.price_gap === 0 && p.status !== "winning")
+        (options.includeSameTotal && p.price_gap === 0 && p.status !== "winning")
     )
     .map((p): QueueItem => ({
       ...p,
@@ -37,7 +43,25 @@ function buildQueue(products: ProductListItem[]): QueueItem[] {
 }
 
 export function ActionQueue() {
-  const { data: products = [], isLoading } = useProductList();
+  const { data: products = [], isLoading } = useProductList({ page: 1, limit: 500 });
+  const [includeSameTotal, setIncludeSameTotal] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(ACTION_QUEUE_MODE_KEY);
+    if (saved === "losing_only") setIncludeSameTotal(false);
+    if (saved === "including_same_total") setIncludeSameTotal(true);
+  }, []);
+
+  const handleSetMode = (nextIncludeSameTotal: boolean) => {
+    setIncludeSameTotal(nextIncludeSameTotal);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        ACTION_QUEUE_MODE_KEY,
+        nextIncludeSameTotal ? "including_same_total" : "losing_only"
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -52,7 +76,7 @@ export function ActionQueue() {
     );
   }
 
-  const queue = buildQueue(products);
+  const queue = buildQueue(products, { includeSameTotal });
 
   return (
     <section className="glass-card p-4">
@@ -60,12 +84,38 @@ export function ActionQueue() {
         <div>
           <h2 className="text-lg font-bold">지금 조치가 필요한 상품</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
-            밀림/동일 총액 상품 우선 표시
+            {includeSameTotal ? "밀림/동일 총액 상품 우선 표시" : "밀림 상품만 표시"}
           </p>
         </div>
         <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium">
           {queue.length}개
         </span>
+      </div>
+      <div className="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+        <button
+          type="button"
+          onClick={() => handleSetMode(false)}
+          className={cn(
+            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+            !includeSameTotal
+              ? "bg-[var(--card)] text-red-500 shadow-sm"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          )}
+        >
+          밀림만
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSetMode(true)}
+          className={cn(
+            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+            includeSameTotal
+              ? "bg-[var(--card)] text-amber-500 shadow-sm"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          )}
+        >
+          동일총액 포함
+        </button>
       </div>
 
       {queue.length === 0 ? (
@@ -73,7 +123,9 @@ export function ActionQueue() {
           <RefreshCw className="mb-2 h-6 w-6 text-[var(--muted-foreground)]" />
           <p className="text-sm font-medium">조치 필요 상품이 없습니다</p>
           <p className="text-xs text-[var(--muted-foreground)]">
-            현재 밀림/동일 총액 상태의 상품이 없습니다
+            {includeSameTotal
+              ? "현재 밀림/동일 총액 상태의 상품이 없습니다"
+              : "현재 밀림 상태의 상품이 없습니다"}
           </p>
         </div>
       ) : (

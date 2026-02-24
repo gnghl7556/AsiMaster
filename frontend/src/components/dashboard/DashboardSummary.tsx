@@ -23,7 +23,7 @@ interface Props {
 
 export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const { data, isLoading } = useDashboard();
-  const { data: products = [] } = useProductList();
+  const { data: products = [] } = useProductList({ page: 1, limit: 500 });
 
   if (isLoading) {
     return (
