@@ -57,6 +57,13 @@ export default function ProductDetailPage({
   const [editablePriceFilterMinPct, setEditablePriceFilterMinPct] = useState("");
   const [editablePriceFilterMaxPct, setEditablePriceFilterMaxPct] = useState("");
   const [pendingRestoreGroupName, setPendingRestoreGroupName] = useState<string | null>(null);
+  const [excludedGroupQuery, setExcludedGroupQuery] = useState("");
+  const [excludedGroupSort, setExcludedGroupSort] = useState<"recent" | "name" | "count">(
+    "recent"
+  );
+  const [highlightedAnchor, setHighlightedAnchor] = useState<"basic-info" | "profitability" | null>(
+    null
+  );
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -256,6 +263,29 @@ export default function ProductDetailPage({
     );
   }, [product]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let clearTimer: number | null = null;
+
+    const syncHashHighlight = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (hash !== "basic-info" && hash !== "profitability") return;
+      setHighlightedAnchor(hash);
+      if (clearTimer) window.clearTimeout(clearTimer);
+      clearTimer = window.setTimeout(() => {
+        setHighlightedAnchor((prev) => (prev === hash ? null : prev));
+      }, 1800);
+    };
+
+    syncHashHighlight();
+    window.addEventListener("hashchange", syncHashHighlight);
+
+    return () => {
+      if (clearTimer) window.clearTimeout(clearTimer);
+      window.removeEventListener("hashchange", syncHashHighlight);
+    };
+  }, []);
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
@@ -309,7 +339,7 @@ export default function ProductDetailPage({
     editableName.trim() !== product.name ||
     isCategoryChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
-  const excludedProductGroups = Object.values(
+  const excludedGroupBase = Object.values(
     excludedProducts.reduce<Record<string, { mallName: string; items: ExcludedProduct[] }>>(
       (acc, ep) => {
         const mallName = ep.mall_name?.trim() || "판매자 정보 없음";
@@ -321,16 +351,36 @@ export default function ProductDetailPage({
       },
       {}
     )
-  )
-    .map((group) => ({
-      ...group,
-      items: [...group.items].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-      latestCreatedAt: [...group.items]
-        .map((item) => item.created_at)
-        .sort()
-        .pop() ?? null,
-    }))
-    .sort((a, b) => (b.latestCreatedAt ?? "").localeCompare(a.latestCreatedAt ?? ""));
+  ).map((group) => ({
+    ...group,
+    items: [...group.items].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    latestCreatedAt: [...group.items]
+      .map((item) => item.created_at)
+      .sort()
+      .pop() ?? null,
+  }));
+  const normalizedExcludedGroupQuery = excludedGroupQuery.trim().toLowerCase();
+  const excludedProductGroups = [...excludedGroupBase]
+    .filter((group) => {
+      if (!normalizedExcludedGroupQuery) return true;
+      if (group.mallName.toLowerCase().includes(normalizedExcludedGroupQuery)) return true;
+      return group.items.some((item) => {
+        const name = item.naver_product_name?.toLowerCase() ?? "";
+        return (
+          name.includes(normalizedExcludedGroupQuery) ||
+          item.naver_product_id.toLowerCase().includes(normalizedExcludedGroupQuery)
+        );
+      });
+    })
+    .sort((a, b) => {
+      if (excludedGroupSort === "name") return a.mallName.localeCompare(b.mallName);
+      if (excludedGroupSort === "count") {
+        if (b.items.length !== a.items.length) return b.items.length - a.items.length;
+        return a.mallName.localeCompare(b.mallName);
+      }
+      return (b.latestCreatedAt ?? "").localeCompare(a.latestCreatedAt ?? "");
+    });
+  const excludedVisibleCount = excludedProductGroups.reduce((sum, group) => sum + group.items.length, 0);
   const priceFilterRangePreview = {
     minPct: Number.isFinite(normalizedEditedMinPct as number)
       ? normalizedEditedMinPct
@@ -383,7 +433,14 @@ export default function ProductDetailPage({
       </div>
 
       {/* 상품 기본 정보 */}
-      <div id="basic-info" className="glass-card scroll-mt-24 p-4">
+      <div
+        id="basic-info"
+        className={cn(
+          "glass-card scroll-mt-24 p-4 transition-shadow",
+          highlightedAnchor === "basic-info" &&
+            "ring-2 ring-blue-500/40 shadow-[0_0_0_4px_rgba(59,130,246,0.08)]"
+        )}
+      >
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium">상품 기본 정보</h3>
@@ -756,7 +813,14 @@ export default function ProductDetailPage({
 
       {/* 수익성 분석 */}
       {product.margin && (
-        <div id="profitability" className="scroll-mt-24">
+        <div
+          id="profitability"
+          className={cn(
+            "scroll-mt-24 rounded-2xl transition-shadow",
+            highlightedAnchor === "profitability" &&
+              "ring-2 ring-emerald-500/30 shadow-[0_0_0_4px_rgba(16,185,129,0.07)]"
+          )}
+        >
           <MarginDetail
             margin={product.margin}
             simulatedMargin={simulatedMargin}
@@ -827,6 +891,48 @@ export default function ProductDetailPage({
             </button>
             {isExcludedOpen && (
               <div className="divide-y divide-[var(--border)]">
+                <div className="px-4 py-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <input
+                      type="text"
+                      value={excludedGroupQuery}
+                      onChange={(e) => setExcludedGroupQuery(e.target.value)}
+                      placeholder="판매자명 / 상품명 / 상품코드 검색"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors sm:max-w-sm"
+                    />
+                    <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+                      {(
+                        [
+                          { key: "recent", label: "최근 제외순" },
+                          { key: "count", label: "개수순" },
+                          { key: "name", label: "판매자명순" },
+                        ] as const
+                      ).map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => setExcludedGroupSort(option.key)}
+                          className={cn(
+                            "rounded-md px-2 py-1 text-xs transition-colors",
+                            excludedGroupSort === option.key
+                              ? "bg-[var(--card)] text-blue-500 shadow-sm"
+                              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-[var(--muted-foreground)]">
+                    {excludedProductGroups.length}개 판매자 그룹 / {excludedVisibleCount}개 제외 상품 표시
+                  </div>
+                </div>
+                {excludedProductGroups.length === 0 && (
+                  <div className="px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
+                    검색 조건에 맞는 제외 상품이 없습니다
+                  </div>
+                )}
                 {excludedProductGroups.map((group) => (
                   <div key={group.mallName} className="px-4 py-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
