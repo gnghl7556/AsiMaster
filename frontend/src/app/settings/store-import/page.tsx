@@ -325,6 +325,41 @@ export default function StoreImportPage() {
     );
   };
 
+  const applyBulkKeywordPreset = (mode: "specific" | "balanced" | "all" | "clear") => {
+    if (selectedProducts.length === 0) return;
+
+    setSelectedKeywords((prev) => {
+      const next = new Map(prev);
+      for (const product of selectedProducts) {
+        const pid = product.naver_product_id;
+        const keywordMeta = keywordMetaByProduct[pid];
+        const nextSelected =
+          mode === "clear"
+            ? []
+            : mode === "all" || !keywordMeta
+            ? product.suggested_keywords
+            : product.suggested_keywords.filter((kw) => {
+                const meta = findSuggestedKeywordMeta(kw, keywordMeta);
+                if (!meta.level) return mode === "balanced";
+                if (mode === "specific") return meta.level === "specific";
+                return meta.level === "specific" || meta.level === "medium";
+              });
+        next.set(pid, new Set(nextSelected));
+      }
+      return next;
+    });
+
+    toast.success(
+      mode === "clear"
+        ? `선택 상품 ${selectedProducts.length}개의 추천 키워드를 해제했습니다`
+        : mode === "specific"
+        ? `선택 상품 ${selectedProducts.length}개에 정밀 키워드를 적용했습니다`
+        : mode === "balanced"
+        ? `선택 상품 ${selectedProducts.length}개에 정밀/중간 키워드를 적용했습니다`
+        : `선택 상품 ${selectedProducts.length}개에 추천 키워드를 모두 적용했습니다`
+    );
+  };
+
   useEffect(() => {
     if (storeProducts.length === 0) return;
     let queuedCount = 0;
@@ -492,6 +527,41 @@ export default function StoreImportPage() {
                 );
               })}
             </div>
+            {selectedCount > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-[var(--muted-foreground)]">
+                  선택 상품 일괄 적용
+                </span>
+                <button
+                  type="button"
+                  onClick={() => applyBulkKeywordPreset("specific")}
+                  className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 hover:bg-emerald-500/15"
+                >
+                  정밀만
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyBulkKeywordPreset("balanced")}
+                  className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500 hover:bg-amber-500/15"
+                >
+                  정밀+중간
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyBulkKeywordPreset("all")}
+                  className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                >
+                  전체
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyBulkKeywordPreset("clear")}
+                  className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-rose-500"
+                >
+                  해제
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border)]">
