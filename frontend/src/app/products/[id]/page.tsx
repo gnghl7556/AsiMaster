@@ -542,6 +542,7 @@ export default function ProductDetailPage({
         keywords={keywords}
         productName={product.name}
         categoryHint={product.category}
+        onApplySuggestedCategory={(category) => setEditableCategory(category)}
       />
 
       {/* 키워드별 경쟁사 순위 */}

@@ -19,6 +19,7 @@ interface Props {
   productName?: string;
   categoryHint?: string | null;
   storeName?: string;
+  onApplySuggestedCategory?: (category: string) => void;
 }
 
 export function KeywordManager({
@@ -28,6 +29,7 @@ export function KeywordManager({
   productName,
   categoryHint,
   storeName,
+  onApplySuggestedCategory,
 }: Props) {
   const [input, setInput] = useState("");
   const [sortType, setSortType] = useState<"sim" | "asc">("sim");
@@ -211,7 +213,21 @@ export function KeywordManager({
                     {aiSuggestion.field_guide.category && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                         카테고리
-                        <span className="text-[var(--foreground)]">{aiSuggestion.field_guide.category}</span>
+                        <span className="text-[var(--foreground)]">
+                          {aiSuggestion.field_guide.category}
+                        </span>
+                        {onApplySuggestedCategory && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApplySuggestedCategory(aiSuggestion.field_guide.category!);
+                              toast.success("추천 카테고리를 적용했습니다. 기본 정보 저장을 눌러 반영하세요.");
+                            }}
+                            className="ml-0.5 rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] font-semibold text-emerald-500 hover:bg-emerald-500/20"
+                          >
+                            적용
+                          </button>
+                        )}
                       </span>
                     )}
                   </div>

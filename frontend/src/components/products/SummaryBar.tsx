@@ -4,9 +4,10 @@ import type { ProductListItem } from "@/types";
 
 interface SummaryBarProps {
   products: ProductListItem[];
+  scopeLabel?: string;
 }
 
-export function SummaryBar({ products }: SummaryBarProps) {
+export function SummaryBar({ products, scopeLabel = "관리 중" }: SummaryBarProps) {
   const active = products.filter((p) => !p.is_price_locked);
   const locked = products.filter((p) => p.is_price_locked);
   const winning = active.filter((p) => p.status === "winning").length;
@@ -16,7 +17,7 @@ export function SummaryBar({ products }: SummaryBarProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-[var(--muted)] px-4 py-2 text-sm">
       <span>
-        관리 중 <strong>{active.length}개</strong>
+        {scopeLabel} <strong>{active.length}개</strong>
       </span>
       <span className="text-[var(--muted-foreground)]">(</span>
       <span className="text-red-500">{"\uD83D\uDD34"}{losing}</span>

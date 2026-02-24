@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, Square, Trash2, Loader2 } from "lucide-react";
+import { CheckSquare, Square, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useProductList } from "@/lib/hooks/useProducts";
 import { productsApi } from "@/lib/api/products";
 import { useUserStore } from "@/stores/useUserStore";
+import { useProductStore } from "@/stores/useProductStore";
 import { SortDropdown } from "./SortDropdown";
 import { SummaryBar } from "./SummaryBar";
 import { ProductCard } from "./ProductCard";
@@ -19,11 +20,25 @@ interface Props {
 
 export function ProductList({ hideMeta = false }: Props) {
   const userId = useUserStore((s) => s.currentUserId);
+  const sortBy = useProductStore((s) => s.sortBy);
+  const category = useProductStore((s) => s.category);
+  const search = useProductStore((s) => s.search);
   const queryClient = useQueryClient();
-  const { data: products, isLoading } = useProductList();
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const { data: products, isLoading, isFetching } = useProductList(
+    hideMeta ? undefined : { page, limit: pageSize }
+  );
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    if (hideMeta) return;
+    setPage(1);
+    setSelectedIds(new Set());
+    setIsSelectMode(false);
+  }, [hideMeta, sortBy, category, search]);
 
   const bulkDeleteMutation = useMutation({
     mutationFn: (productIds: number[]) => productsApi.bulkDelete(userId!, productIds),
@@ -62,6 +77,7 @@ export function ProductList({ hideMeta = false }: Props) {
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
   const lockedProducts = products.filter((p) => p.is_price_locked);
+  const hasNextPage = !hideMeta && products.length === pageSize;
   const allSelected =
     activeProducts.length > 0 && selectedIds.size === activeProducts.length;
 
@@ -114,13 +130,13 @@ export function ProductList({ hideMeta = false }: Props) {
                 type="button"
                 onClick={toggleAll}
                 className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
-                {allSelected ? (
-                  <CheckSquare className="h-4 w-4 text-emerald-500" />
+                >
+                  {allSelected ? (
+                    <CheckSquare className="h-4 w-4 text-emerald-500" />
                 ) : (
                   <Square className="h-4 w-4" />
                 )}
-                전체 선택
+                현재 페이지 전체 선택
               </button>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[var(--muted-foreground)]">
@@ -144,6 +160,36 @@ export function ProductList({ hideMeta = false }: Props) {
           )}
         </>
       )}
+
+      {!hideMeta && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-xs">
+          <div className="text-[var(--muted-foreground)]">
+            페이지 {page}
+            {isFetching && !isLoading ? " · 갱신 중" : ""}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50 hover:bg-[var(--muted)] transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              이전
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasNextPage}
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50 hover:bg-[var(--muted)] transition-colors"
+            >
+              다음
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <AnimatePresence mode="popLayout">
           {activeProducts.map((product) => (
@@ -172,7 +218,10 @@ export function ProductList({ hideMeta = false }: Props) {
 
       {/* 요약바 */}
       <div className="mt-4">
-        <SummaryBar products={products} />
+        <SummaryBar
+          products={products}
+          scopeLabel={hideMeta ? "관리 중" : "현재 페이지"}
+        />
       </div>
 
       {showDeleteConfirm && (

@@ -15,6 +15,8 @@ interface ProductListParams {
   category?: string;
   search?: string;
   price_locked?: boolean;
+  page?: number;
+  limit?: number;
 }
 
 export const productsApi = {
