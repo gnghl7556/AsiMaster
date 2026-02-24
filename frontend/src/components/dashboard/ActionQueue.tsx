@@ -211,6 +211,20 @@ export function ActionQueue() {
               </div>
             </Link>
           ))}
+          {queue.length > 12 && (
+            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--card)]/50 px-3 py-2">
+              <span className="text-xs text-[var(--muted-foreground)]">
+                나머지 {queue.length - 12}개 조치 항목은 상품 메뉴에서 확인하세요
+              </span>
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-1 text-xs font-medium text-blue-500 hover:text-blue-600"
+              >
+                상품으로 이동
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </section>
