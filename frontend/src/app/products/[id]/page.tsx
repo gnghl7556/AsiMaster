@@ -234,9 +234,10 @@ export default function ProductDetailPage({
     editableNaverProductId.trim() !== (product.naver_product_id ?? "") ||
     editableModelCode.trim() !== (product.model_code ?? "") ||
     normalizedEditedSpecKeywordsString !== currentSpecKeywordsString;
+  const isCategoryChanged = editableCategory.trim() !== (product.category ?? "");
   const isBasicInfoChanged =
     editableName.trim() !== product.name ||
-    editableCategory.trim() !== (product.category ?? "");
+    isCategoryChanged;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -275,7 +276,19 @@ export default function ProductDetailPage({
       {/* 상품 기본 정보 */}
       <div className="glass-card p-4">
         <div className="mb-3">
-          <h3 className="font-medium">상품 기본 정보</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-medium">상품 기본 정보</h3>
+            {isBasicInfoChanged && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                저장 필요
+              </span>
+            )}
+            {isCategoryChanged && (
+              <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                카테고리 변경됨
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[var(--muted-foreground)] mt-1">
             상품명과 검색 정확도 설정을 관리합니다. 매입비용은 수익성 분석 영역에서 수정할 수 있습니다.
           </p>
@@ -311,8 +324,18 @@ export default function ProductDetailPage({
             value={editableCategory}
             onChange={(e) => setEditableCategory(e.target.value)}
             placeholder="카테고리 입력 (예: 생활/건강/생활용품)"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+            className={cn(
+              "w-full rounded-lg border bg-[var(--card)] px-3 py-2 text-sm outline-none transition-colors",
+              isCategoryChanged
+                ? "border-amber-500/50 focus:border-amber-500"
+                : "border-[var(--border)] focus:border-blue-500"
+            )}
           />
+          {isCategoryChanged && (
+            <div className="text-[11px] text-amber-500">
+              변경된 카테고리는 아직 저장되지 않았습니다. `기본 정보 저장`을 눌러 반영하세요.
+            </div>
+          )}
           <div className="flex justify-end">
             <button
               type="submit"

@@ -40,6 +40,18 @@ export function ProductList({ hideMeta = false }: Props) {
     setIsSelectMode(false);
   }, [hideMeta, sortBy, category, search]);
 
+  useEffect(() => {
+    if (hideMeta) return;
+    if (isLoading) return;
+    if (!products || products.length > 0) return;
+    if (page <= 1) return;
+
+    // After deletions or filter changes, step back from an empty page automatically.
+    setPage((prev) => Math.max(1, prev - 1));
+    setSelectedIds(new Set());
+    setShowDeleteConfirm(false);
+  }, [hideMeta, isLoading, page, products]);
+
   const bulkDeleteMutation = useMutation({
     mutationFn: (productIds: number[]) => productsApi.bulkDelete(userId!, productIds),
     onSuccess: (result) => {
@@ -67,6 +79,13 @@ export function ProductList({ hideMeta = false }: Props) {
   }
 
   if (!products || products.length === 0) {
+    if (!hideMeta && page > 1) {
+      return (
+        <div className="flex items-center justify-center py-16 text-sm text-[var(--muted-foreground)]">
+          이전 페이지로 이동 중...
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-[var(--muted-foreground)]">
         <p className="text-lg font-medium">등록된 상품이 없습니다</p>
