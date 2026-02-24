@@ -29,6 +29,7 @@ import { KeywordRankingList } from "@/components/products/KeywordRankingList";
 import { KeywordManager } from "@/components/products/KeywordManager";
 import { SparklineChart } from "@/components/products/SparklineChart";
 import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascader";
+import { CompetitorTotalSummary } from "@/components/products/CompetitorTotalSummary";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
@@ -544,6 +545,9 @@ export default function ProductDetailPage({
         categoryHint={product.category}
         onApplySuggestedCategory={(category) => setEditableCategory(category)}
       />
+
+      {/* 가격 기준 경쟁 요약 (배송비 포함) */}
+      <CompetitorTotalSummary competitors={product.competitors ?? []} />
 
       {/* 키워드별 경쟁사 순위 */}
       <div>
