@@ -26,6 +26,7 @@ import {
 
 const SMARTSTORE_URL_PREFIX = "https://smartstore.naver.com/";
 const LAST_STORE_URL_KEY = "asimaster:last-smartstore-url";
+const AUTO_KEYWORD_META_PREFETCH_LIMIT = 8;
 const TOKEN_LEGEND = [
   { label: "브랜드", category: "BRAND" },
   { label: "모델", category: "MODEL" },
@@ -326,12 +327,21 @@ export default function StoreImportPage() {
 
   useEffect(() => {
     if (storeProducts.length === 0) return;
+    let queuedCount = 0;
     for (const product of storeProducts) {
       if (!selectedIds.has(product.naver_product_id)) continue;
       if (!product.suggested_keywords?.length) continue;
+      if (
+        !keywordMetaByProduct[product.naver_product_id] &&
+        !loadingKeywordMetaIds.has(product.naver_product_id) &&
+        !queuedSuggestIdsRef.current.has(product.naver_product_id)
+      ) {
+        if (queuedCount >= AUTO_KEYWORD_META_PREFETCH_LIMIT) continue;
+        queuedCount += 1;
+      }
       enqueueSuggestMeta(product);
     }
-  }, [selectedIds, storeProducts]);
+  }, [selectedIds, storeProducts, keywordMetaByProduct, loadingKeywordMetaIds]);
 
   const handlePreview = () => {
     if (!userId) {
@@ -590,6 +600,15 @@ export default function StoreImportPage() {
                           className="inline-flex items-center gap-1 rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-500 transition-colors hover:bg-rose-500/15"
                         >
                           AI 분류 재시도
+                        </button>
+                      )}
+                      {!keywordMeta && !isKeywordMetaLoading && !keywordMetaFailed && (
+                        <button
+                          type="button"
+                          onClick={() => enqueueSuggestMeta(p)}
+                          className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-blue-500"
+                        >
+                          AI 분류 로드
                         </button>
                       )}
                       {p.suggested_keywords.map((kw) => {
