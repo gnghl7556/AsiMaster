@@ -33,11 +33,19 @@ export function useMarkAlertRead() {
     mutationFn: (alertId: number) => alertsApi.markRead(alertId),
     onMutate: async (alertId) => {
       await queryClient.cancelQueries({ queryKey: ["alerts"] });
+      const snapshots = queryClient.getQueriesData<Alert[]>({ queryKey: ["alerts"] });
       queryClient.setQueriesData<Alert[]>({ queryKey: ["alerts"] }, (current) =>
         current?.map((alert) =>
           alert.id === alertId ? { ...alert, is_read: true } : alert
         )
       );
+      return { snapshots };
+    },
+    onError: (_err, _alertId, context) => {
+      if (!context?.snapshots) return;
+      for (const [key, data] of context.snapshots) {
+        queryClient.setQueryData(key, data);
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
   });
@@ -51,9 +59,17 @@ export function useMarkAllAlertsRead() {
     mutationFn: () => alertsApi.markAllRead(userId!),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["alerts"] });
+      const snapshots = queryClient.getQueriesData<Alert[]>({ queryKey: ["alerts"] });
       queryClient.setQueriesData<Alert[]>({ queryKey: ["alerts"] }, (current) =>
         current?.map((alert) => ({ ...alert, is_read: true }))
       );
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      if (!context?.snapshots) return;
+      for (const [key, data] of context.snapshots) {
+        queryClient.setQueryData(key, data);
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
   });
