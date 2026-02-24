@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bell, Check, ChevronRight, Loader2 } from "lucide-react";
-import { useAlerts, useMarkAlertRead } from "@/lib/hooks/useAlerts";
+import { useAlerts, useMarkAlertRead, useMarkAllAlertsRead } from "@/lib/hooks/useAlerts";
 import { timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -16,6 +16,7 @@ const ALERT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 export function RecentAlertsPanel() {
   const { data: alerts = [], isLoading } = useAlerts();
   const markReadMutation = useMarkAlertRead();
+  const markAllReadMutation = useMarkAllAlertsRead();
   const [pendingAlertId, setPendingAlertId] = useState<number | null>(null);
   const unread = alerts.filter((a) => !a.is_read).slice(0, 5);
 
@@ -26,12 +27,30 @@ export function RecentAlertsPanel() {
           <Bell className="h-4 w-4 text-blue-500" />
           <h3 className="font-medium">최근 알림</h3>
         </div>
-        <Link
-          href="/alerts"
-          className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-        >
-          전체 보기 <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
+        <div className="flex items-center gap-1.5">
+          {unread.length > 0 && (
+            <button
+              type="button"
+              onClick={() => markAllReadMutation.mutate()}
+              disabled={markAllReadMutation.isPending}
+              className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500 disabled:opacity-50"
+              title="현재 미확인 알림 모두 읽음 처리"
+            >
+              {markAllReadMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Check className="h-3 w-3" />
+              )}
+              모두 읽음
+            </button>
+          )}
+          <Link
+            href="/alerts"
+            className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          >
+            전체 보기 <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
