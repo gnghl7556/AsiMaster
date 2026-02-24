@@ -102,6 +102,7 @@ export default function StoreImportPage() {
   const suggestQueueRef = useRef<StoreProduct[]>([]);
   const queuedSuggestIdsRef = useRef<Set<string>>(new Set());
   const activeSuggestWorkersRef = useRef(0);
+  const suggestRunIdRef = useRef(0);
 
   const parsedStoreInput = useMemo(() => parseStoreInput(storeUrl), [storeUrl]);
 
@@ -130,7 +131,7 @@ export default function StoreImportPage() {
     }
   }, []);
 
-  const runSuggestQueue = () => {
+  const runSuggestQueue = (runId = suggestRunIdRef.current) => {
     while (activeSuggestWorkersRef.current < 2 && suggestQueueRef.current.length > 0) {
       const product = suggestQueueRef.current.shift();
       if (!product) break;
@@ -146,6 +147,7 @@ export default function StoreImportPage() {
       keywordsApi
         .suggest(product.name, undefined, product.category || undefined)
         .then((data) => {
+          if (runId !== suggestRunIdRef.current) return;
           setKeywordMetaByProduct((prev) => ({ ...prev, [pid]: data }));
           setFailedKeywordMetaIds((prev) => {
             const next = new Set(prev);
@@ -154,6 +156,7 @@ export default function StoreImportPage() {
           });
         })
         .catch(() => {
+          if (runId !== suggestRunIdRef.current) return;
           setFailedKeywordMetaIds((prev) => {
             const next = new Set(prev);
             next.add(pid);
@@ -161,13 +164,14 @@ export default function StoreImportPage() {
           });
         })
         .finally(() => {
+          if (runId !== suggestRunIdRef.current) return;
           activeSuggestWorkersRef.current -= 1;
           setLoadingKeywordMetaIds((prev) => {
             const next = new Set(prev);
             next.delete(pid);
             return next;
           });
-          runSuggestQueue();
+          runSuggestQueue(runId);
         });
     }
   };
@@ -183,12 +187,13 @@ export default function StoreImportPage() {
     }
     queuedSuggestIdsRef.current.add(pid);
     suggestQueueRef.current.push(product);
-    runSuggestQueue();
+    runSuggestQueue(suggestRunIdRef.current);
   };
 
   const previewMutation = useMutation({
     mutationFn: (url: string) => productsApi.previewStoreProducts(userId!, url),
     onSuccess: (data, url) => {
+      suggestRunIdRef.current += 1;
       setHasPreviewed(true);
       setStoreProducts(data);
       setSelectedIds(new Set(data.map((p) => p.naver_product_id)));
@@ -242,6 +247,7 @@ export default function StoreImportPage() {
       setStoreProducts([]);
       setSelectedIds(new Set());
       setSelectedKeywords(new Map());
+      suggestRunIdRef.current += 1;
       setKeywordMetaByProduct({});
       setLoadingKeywordMetaIds(new Set());
       setFailedKeywordMetaIds(new Set());
