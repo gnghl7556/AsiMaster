@@ -238,6 +238,7 @@ export default function ProductDetailPage({
   const isBasicInfoChanged =
     editableName.trim() !== product.name ||
     isCategoryChanged;
+  const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -455,7 +456,7 @@ export default function ProductDetailPage({
         <div className="glass-card p-4 text-center">
           <div className="text-sm text-[var(--muted-foreground)]">노출 순위</div>
           <div className="text-lg font-bold mt-1 tabular-nums">
-            {product.my_rank ? `${product.my_rank}위` : "-"}
+            {product.my_rank ? `노출 ${product.my_rank}위` : "-"}
           </div>
           {product.rank_change != null && (
             <div
@@ -473,6 +474,11 @@ export default function ProductDetailPage({
                 : product.rank_change < 0
                 ? `노출 상승 ${Math.abs(product.rank_change)}`
                 : "노출 변동 없음"}
+            </div>
+          )}
+          {isExposureTopButPriceLosing && (
+            <div className="mt-1 text-[11px] text-amber-500">
+              노출 상단이지만 가격 기준으로는 밀림
             </div>
           )}
         </div>
