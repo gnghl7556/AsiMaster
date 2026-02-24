@@ -23,6 +23,7 @@ import { productsApi } from "@/lib/api/products";
 import { useUserStore } from "@/stores/useUserStore";
 import { useProductList } from "@/lib/hooks/useProducts";
 import { formatPrice } from "@/lib/utils/format";
+import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascader";
 
 const PRESET_CATEGORIES = [
   "전자기기",
@@ -245,6 +246,14 @@ export default function NewProductPage() {
                 카테고리
               </span>
             </label>
+
+            <div className="mb-2">
+              <NaverCategoryCascader
+                value={form.category}
+                onChange={(next) => setForm({ ...form, category: next })}
+                helperText="선택하면 아래 카테고리 입력값에 자동 반영됩니다"
+              />
+            </div>
 
             {isCustomCategory ? (
               <div className="flex gap-2">

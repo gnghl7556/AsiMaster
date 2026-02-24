@@ -196,6 +196,28 @@ export function KeywordManager({
                 </div>
               )}
 
+              {(aiSuggestion.field_guide.brand || aiSuggestion.field_guide.category) && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2">
+                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                    필드 가이드
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiSuggestion.field_guide.brand && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                        브랜드
+                        <span className="text-[var(--foreground)]">{aiSuggestion.field_guide.brand}</span>
+                      </span>
+                    )}
+                    {aiSuggestion.field_guide.category && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                        카테고리
+                        <span className="text-[var(--foreground)]">{aiSuggestion.field_guide.category}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 {aiSuggestion.keywords.length > 0 ? (
                   aiSuggestion.keywords.map((sug) => {

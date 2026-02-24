@@ -5,6 +5,15 @@ import { toast } from "sonner";
 import { crawlApi } from "@/lib/api/crawl";
 import type { DashboardSummary, ProductDetail, ProductListItem } from "@/types";
 
+function getCrawlErrorMessage(err: any, fallback: string) {
+  const status = err?.response?.status;
+  const detail = err?.response?.data?.detail;
+  if (status === 409) {
+    return detail || "이미 크롤링이 진행 중입니다";
+  }
+  return detail || fallback;
+}
+
 export function useCrawlProduct() {
   const queryClient = useQueryClient();
 
@@ -40,7 +49,7 @@ export function useCrawlProduct() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("크롤링이 완료되었습니다");
     },
-    onError: () => toast.error("크롤링 실패"),
+    onError: (err: any) => toast.error(getCrawlErrorMessage(err, "크롤링 실패")),
   });
 }
 
@@ -73,6 +82,6 @@ export function useCrawlAll() {
       queryClient.invalidateQueries();
       toast.success("전체 크롤링이 완료되었습니다");
     },
-    onError: () => toast.error("크롤링 실패"),
+    onError: (err: any) => toast.error(getCrawlErrorMessage(err, "크롤링 실패")),
   });
 }

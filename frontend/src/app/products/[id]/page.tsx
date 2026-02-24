@@ -28,6 +28,7 @@ import { MarginDetail } from "@/components/products/MarginDetail";
 import { KeywordRankingList } from "@/components/products/KeywordRankingList";
 import { KeywordManager } from "@/components/products/KeywordManager";
 import { SparklineChart } from "@/components/products/SparklineChart";
+import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascader";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
@@ -45,6 +46,7 @@ export default function ProductDetailPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
+  const [editableCategory, setEditableCategory] = useState("");
   const [editableCostPrice, setEditableCostPrice] = useState("");
   const [editableNaverProductId, setEditableNaverProductId] = useState("");
   const [editableModelCode, setEditableModelCode] = useState("");
@@ -108,15 +110,15 @@ export default function ProductDetailPage({
     onError: () => toast.error("상품 삭제에 실패했습니다"),
   });
 
-  const updateNameMutation = useMutation({
-    mutationFn: (name: string) =>
-      productsApi.update(userId!, productId, { name }),
+  const updateBasicInfoMutation = useMutation({
+    mutationFn: (data: { name: string; category: string | null }) =>
+      productsApi.update(userId!, productId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success("상품명이 수정되었습니다");
+      toast.success("상품 기본 정보가 수정되었습니다");
     },
-    onError: () => toast.error("상품명 수정에 실패했습니다"),
+    onError: () => toast.error("상품 기본 정보 수정에 실패했습니다"),
   });
 
   const updateTrackingFieldsMutation = useMutation({
@@ -183,6 +185,7 @@ export default function ProductDetailPage({
   useEffect(() => {
     if (!product) return;
     setEditableName(product.name ?? "");
+    setEditableCategory(product.category ?? "");
     setEditableCostPrice(String(product.cost_price ?? ""));
     setEditableNaverProductId(product.naver_product_id ?? "");
     setEditableModelCode(product.model_code ?? "");
@@ -234,6 +237,9 @@ export default function ProductDetailPage({
     editableNaverProductId.trim() !== (product.naver_product_id ?? "") ||
     editableModelCode.trim() !== (product.model_code ?? "") ||
     normalizedEditedSpecKeywordsString !== currentSpecKeywordsString;
+  const isBasicInfoChanged =
+    editableName.trim() !== product.name ||
+    editableCategory.trim() !== (product.category ?? "");
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -281,10 +287,14 @@ export default function ProductDetailPage({
           onSubmit={(e) => {
             e.preventDefault();
             const nextName = editableName.trim();
-            if (!nextName || nextName === product.name) return;
-            updateNameMutation.mutate(nextName);
+            if (!nextName) return;
+            if (!isBasicInfoChanged) return;
+            updateBasicInfoMutation.mutate({
+              name: nextName,
+              category: editableCategory.trim() || null,
+            });
           }}
-          className="flex flex-col gap-2 sm:flex-row"
+          className="space-y-2"
         >
           <input
             type="text"
@@ -292,19 +302,33 @@ export default function ProductDetailPage({
             onChange={(e) => setEditableName(e.target.value)}
             placeholder="상품명 입력"
             maxLength={200}
-            className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
           />
-          <button
-            type="submit"
-            disabled={
-              updateNameMutation.isPending ||
-              !editableName.trim() ||
-              editableName.trim() === product.name
-            }
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
-            {updateNameMutation.isPending ? "저장 중..." : "상품명 저장"}
-          </button>
+          <NaverCategoryCascader
+            value={editableCategory}
+            onChange={setEditableCategory}
+            helperText="선택하면 아래 카테고리 입력값에 자동 반영됩니다"
+          />
+          <input
+            type="text"
+            value={editableCategory}
+            onChange={(e) => setEditableCategory(e.target.value)}
+            placeholder="카테고리 입력 (예: 생활/건강/생활용품)"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={
+                updateBasicInfoMutation.isPending ||
+                !editableName.trim() ||
+                !isBasicInfoChanged
+              }
+              className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+            >
+              {updateBasicInfoMutation.isPending ? "저장 중..." : "기본 정보 저장"}
+            </button>
+          </div>
         </form>
 
         <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
