@@ -113,6 +113,13 @@ export default function StoreImportPage() {
     () => storeProducts.filter((p) => selectedIds.has(p.naver_product_id)),
     [storeProducts, selectedIds]
   );
+  const selectedProductsUsingDefaultKeyword = useMemo(
+    () =>
+      selectedProducts.filter(
+        (p) => (selectedKeywords.get(p.naver_product_id)?.size ?? 0) === 0
+      ).length,
+    [selectedProducts, selectedKeywords]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -215,14 +222,17 @@ export default function StoreImportPage() {
     mutationFn: () =>
       productsApi.importStoreProducts(
         userId!,
-        selectedProducts.map((p) => ({
-          name: p.name,
-          selling_price: p.price,
-          image_url: p.image_url || undefined,
-          category: p.category || undefined,
-          naver_product_id: p.naver_product_id,
-          keywords: Array.from(selectedKeywords.get(p.naver_product_id) || []),
-        }))
+        selectedProducts.map((p) => {
+          const keywords = Array.from(selectedKeywords.get(p.naver_product_id) || []);
+          return {
+            name: p.name,
+            selling_price: p.price,
+            image_url: p.image_url || undefined,
+            category: p.category || undefined,
+            naver_product_id: p.naver_product_id,
+            keywords: keywords.length > 0 ? keywords : undefined,
+          };
+        })
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -275,12 +285,14 @@ export default function StoreImportPage() {
 
   const applyKeywordPreset = (
     product: StoreProduct,
-    mode: "specific" | "balanced" | "all"
+    mode: "specific" | "balanced" | "all" | "clear"
   ) => {
     const pid = product.naver_product_id;
     const keywordMeta = keywordMetaByProduct[pid];
     const nextSelected =
-      mode === "all" || !keywordMeta
+      mode === "clear"
+        ? []
+        : mode === "all" || !keywordMeta
         ? product.suggested_keywords
         : product.suggested_keywords.filter((kw) => {
             const meta = findSuggestedKeywordMeta(kw, keywordMeta);
@@ -296,7 +308,9 @@ export default function StoreImportPage() {
     });
 
     toast.success(
-      mode === "specific"
+      mode === "clear"
+        ? "추천 키워드를 해제했습니다 (상품명이 기본 키워드로 등록됨)"
+        : mode === "specific"
         ? "정밀 키워드만 선택했습니다"
         : mode === "balanced"
         ? "정밀/중간 키워드 위주로 선택했습니다"
@@ -467,6 +481,8 @@ export default function StoreImportPage() {
           <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border)]">
             {storeProducts.map((p) => {
               const checked = selectedIds.has(p.naver_product_id);
+              const selectedKeywordCount =
+                selectedKeywords.get(p.naver_product_id)?.size ?? 0;
               const keywordMeta = keywordMetaByProduct[p.naver_product_id];
               const isKeywordMetaLoading = loadingKeywordMetaIds.has(p.naver_product_id);
               const keywordMetaFailed = failedKeywordMetaIds.has(p.naver_product_id);
@@ -533,11 +549,26 @@ export default function StoreImportPage() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => applyKeywordPreset(p, "clear")}
+                          className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-rose-500"
+                        >
+                          해제
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => applyKeywordPreset(p, "all")}
                           className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                         >
                           전체
                         </button>
+                      </div>
+                      <div className="text-[11px] text-[var(--muted-foreground)]">
+                        선택된 키워드 {selectedKeywordCount}개
+                        {selectedKeywordCount === 0 && (
+                          <span className="text-amber-500">
+                            {" "}· 상품명이 기본 키워드로 등록됩니다
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                       {isKeywordMetaLoading && (
@@ -611,6 +642,11 @@ export default function StoreImportPage() {
           </div>
 
           <div className="border-t border-[var(--border)] px-4 py-3">
+            {selectedCount > 0 && selectedProductsUsingDefaultKeyword > 0 && (
+              <div className="mb-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                선택한 상품 중 {selectedProductsUsingDefaultKeyword}개는 추천 키워드가 해제되어 상품명이 기본 키워드로 등록됩니다.
+              </div>
+            )}
             <button
               type="button"
               onClick={handleImport}
