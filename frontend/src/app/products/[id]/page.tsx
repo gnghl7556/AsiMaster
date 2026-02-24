@@ -56,6 +56,7 @@ export default function ProductDetailPage({
   const [editableSpecKeywords, setEditableSpecKeywords] = useState("");
   const [editablePriceFilterMinPct, setEditablePriceFilterMinPct] = useState("");
   const [editablePriceFilterMaxPct, setEditablePriceFilterMaxPct] = useState("");
+  const [pendingRestoreGroupName, setPendingRestoreGroupName] = useState<string | null>(null);
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -88,6 +89,30 @@ export default function ProductDetailPage({
       toast.success("제외가 해제되었습니다");
     },
     onError: () => toast.error("제외 해제에 실패했습니다"),
+  });
+  const restoreSellerGroupMutation = useMutation({
+    mutationFn: async (params: { mallName: string; naverProductIds: string[] }) => {
+      const uniqueIds = Array.from(new Set(params.naverProductIds));
+      const results = await Promise.allSettled(
+        uniqueIds.map((id) => productsApi.unexcludeProduct(productId, id))
+      );
+      const restored = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - restored;
+      return { ...params, restored, failed, total: results.length };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["excluded-products", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      if (result.failed === 0) {
+        toast.success(`${result.mallName} 판매자 제외 ${result.restored}개를 복원했습니다`);
+      } else {
+        toast.success(
+          `${result.mallName} 판매자 제외 복원: ${result.restored}개 성공, ${result.failed}개 실패`
+        );
+      }
+    },
+    onError: () => toast.error("판매자 단위 복원에 실패했습니다"),
+    onSettled: () => setPendingRestoreGroupName(null),
   });
 
   // 크롤링
@@ -816,6 +841,26 @@ export default function ProductDetailPage({
                           최근 제외 {timeAgo(group.latestCreatedAt)}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingRestoreGroupName(group.mallName);
+                          restoreSellerGroupMutation.mutate({
+                            mallName: group.mallName,
+                            naverProductIds: group.items.map((item) => item.naver_product_id),
+                          });
+                        }}
+                        disabled={restoreSellerGroupMutation.isPending || restoreMutation.isPending}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                      >
+                        {restoreSellerGroupMutation.isPending &&
+                        pendingRestoreGroupName === group.mallName ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3 w-3" />
+                        )}
+                        모두 복원
+                      </button>
                     </div>
                     <div className="space-y-2">
                       {group.items.map((ep) => (
