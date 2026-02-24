@@ -510,6 +510,8 @@ async def get_product_detail(
         "naver_product_id": product.naver_product_id,
         "model_code": product.model_code,
         "spec_keywords": product.spec_keywords,
+        "price_filter_min_pct": product.price_filter_min_pct,
+        "price_filter_max_pct": product.price_filter_max_pct,
         "is_price_locked": product.is_price_locked,
         "price_lock_reason": product.price_lock_reason,
         "status": status,

@@ -294,3 +294,19 @@ Product → CostItems
 - `RankingItemResponse`에 `shipping_fee: int = 0` 필드 추가
 - `CompetitorSummary`에 `shipping_fee: int = 0` 필드 추가
 - 상품 상세 API keywords[].rankings[]에 `shipping_fee` 필드 포함
+
+### 2026-02-24: 가격 범위 필터 (Price Range Filter)
+
+**Product 모델 확장:**
+- `price_filter_min_pct` (INTEGER, nullable): 최소 가격 필터 (판매가의 N%, 0~100)
+- `price_filter_max_pct` (INTEGER, nullable): 최대 가격 필터 (판매가의 N%, 100~)
+
+**크롤링 관련성 판별 변경:**
+- `_check_relevance()` 함수에 가격 범위 체크 추가 (기존 model_code + spec_keywords 필터와 AND 조건)
+- 배송비 포함 총액(`price + shipping_fee`) 기준으로 비교
+- 예: 판매가 50,000원, min_pct=30 → 15,000원 미만 상품 자동 `is_relevant=false`
+- 필터 미설정(null) 시 기존 동작 유지 (하위 호환)
+
+**스키마 변경:**
+- `ProductCreate`, `ProductUpdate`에 `price_filter_min_pct`, `price_filter_max_pct` 추가
+- `ProductResponse`, `ProductDetail`에 두 필드 추가

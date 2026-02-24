@@ -28,9 +28,24 @@ class CrawlAlreadyRunningError(Exception):
 
 
 def _check_relevance(item: RankingItem, product: Product | None) -> bool:
-    """모델코드 + 규격 키워드 기반 관련성 판별."""
-    if not product or not product.model_code:
-        return True  # 모델코드 미설정 시 모두 관련 있음
+    """모델코드 + 규격 키워드 + 가격 범위 기반 관련성 판별."""
+    if not product:
+        return True
+
+    # 가격 범위 필터 (배송비 포함 총액 기준)
+    total_price = item.price + item.shipping_fee
+    if product.price_filter_min_pct is not None and product.selling_price > 0:
+        min_price = product.selling_price * product.price_filter_min_pct / 100
+        if total_price < min_price:
+            return False
+    if product.price_filter_max_pct is not None and product.selling_price > 0:
+        max_price = product.selling_price * product.price_filter_max_pct / 100
+        if total_price > max_price:
+            return False
+
+    # 모델코드 + 규격 키워드 필터
+    if not product.model_code:
+        return True
     title_lower = item.product_name.lower()
     if product.model_code.lower() not in title_lower:
         return False

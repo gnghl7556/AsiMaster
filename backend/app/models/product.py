@@ -26,6 +26,8 @@ class Product(Base):
     naver_product_id: Mapped[str | None] = mapped_column(String(50))
     model_code: Mapped[str | None] = mapped_column(String(100))
     spec_keywords: Mapped[list | None] = mapped_column(JSON, default=list)
+    price_filter_min_pct: Mapped[int | None] = mapped_column(Integer)
+    price_filter_max_pct: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

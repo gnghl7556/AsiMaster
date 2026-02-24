@@ -41,6 +41,8 @@ async def apply_schema_changes(session):
         ("keyword_rankings", "category3", "VARCHAR(100)", None),
         ("keyword_rankings", "category4", "VARCHAR(100)", None),
         ("keyword_rankings", "shipping_fee", "INTEGER", "0"),
+        ("products", "price_filter_min_pct", "INTEGER", None),
+        ("products", "price_filter_max_pct", "INTEGER", None),
     ]
     try:
         if is_sqlite:

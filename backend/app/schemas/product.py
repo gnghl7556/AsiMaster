@@ -14,6 +14,8 @@ class ProductCreate(BaseModel):
     naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
+    price_filter_min_pct: int | None = Field(None, ge=0, le=100)
+    price_filter_max_pct: int | None = Field(None, ge=100)
 
 
 class ProductUpdate(BaseModel):
@@ -25,6 +27,8 @@ class ProductUpdate(BaseModel):
     naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
+    price_filter_min_pct: int | None = Field(None, ge=0, le=100)
+    price_filter_max_pct: int | None = Field(None, ge=100)
 
 
 class PriceLockUpdate(BaseModel):
@@ -43,6 +47,8 @@ class ProductResponse(BaseModel):
     naver_product_id: str | None
     model_code: str | None
     spec_keywords: list[str] | None
+    price_filter_min_pct: int | None
+    price_filter_max_pct: int | None
     is_price_locked: bool
     price_lock_reason: str | None
     is_active: bool
@@ -133,6 +139,8 @@ class ProductDetail(BaseModel):
     naver_product_id: str | None
     model_code: str | None
     spec_keywords: list[str] | None
+    price_filter_min_pct: int | None
+    price_filter_max_pct: int | None
     is_price_locked: bool
     price_lock_reason: str | None
     status: str
