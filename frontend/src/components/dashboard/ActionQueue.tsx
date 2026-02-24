@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Equal, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Equal, Lock, Loader2, RefreshCw, Unlock } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useProductList } from "@/lib/hooks/useProducts";
+import { useCrawlProduct } from "@/lib/hooks/useCrawl";
+import { productsApi } from "@/lib/api/products";
+import { useUserStore } from "@/stores/useUserStore";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import { PriceGap } from "@/components/products/PriceGap";
 import type { ProductListItem } from "@/types";
@@ -44,12 +49,29 @@ function buildQueue(
 }
 
 export function ActionQueue() {
+  const userId = useUserStore((s) => s.currentUserId);
+  const queryClient = useQueryClient();
   const { data: products = [], isLoading } = useProductList({
     page: 1,
     limit: DASHBOARD_SCAN_LIMIT,
     ignoreStoreFilters: true,
   });
   const [includeSameTotal, setIncludeSameTotal] = useState(true);
+  const [pendingCrawlProductId, setPendingCrawlProductId] = useState<number | null>(null);
+  const [pendingLockProductId, setPendingLockProductId] = useState<number | null>(null);
+  const crawlProductMutation = useCrawlProduct();
+  const toggleLockMutation = useMutation({
+    mutationFn: (params: { productId: number; nextLocked: boolean }) =>
+      productsApi.togglePriceLock(userId!, params.productId, params.nextLocked),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(variables.nextLocked ? "가격고정 설정" : "가격고정 해제");
+    },
+    onError: () => toast.error("가격고정 변경에 실패했습니다"),
+    onSettled: () => setPendingLockProductId(null),
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -211,6 +233,52 @@ export function ActionQueue() {
                         size="sm"
                       />
                     </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPendingCrawlProductId(product.id);
+                        crawlProductMutation.mutate(product.id, {
+                          onSettled: () => setPendingCrawlProductId(null),
+                        });
+                      }}
+                      disabled={crawlProductMutation.isPending}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-blue-500 disabled:opacity-50"
+                    >
+                      {crawlProductMutation.isPending && pendingCrawlProductId === product.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                      새로고침
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!userId) return;
+                        setPendingLockProductId(product.id);
+                        toggleLockMutation.mutate({
+                          productId: product.id,
+                          nextLocked: !product.is_price_locked,
+                        });
+                      }}
+                      disabled={toggleLockMutation.isPending || !userId}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-amber-500 disabled:opacity-50"
+                    >
+                      {toggleLockMutation.isPending && pendingLockProductId === product.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : product.is_price_locked ? (
+                        <Unlock className="h-3 w-3" />
+                      ) : (
+                        <Lock className="h-3 w-3" />
+                      )}
+                      {product.is_price_locked ? "고정해제" : "가격고정"}
+                    </button>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end justify-between gap-2">
