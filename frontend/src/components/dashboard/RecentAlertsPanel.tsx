@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronRight } from "lucide-react";
-import { useAlerts } from "@/lib/hooks/useAlerts";
+import { Bell, Check, ChevronRight, Loader2 } from "lucide-react";
+import { useAlerts, useMarkAlertRead } from "@/lib/hooks/useAlerts";
 import { timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -14,6 +14,7 @@ const ALERT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 
 export function RecentAlertsPanel() {
   const { data: alerts = [], isLoading } = useAlerts();
+  const markReadMutation = useMarkAlertRead();
   const unread = alerts.filter((a) => !a.is_read).slice(0, 5);
 
   return (
@@ -49,23 +50,38 @@ export function RecentAlertsPanel() {
               color: "text-[var(--muted-foreground)]",
             };
             return (
-              <Link
+              <div
                 key={alert.id}
-                href="/alerts"
-                className="block rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-3 py-2.5 transition-colors hover:bg-[var(--card)]"
+                className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-3 py-2.5 transition-colors hover:bg-[var(--card)]"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <Link href="/alerts" className="min-w-0 flex-1">
                     <div className={cn("text-[11px] font-medium", typeConfig.color)}>
                       {typeConfig.label}
                     </div>
                     <div className="truncate text-sm font-medium">{alert.title}</div>
-                  </div>
-                  <div className="shrink-0 text-[11px] text-[var(--muted-foreground)]">
-                    {timeAgo(alert.created_at)}
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-[11px] text-[var(--muted-foreground)]">
+                      {timeAgo(alert.created_at)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => markReadMutation.mutate(alert.id)}
+                      disabled={markReadMutation.isPending}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500 disabled:opacity-50"
+                      aria-label="읽음 처리"
+                      title="읽음 처리"
+                    >
+                      {markReadMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                    </button>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
