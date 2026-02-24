@@ -41,6 +41,8 @@ export const productsApi = {
       naver_product_id?: string;
       model_code?: string;
       spec_keywords?: string[];
+      price_filter_min_pct?: number | null;
+      price_filter_max_pct?: number | null;
     }
   ) =>
     apiClient.post<Product>(`/users/${userId}/products`, data).then((r) => r.data),

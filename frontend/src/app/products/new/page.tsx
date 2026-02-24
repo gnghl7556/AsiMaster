@@ -37,6 +37,8 @@ export default function NewProductPage() {
     naver_product_id: "",
     model_code: "",
     spec_keywords: "",
+    price_filter_min_pct: "",
+    price_filter_max_pct: "",
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -51,6 +53,8 @@ export default function NewProductPage() {
         naver_product_id: form.naver_product_id.trim() || undefined,
         model_code: form.model_code.trim() || undefined,
         spec_keywords: parsedSpecKeywords.length > 0 ? parsedSpecKeywords : undefined,
+        price_filter_min_pct: normalizedPriceFilterMinPct,
+        price_filter_max_pct: normalizedPriceFilterMaxPct,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -67,6 +71,30 @@ export default function NewProductPage() {
       toast.error("필수 항목을 입력해주세요");
       return;
     }
+    if (
+      normalizedPriceFilterMinPct != null &&
+      (!Number.isFinite(normalizedPriceFilterMinPct) ||
+        normalizedPriceFilterMinPct < 0 ||
+        normalizedPriceFilterMinPct > 100)
+    ) {
+      toast.error("최소 비율은 0~100 사이로 입력해주세요");
+      return;
+    }
+    if (
+      normalizedPriceFilterMaxPct != null &&
+      (!Number.isFinite(normalizedPriceFilterMaxPct) || normalizedPriceFilterMaxPct < 100)
+    ) {
+      toast.error("최대 비율은 100 이상으로 입력해주세요");
+      return;
+    }
+    if (
+      normalizedPriceFilterMinPct != null &&
+      normalizedPriceFilterMaxPct != null &&
+      normalizedPriceFilterMinPct > normalizedPriceFilterMaxPct
+    ) {
+      toast.error("최소 비율은 최대 비율보다 클 수 없습니다");
+      return;
+    }
     mutation.mutate();
   };
 
@@ -81,6 +109,18 @@ export default function NewProductPage() {
   const marginPercent = sell > 0 ? (margin / sell) * 100 : 0;
   const showMargin = cost > 0 && sell > 0;
   const parsedSpecKeywords = parseSpecKeywordsInput(form.spec_keywords);
+  const normalizedPriceFilterMinPct =
+    form.price_filter_min_pct.trim() === "" ? null : Number(form.price_filter_min_pct);
+  const normalizedPriceFilterMaxPct =
+    form.price_filter_max_pct.trim() === "" ? null : Number(form.price_filter_max_pct);
+  const minPriceFilterPreview =
+    normalizedPriceFilterMinPct == null
+      ? null
+      : Math.round((sell * normalizedPriceFilterMinPct) / 100);
+  const maxPriceFilterPreview =
+    normalizedPriceFilterMaxPct == null
+      ? null
+      : Math.round((sell * normalizedPriceFilterMaxPct) / 100);
 
   const isFieldError = (field: string) =>
     touched[field] && !form[field as keyof typeof form];
@@ -205,6 +245,63 @@ export default function NewProductPage() {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-3">
+            <div className="mb-1.5 text-sm font-medium">가격 범위 필터 (선택)</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                  최소 비율 (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.price_filter_min_pct}
+                    onChange={(e) =>
+                      setForm({ ...form, price_filter_min_pct: e.target.value })
+                    }
+                    className={inputClass("") + " pr-7"}
+                    placeholder="예: 30"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    %
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                  최대 비율 (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={100}
+                    value={form.price_filter_max_pct}
+                    onChange={(e) =>
+                      setForm({ ...form, price_filter_max_pct: e.target.value })
+                    }
+                    className={inputClass("") + " pr-7"}
+                    placeholder="예: 200"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+              규격이 다른 상품(낱개/대용량)을 자동으로 제외합니다.
+            </p>
+            {sell > 0 && (minPriceFilterPreview != null || maxPriceFilterPreview != null) && (
+              <p className="mt-1 text-xs text-[var(--foreground)]">
+                판매가 {formatPrice(sell)}원 기준:{" "}
+                {minPriceFilterPreview != null ? `${formatPrice(minPriceFilterPreview)}원` : "제한 없음"} ~{" "}
+                {maxPriceFilterPreview != null ? `${formatPrice(maxPriceFilterPreview)}원` : "제한 없음"}
+              </p>
             )}
           </div>
 
