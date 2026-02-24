@@ -122,6 +122,35 @@ export default function StoreImportPage() {
       ).length,
     [selectedProducts, selectedKeywords]
   );
+  const selectedAiMetaSummary = useMemo(() => {
+    const targetProducts = selectedProducts.filter((p) => p.suggested_keywords.length > 0);
+    let loaded = 0;
+    let loading = 0;
+    let failed = 0;
+    let notLoaded = 0;
+
+    for (const p of targetProducts) {
+      const pid = p.naver_product_id;
+      if (keywordMetaByProduct[pid]) loaded += 1;
+      else if (loadingKeywordMetaIds.has(pid)) loading += 1;
+      else if (failedKeywordMetaIds.has(pid)) failed += 1;
+      else notLoaded += 1;
+    }
+
+    return {
+      targetCount: targetProducts.length,
+      loaded,
+      loading,
+      failed,
+      notLoaded,
+      incomplete: loading + failed + notLoaded,
+    };
+  }, [
+    selectedProducts,
+    keywordMetaByProduct,
+    loadingKeywordMetaIds,
+    failedKeywordMetaIds,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -737,6 +766,34 @@ export default function StoreImportPage() {
           </div>
 
           <div className="border-t border-[var(--border)] px-4 py-3">
+            {selectedCount > 0 && selectedAiMetaSummary.targetCount > 0 && (
+              <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[var(--muted-foreground)]">
+                  <span>
+                    AI 분류 대상 {selectedAiMetaSummary.targetCount}개
+                  </span>
+                  <span className="text-emerald-500">
+                    완료 {selectedAiMetaSummary.loaded}
+                  </span>
+                  {selectedAiMetaSummary.loading > 0 && (
+                    <span className="text-blue-500">로딩 {selectedAiMetaSummary.loading}</span>
+                  )}
+                  {selectedAiMetaSummary.notLoaded > 0 && (
+                    <span className="text-amber-500">
+                      미로드 {selectedAiMetaSummary.notLoaded}
+                    </span>
+                  )}
+                  {selectedAiMetaSummary.failed > 0 && (
+                    <span className="text-rose-500">실패 {selectedAiMetaSummary.failed}</span>
+                  )}
+                </div>
+                {selectedAiMetaSummary.incomplete > 0 && (
+                  <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                    AI 분류 미완료 상품 {selectedAiMetaSummary.incomplete}개 (키워드 프리셋 품질이 낮을 수 있음)
+                  </div>
+                )}
+              </div>
+            )}
             {selectedCount > 0 && selectedProductsUsingDefaultKeyword > 0 && (
               <div className="mb-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
                 선택한 상품 중 {selectedProductsUsingDefaultKeyword}개는 추천 키워드가 해제되어 상품명이 기본 키워드로 등록됩니다.
