@@ -220,6 +220,16 @@ export default function StoreImportPage() {
     runSuggestQueue(suggestRunIdRef.current);
   };
 
+  const enqueueSelectedIncompleteKeywordMeta = () => {
+    selectedProducts
+      .filter((p) => p.suggested_keywords.length > 0)
+      .forEach((p) => {
+        const pid = p.naver_product_id;
+        if (keywordMetaByProduct[pid] || loadingKeywordMetaIds.has(pid)) return;
+        enqueueSuggestMeta(p);
+      });
+  };
+
   const previewMutation = useMutation({
     mutationFn: (url: string) => productsApi.previewStoreProducts(userId!, url),
     onSuccess: (data, url) => {
@@ -788,8 +798,25 @@ export default function StoreImportPage() {
                   )}
                 </div>
                 {selectedAiMetaSummary.incomplete > 0 && (
-                  <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
-                    AI 분류 미완료 상품 {selectedAiMetaSummary.incomplete}개 (키워드 프리셋 품질이 낮을 수 있음)
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[11px] text-[var(--muted-foreground)]">
+                      AI 분류 미완료 상품 {selectedAiMetaSummary.incomplete}개 (키워드 프리셋 품질이 낮을 수 있음)
+                    </div>
+                    {(selectedAiMetaSummary.notLoaded > 0 || selectedAiMetaSummary.failed > 0) && (
+                      <button
+                        type="button"
+                        onClick={enqueueSelectedIncompleteKeywordMeta}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium text-[var(--muted-foreground)] transition-colors hover:text-blue-500"
+                      >
+                        <Loader2
+                          className={cn(
+                            "h-3 w-3",
+                            selectedAiMetaSummary.loading > 0 && "animate-spin"
+                          )}
+                        />
+                        미완료 AI 분류 로드
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
