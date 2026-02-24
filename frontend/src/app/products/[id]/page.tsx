@@ -383,7 +383,7 @@ export default function ProductDetailPage({
       </div>
 
       {/* 상품 기본 정보 */}
-      <div className="glass-card p-4">
+      <div id="basic-info" className="glass-card scroll-mt-24 p-4">
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium">상품 기본 정보</h3>
@@ -756,20 +756,22 @@ export default function ProductDetailPage({
 
       {/* 수익성 분석 */}
       {product.margin && (
-        <MarginDetail
-          margin={product.margin}
-          simulatedMargin={simulatedMargin}
-          costPriceInput={editableCostPrice}
-          setCostPriceInput={setEditableCostPrice}
-          currentCostPrice={product.cost_price}
-          isSavingCostPrice={updateCostPriceMutation.isPending}
-          onSaveCostPrice={handleSaveCostPrice}
-          simPrice={simPrice}
-          setSimPrice={setSimPrice}
-          currentSellingPrice={product.selling_price}
-          isSimulating={simMutation.isPending}
-          onSimulate={handleSimulate}
-        />
+        <div id="profitability" className="scroll-mt-24">
+          <MarginDetail
+            margin={product.margin}
+            simulatedMargin={simulatedMargin}
+            costPriceInput={editableCostPrice}
+            setCostPriceInput={setEditableCostPrice}
+            currentCostPrice={product.cost_price}
+            isSavingCostPrice={updateCostPriceMutation.isPending}
+            onSaveCostPrice={handleSaveCostPrice}
+            simPrice={simPrice}
+            setSimPrice={setSimPrice}
+            currentSellingPrice={product.selling_price}
+            isSimulating={simMutation.isPending}
+            onSimulate={handleSimulate}
+          />
+        </div>
       )}
 
       {/* 키워드 관리 */}

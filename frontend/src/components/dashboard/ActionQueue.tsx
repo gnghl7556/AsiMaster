@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Equal, Lock, Loader2, RefreshCw, Unlock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ function buildQueue(
 }
 
 export function ActionQueue() {
+  const router = useRouter();
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
   const { data: products = [], isLoading } = useProductList({
@@ -88,6 +90,12 @@ export function ActionQueue() {
         nextIncludeSameTotal ? "including_same_total" : "losing_only"
       );
     }
+  };
+
+  const navigateToProductAnchor = (e: MouseEvent, productId: number, anchor?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(anchor ? `/products/${productId}#${anchor}` : `/products/${productId}`);
   };
 
   if (isLoading) {
@@ -278,6 +286,21 @@ export function ActionQueue() {
                         <Lock className="h-3 w-3" />
                       )}
                       {product.is_price_locked ? "고정해제" : "가격고정"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => navigateToProductAnchor(e, product.id, "basic-info")}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      상세
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => navigateToProductAnchor(e, product.id, "profitability")}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500"
+                    >
+                      가격수정
                     </button>
                   </div>
                 </div>
