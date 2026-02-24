@@ -20,6 +20,8 @@ interface Props {
   categoryHint?: string | null;
   storeName?: string;
   onApplySuggestedCategory?: (category: string) => void;
+  onApplySuggestedModelCode?: (modelCode: string) => void;
+  onApplySuggestedSpecKeywords?: (keywords: string[]) => void;
 }
 
 export function KeywordManager({
@@ -30,6 +32,8 @@ export function KeywordManager({
   categoryHint,
   storeName,
   onApplySuggestedCategory,
+  onApplySuggestedModelCode,
+  onApplySuggestedSpecKeywords,
 }: Props) {
   const [input, setInput] = useState("");
   const [sortType, setSortType] = useState<"sim" | "asc">("sim");
@@ -56,6 +60,33 @@ export function KeywordManager({
     () => new Set(keywords.filter((k) => k.is_active).map((k) => k.keyword.trim().toLowerCase())),
     [keywords]
   );
+  const suggestedModelCode = useMemo(
+    () => aiSuggestion?.tokens.find((token) => token.category === "MODEL")?.text ?? null,
+    [aiSuggestion]
+  );
+  const suggestedSpecKeywords = useMemo(() => {
+    if (!aiSuggestion) return [];
+    const specLikeCategories = new Set([
+      "CAPACITY",
+      "QUANTITY",
+      "SIZE",
+      "COLOR",
+      "MATERIAL",
+      "FEATURE",
+    ]);
+    const seen = new Set<string>();
+    const values: string[] = [];
+    for (const token of aiSuggestion.tokens) {
+      if (!specLikeCategories.has(token.category)) continue;
+      const text = token.text.trim();
+      if (!text) continue;
+      const key = text.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      values.push(text);
+    }
+    return values;
+  }, [aiSuggestion]);
 
   useEffect(() => {
     setAiSuggestion(null);
@@ -224,6 +255,57 @@ export function KeywordManager({
                               toast.success("추천 카테고리를 적용했습니다. 기본 정보 저장을 눌러 반영하세요.");
                             }}
                             className="ml-0.5 rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] font-semibold text-emerald-500 hover:bg-emerald-500/20"
+                          >
+                            적용
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(suggestedModelCode || suggestedSpecKeywords.length > 0) && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-2">
+                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                    정확도 설정 추천
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {suggestedModelCode && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-500">
+                        모델
+                        <span className="text-[var(--foreground)]">{suggestedModelCode}</span>
+                        {onApplySuggestedModelCode && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApplySuggestedModelCode(suggestedModelCode);
+                              toast.success("추천 모델코드를 적용했습니다. 정확도 설정 저장을 눌러 반영하세요.");
+                            }}
+                            className="ml-0.5 rounded bg-purple-500/15 px-1 py-0.5 text-[9px] font-semibold text-purple-500 hover:bg-purple-500/20"
+                          >
+                            적용
+                          </button>
+                        )}
+                      </span>
+                    )}
+                    {suggestedSpecKeywords.length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                        규격
+                        <span className="text-[var(--foreground)]">
+                          {suggestedSpecKeywords.slice(0, 3).join(", ")}
+                          {suggestedSpecKeywords.length > 3
+                            ? ` 외 ${suggestedSpecKeywords.length - 3}`
+                            : ""}
+                        </span>
+                        {onApplySuggestedSpecKeywords && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApplySuggestedSpecKeywords(suggestedSpecKeywords);
+                              toast.success("추천 규격 키워드를 적용했습니다. 정확도 설정 저장을 눌러 반영하세요.");
+                            }}
+                            className="ml-0.5 rounded bg-blue-500/15 px-1 py-0.5 text-[9px] font-semibold text-blue-500 hover:bg-blue-500/20"
                           >
                             적용
                           </button>

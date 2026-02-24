@@ -604,6 +604,15 @@ export default function ProductDetailPage({
         productName={product.name}
         categoryHint={product.category}
         onApplySuggestedCategory={(category) => setEditableCategory(category)}
+        onApplySuggestedModelCode={(modelCode) => setEditableModelCode(modelCode)}
+        onApplySuggestedSpecKeywords={(nextKeywords) => {
+          setEditableSpecKeywords((prev) => {
+            const merged = parseSpecKeywordsInput(
+              [...parseSpecKeywordsInput(prev), ...nextKeywords].join(", ")
+            );
+            return merged.join(", ");
+          });
+        }}
       />
 
       {/* 가격 기준 경쟁 요약 (배송비 포함) */}
