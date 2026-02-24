@@ -18,6 +18,8 @@ export interface Product {
   naver_product_id: string | null;
   model_code: string | null;
   spec_keywords: string[] | null;
+  price_filter_min_pct: number | null;
+  price_filter_max_pct: number | null;
   is_price_locked: boolean;
   price_lock_reason: string | null;
   is_active: boolean;
@@ -181,6 +183,8 @@ export interface ProductDetail {
   naver_product_id: string | null;
   model_code: string | null;
   spec_keywords: string[] | null;
+  price_filter_min_pct: number | null;
+  price_filter_max_pct: number | null;
   is_price_locked: boolean;
   price_lock_reason: string | null;
   status: ProductStatus;

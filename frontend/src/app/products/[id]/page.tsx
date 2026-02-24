@@ -54,6 +54,8 @@ export default function ProductDetailPage({
   const [editableNaverProductId, setEditableNaverProductId] = useState("");
   const [editableModelCode, setEditableModelCode] = useState("");
   const [editableSpecKeywords, setEditableSpecKeywords] = useState("");
+  const [editablePriceFilterMinPct, setEditablePriceFilterMinPct] = useState("");
+  const [editablePriceFilterMaxPct, setEditablePriceFilterMaxPct] = useState("");
 
   // 상품 상세
   const { data: product, isLoading } = useQuery({
@@ -129,6 +131,8 @@ export default function ProductDetailPage({
       naver_product_id: string | null;
       model_code: string | null;
       spec_keywords: string[] | null;
+      price_filter_min_pct: number | null;
+      price_filter_max_pct: number | null;
     }) => productsApi.update(userId!, productId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
@@ -174,11 +178,40 @@ export default function ProductDetailPage({
     const normalizedNaverProductId = editableNaverProductId.trim() || null;
     const normalizedModelCode = editableModelCode.trim() || null;
     const normalizedSpecKeywords = parseSpecKeywordsInput(editableSpecKeywords);
+    const normalizedMinPct = editablePriceFilterMinPct.trim()
+      ? Number(editablePriceFilterMinPct)
+      : null;
+    const normalizedMaxPct = editablePriceFilterMaxPct.trim()
+      ? Number(editablePriceFilterMaxPct)
+      : null;
+
+    if (normalizedMinPct != null) {
+      if (!Number.isFinite(normalizedMinPct) || normalizedMinPct < 0 || normalizedMinPct > 100) {
+        toast.error("최소 비율은 0~100 사이로 입력해주세요");
+        return;
+      }
+    }
+    if (normalizedMaxPct != null) {
+      if (!Number.isFinite(normalizedMaxPct) || normalizedMaxPct < 100) {
+        toast.error("최대 비율은 100 이상으로 입력해주세요");
+        return;
+      }
+    }
+    if (
+      normalizedMinPct != null &&
+      normalizedMaxPct != null &&
+      normalizedMinPct > normalizedMaxPct
+    ) {
+      toast.error("최소 비율은 최대 비율보다 클 수 없습니다");
+      return;
+    }
 
     updateTrackingFieldsMutation.mutate({
       naver_product_id: normalizedNaverProductId,
       model_code: normalizedModelCode,
       spec_keywords: normalizedSpecKeywords.length > 0 ? normalizedSpecKeywords : null,
+      price_filter_min_pct: normalizedMinPct,
+      price_filter_max_pct: normalizedMaxPct,
     });
   };
 
@@ -190,6 +223,12 @@ export default function ProductDetailPage({
     setEditableNaverProductId(product.naver_product_id ?? "");
     setEditableModelCode(product.model_code ?? "");
     setEditableSpecKeywords((product.spec_keywords ?? []).join(", "));
+    setEditablePriceFilterMinPct(
+      product.price_filter_min_pct == null ? "" : String(product.price_filter_min_pct)
+    );
+    setEditablePriceFilterMaxPct(
+      product.price_filter_max_pct == null ? "" : String(product.price_filter_max_pct)
+    );
   }, [product]);
 
   if (isLoading) {
@@ -230,15 +269,37 @@ export default function ProductDetailPage({
   const currentSpecKeywordsString = (product.spec_keywords ?? []).join(", ");
   const parsedEditedSpecKeywords = parseSpecKeywordsInput(editableSpecKeywords);
   const normalizedEditedSpecKeywordsString = parsedEditedSpecKeywords.join(", ");
+  const normalizedEditedMinPct =
+    editablePriceFilterMinPct.trim() === "" ? null : Number(editablePriceFilterMinPct);
+  const normalizedEditedMaxPct =
+    editablePriceFilterMaxPct.trim() === "" ? null : Number(editablePriceFilterMaxPct);
   const isTrackingFieldsChanged =
     editableNaverProductId.trim() !== (product.naver_product_id ?? "") ||
     editableModelCode.trim() !== (product.model_code ?? "") ||
-    normalizedEditedSpecKeywordsString !== currentSpecKeywordsString;
+    normalizedEditedSpecKeywordsString !== currentSpecKeywordsString ||
+    normalizedEditedMinPct !== (product.price_filter_min_pct ?? null) ||
+    normalizedEditedMaxPct !== (product.price_filter_max_pct ?? null);
   const isCategoryChanged = editableCategory.trim() !== (product.category ?? "");
   const isBasicInfoChanged =
     editableName.trim() !== product.name ||
     isCategoryChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
+  const priceFilterRangePreview = {
+    minPct: Number.isFinite(normalizedEditedMinPct as number)
+      ? normalizedEditedMinPct
+      : null,
+    maxPct: Number.isFinite(normalizedEditedMaxPct as number)
+      ? normalizedEditedMaxPct
+      : null,
+  };
+  const minPricePreview =
+    priceFilterRangePreview.minPct == null
+      ? null
+      : Math.round((product.selling_price * priceFilterRangePreview.minPct) / 100);
+  const maxPricePreview =
+    priceFilterRangePreview.maxPct == null
+      ? null
+      : Math.round((product.selling_price * priceFilterRangePreview.maxPct) / 100);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -428,6 +489,58 @@ export default function ProductDetailPage({
               </div>
             )}
           </div>
+          <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-3">
+            <div className="mb-1.5 text-xs font-medium">가격 범위 필터</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
+                  최소 비율 (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editablePriceFilterMinPct}
+                    onChange={(e) => setEditablePriceFilterMinPct(e.target.value)}
+                    placeholder="예: 30"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    %
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
+                  최대 비율 (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={100}
+                    value={editablePriceFilterMaxPct}
+                    onChange={(e) => setEditablePriceFilterMaxPct(e.target.value)}
+                    placeholder="예: 200"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+              규격이 다른 상품(낱개/대용량)을 자동으로 제외합니다.
+            </div>
+            {(minPricePreview != null || maxPricePreview != null) && (
+              <div className="mt-1 text-xs text-[var(--foreground)]">
+                판매가 {formatPrice(product.selling_price)}원 기준:{" "}
+                {minPricePreview != null ? `${formatPrice(minPricePreview)}원` : "제한 없음"} ~{" "}
+                {maxPricePreview != null ? `${formatPrice(maxPricePreview)}원` : "제한 없음"}
+              </div>
+            )}
+          </div>
           <div className="mt-3 flex justify-end">
             <button
               type="button"
@@ -458,6 +571,9 @@ export default function ProductDetailPage({
           <div className="text-sm text-[var(--muted-foreground)]">최저 총액</div>
           <div className="text-lg font-bold mt-1 tabular-nums">
             {formatPrice(product.lowest_price)}
+          </div>
+          <div className="text-[10px] text-[var(--muted-foreground)]">
+            배송비 포함
           </div>
           {product.lowest_seller && (
             <div className="text-xs text-[var(--muted-foreground)]">
