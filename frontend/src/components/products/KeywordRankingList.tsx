@@ -25,6 +25,11 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
   const [openKeywordId, setOpenKeywordId] = useState<number | null>(null);
   const [showTopTenByKeyword, setShowTopTenByKeyword] = useState<Record<number, boolean>>({});
   const [sortModeByKeyword, setSortModeByKeyword] = useState<Record<number, RankingSortMode>>({});
+  const [excludeTarget, setExcludeTarget] = useState<{
+    naver_product_id: string;
+    product_name: string;
+    mall_name: string;
+  } | null>(null);
   const swipeRef = useRef<{
     key: string | null;
     startX: number;
@@ -49,7 +54,8 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       queryClient.invalidateQueries({ queryKey: ["excluded-products", productId] });
-      toast.success("경쟁사가 제외되었습니다");
+      setExcludeTarget(null);
+      toast.success("판매자 기준으로 경쟁사가 제외되었습니다");
     },
     onError: () => toast.error("제외에 실패했습니다"),
   });
@@ -137,6 +143,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
         )}
       </div>
     );
+  };
+
+  const requestExclude = (item: {
+    naver_product_id: string;
+    product_name: string;
+    mall_name: string;
+  }) => {
+    setExcludeTarget(item);
   };
 
   return (
@@ -286,7 +300,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           {canBan && (
                             <button
                               onClick={() =>
-                                excludeMutation.mutate({
+                                requestExclude({
                                   naver_product_id: item.naver_product_id!,
                                   product_name: item.product_name,
                                   mall_name: item.mall_name,
@@ -294,7 +308,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                               }
                               disabled={excludeMutation.isPending}
                               className="mx-1.5 flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/15 disabled:opacity-60"
-                              title="이 상품 제외"
+                              title="판매자 제외"
                             >
                               {excludeMutation.isPending ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -462,7 +476,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                       {!item.is_my_store && item.naver_product_id && (
                         <button
                           onClick={() =>
-                            excludeMutation.mutate({
+                            requestExclude({
                               naver_product_id: item.naver_product_id!,
                               product_name: item.product_name,
                               mall_name: item.mall_name,
@@ -470,7 +484,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           }
                           disabled={excludeMutation.isPending}
                           className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                          title="이 상품 제외"
+                          title="판매자 제외"
                         >
                           {excludeMutation.isPending ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -516,6 +530,47 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
           })()}
         </div>
       ))}
+      {excludeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold">판매자 제외 확인</h3>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                같은 판매자명으로 노출된 항목도 함께 제외될 수 있습니다.
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+              <div className="text-xs text-[var(--muted-foreground)]">판매자</div>
+              <div className="truncate text-sm font-medium">{excludeTarget.mall_name}</div>
+              <div className="mt-2 text-xs text-[var(--muted-foreground)]">선택 상품</div>
+              <div className="line-clamp-2 text-sm">{excludeTarget.product_name}</div>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setExcludeTarget(null)}
+                disabled={excludeMutation.isPending}
+                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => excludeMutation.mutate(excludeTarget)}
+                disabled={excludeMutation.isPending}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {excludeMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Ban className="h-4 w-4" />
+                )}
+                제외
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
