@@ -26,6 +26,15 @@ import {
 
 const SMARTSTORE_URL_PREFIX = "https://smartstore.naver.com/";
 const LAST_STORE_URL_KEY = "asimaster:last-smartstore-url";
+const TOKEN_LEGEND = [
+  { label: "브랜드", category: "BRAND" },
+  { label: "모델", category: "MODEL" },
+  { label: "유형", category: "TYPE" },
+  { label: "시리즈", category: "SERIES" },
+  { label: "규격/수량", category: "QUANTITY" },
+  { label: "색상", category: "COLOR" },
+  { label: "제외어", category: "MODIFIER" },
+] as const;
 
 type StoreInputParseResult =
   | { kind: "empty" }
@@ -264,6 +273,37 @@ export default function StoreImportPage() {
     });
   };
 
+  const applyKeywordPreset = (
+    product: StoreProduct,
+    mode: "specific" | "balanced" | "all"
+  ) => {
+    const pid = product.naver_product_id;
+    const keywordMeta = keywordMetaByProduct[pid];
+    const nextSelected =
+      mode === "all" || !keywordMeta
+        ? product.suggested_keywords
+        : product.suggested_keywords.filter((kw) => {
+            const meta = findSuggestedKeywordMeta(kw, keywordMeta);
+            if (!meta.level) return mode === "balanced";
+            if (mode === "specific") return meta.level === "specific";
+            return meta.level === "specific" || meta.level === "medium";
+          });
+
+    setSelectedKeywords((prev) => {
+      const next = new Map(prev);
+      next.set(pid, new Set(nextSelected));
+      return next;
+    });
+
+    toast.success(
+      mode === "specific"
+        ? "정밀 키워드만 선택했습니다"
+        : mode === "balanced"
+        ? "정밀/중간 키워드 위주로 선택했습니다"
+        : "추천 키워드를 모두 선택했습니다"
+    );
+  };
+
   useEffect(() => {
     if (storeProducts.length === 0) return;
     for (const product of storeProducts) {
@@ -401,6 +441,28 @@ export default function StoreImportPage() {
               전체 선택
             </button>
           </div>
+          <div className="border-b border-[var(--border)] px-4 py-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]">
+              <span className="font-medium">AI 토큰 색상</span>
+              {TOKEN_LEGEND.map((item) => {
+                const tokenStyle = getTokenCategoryStyle(item.category);
+                return (
+                  <span
+                    key={item.category}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5",
+                      tokenStyle.tag,
+                      tokenStyle.text,
+                      tokenStyle.strike && "line-through"
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", tokenStyle.dot)} />
+                    {item.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border)]">
             {storeProducts.map((p) => {
@@ -448,7 +510,36 @@ export default function StoreImportPage() {
                   </label>
 
                   {checked && p.suggested_keywords.length > 0 && (
-                    <div className="mt-2 ml-7 flex flex-wrap gap-1.5">
+                    <div className="mt-2 ml-7 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] text-[var(--muted-foreground)]">
+                          빠른 선택
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => applyKeywordPreset(p, "specific")}
+                          disabled={isKeywordMetaLoading}
+                          className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 hover:bg-emerald-500/15 disabled:opacity-50"
+                        >
+                          정밀만
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyKeywordPreset(p, "balanced")}
+                          disabled={isKeywordMetaLoading}
+                          className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500 hover:bg-amber-500/15 disabled:opacity-50"
+                        >
+                          정밀+중간
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyKeywordPreset(p, "all")}
+                          className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                        >
+                          전체
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
                       {isKeywordMetaLoading && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)] px-2 py-1 text-[11px] text-[var(--muted-foreground)]">
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -511,6 +602,7 @@ export default function StoreImportPage() {
                           </button>
                         );
                       })}
+                      </div>
                     </div>
                   )}
                 </div>
