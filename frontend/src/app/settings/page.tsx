@@ -8,7 +8,7 @@ const SETTINGS_ITEMS = [
     href: "/settings/platforms",
     icon: Store,
     label: "네이버 스토어 설정",
-    description: "내 네이버 스토어명을 등록하여 검색 결과에서 내 순위를 트래킹합니다",
+    description: "내 네이버 스토어명을 등록하여 검색 결과에서 내 노출 순위를 트래킹합니다",
   },
   {
     href: "/settings/cost-presets",

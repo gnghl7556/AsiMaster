@@ -15,6 +15,9 @@ export interface Product {
   cost_price: number;
   selling_price: number;
   image_url: string | null;
+  naver_product_id: string | null;
+  model_code: string | null;
+  spec_keywords: string[] | null;
   is_price_locked: boolean;
   price_lock_reason: string | null;
   is_active: boolean;
@@ -39,6 +42,7 @@ export interface ProductListItem {
   price_gap: number | null;
   price_gap_percent: number | null;
   my_rank: number | null;
+  rank_change: number | null;
   keyword_count: number;
   margin_amount: number | null;
   margin_percent: number | null;
@@ -145,6 +149,20 @@ export interface MarginDetail {
   margin_percent: number;
 }
 
+export interface CompetitorSummary {
+  rank: number;
+  product_name: string;
+  price: number;
+  mall_name: string;
+  is_my_store: boolean;
+  naver_product_id: string | null;
+  is_relevant: boolean;
+  hprice: number;
+  brand: string | null;
+  maker: string | null;
+  shipping_fee: number;
+}
+
 export interface CostItemCalculated {
   name: string;
   type: "percent" | "fixed";
@@ -154,11 +172,15 @@ export interface CostItemCalculated {
 
 export interface ProductDetail {
   id: number;
+  user_id: number;
   name: string;
   category: string | null;
   selling_price: number;
   cost_price: number;
   image_url: string | null;
+  naver_product_id: string | null;
+  model_code: string | null;
+  spec_keywords: string[] | null;
   is_price_locked: boolean;
   price_lock_reason: string | null;
   status: ProductStatus;
@@ -167,7 +189,11 @@ export interface ProductDetail {
   price_gap: number | null;
   price_gap_percent: number | null;
   my_rank: number | null;
+  rank_change: number | null;
+  keyword_count: number;
   last_crawled_at: string | null;
+  sparkline: number[];
+  competitors: CompetitorSummary[];
   keywords: KeywordDetail[];
   margin: MarginDetail | null;
 }

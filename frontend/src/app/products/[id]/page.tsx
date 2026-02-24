@@ -281,7 +281,7 @@ export default function ProductDetailPage({
           )}
         </div>
         <div className="glass-card p-4 text-center">
-          <div className="text-sm text-[var(--muted-foreground)]">내 순위</div>
+          <div className="text-sm text-[var(--muted-foreground)]">노출 순위</div>
           <div className="text-lg font-bold mt-1 tabular-nums">
             {product.my_rank ? `${product.my_rank}위` : "-"}
           </div>

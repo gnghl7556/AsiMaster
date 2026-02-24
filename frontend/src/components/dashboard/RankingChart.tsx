@@ -30,7 +30,7 @@ export function RankingChart() {
   if (rankedProducts.length === 0) {
     return (
       <div className="glass-card p-4">
-        <h3 className="font-medium mb-4">순위 현황</h3>
+        <h3 className="font-medium mb-4">노출 순위 현황</h3>
         <div className="flex h-32 items-center justify-center text-sm text-[var(--muted-foreground)]">
           순위 데이터가 없습니다
         </div>
@@ -46,7 +46,7 @@ export function RankingChart() {
 
   return (
     <div className="glass-card p-4">
-      <h3 className="font-medium mb-4">순위 현황</h3>
+      <h3 className="font-medium mb-4">노출 순위 현황</h3>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} layout="vertical">
           <YAxis
@@ -64,7 +64,7 @@ export function RankingChart() {
               borderRadius: 8,
               fontSize: 12,
             }}
-            formatter={(value: number) => [`${value}위`, "순위"]}
+            formatter={(value: number) => [`${value}위`, "노출 순위"]}
           />
           <Bar dataKey="순위" radius={[0, 4, 4, 0]} maxBarSize={24}>
             {chartData.map((entry, index) => (

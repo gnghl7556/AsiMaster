@@ -104,7 +104,7 @@ export function ActionQueue() {
                     </span>
                     {product.my_rank && (
                       <span className="text-[11px] text-[var(--muted-foreground)]">
-                        {product.my_rank}위
+                        노출 {product.my_rank}위
                       </span>
                     )}
                   </div>

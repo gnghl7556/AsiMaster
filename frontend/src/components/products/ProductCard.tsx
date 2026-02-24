@@ -115,7 +115,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="flex flex-col items-end gap-0.5">
             {product.my_rank && (
               <span className="text-xs text-[var(--muted-foreground)]">
-                내 순위: {product.my_rank}위
+                노출 순위: {product.my_rank}위
               </span>
             )}
             <SparklineChart data={product.sparkline} />
