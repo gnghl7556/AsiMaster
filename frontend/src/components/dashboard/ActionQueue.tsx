@@ -107,6 +107,24 @@ export function ActionQueue() {
                         노출 {product.my_rank}위
                       </span>
                     )}
+                    {product.rank_change != null && (
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          product.rank_change > 0
+                            ? "text-red-500"
+                            : product.rank_change < 0
+                            ? "text-emerald-500"
+                            : "text-[var(--muted-foreground)]"
+                        )}
+                      >
+                        {product.rank_change > 0
+                          ? `노출 하락 ${product.rank_change}`
+                          : product.rank_change < 0
+                          ? `노출 상승 ${Math.abs(product.rank_change)}`
+                          : "노출 변동 없음"}
+                      </span>
+                    )}
                   </div>
                   <div className="truncate text-sm font-medium">{product.name}</div>
                   <div className="mt-1 grid grid-cols-3 gap-2 text-xs">

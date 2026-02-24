@@ -18,6 +18,15 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const config = STATUS_CONFIG[product.status];
+  const rankChange = product.rank_change;
+  const rankChangeLabel =
+    rankChange == null
+      ? null
+      : rankChange > 0
+      ? `하락 ${rankChange}`
+      : rankChange < 0
+      ? `상승 ${Math.abs(rankChange)}`
+      : "변동 없음";
 
   if (product.is_price_locked) {
     return (
@@ -63,6 +72,20 @@ export function ProductCard({ product }: ProductCardProps) {
               <h3 className="font-medium truncate">{product.name}</h3>
               {product.category && (
                 <span className="text-xs text-[var(--muted-foreground)]">{product.category}</span>
+              )}
+              {rankChangeLabel && (
+                <div
+                  className={cn(
+                    "mt-0.5 text-[11px]",
+                    rankChange && rankChange > 0
+                      ? "text-red-500"
+                      : rankChange && rankChange < 0
+                      ? "text-emerald-500"
+                      : "text-[var(--muted-foreground)]"
+                  )}
+                >
+                  노출 {rankChangeLabel}
+                </div>
               )}
             </div>
           </div>
@@ -116,6 +139,24 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.my_rank && (
               <span className="text-xs text-[var(--muted-foreground)]">
                 노출 순위: {product.my_rank}위
+              </span>
+            )}
+            {rankChangeLabel && (
+              <span
+                className={cn(
+                  "text-[11px]",
+                  rankChange && rankChange > 0
+                    ? "text-red-500"
+                    : rankChange && rankChange < 0
+                    ? "text-emerald-500"
+                    : "text-[var(--muted-foreground)]"
+                )}
+              >
+                {rankChange && rankChange > 0
+                  ? `노출 하락 ${rankChange}`
+                  : rankChange && rankChange < 0
+                  ? `노출 상승 ${Math.abs(rankChange)}`
+                  : "노출 변동 없음"}
               </span>
             )}
             <SparklineChart data={product.sparkline} />

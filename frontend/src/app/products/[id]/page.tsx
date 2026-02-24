@@ -32,6 +32,7 @@ import { NaverCategoryCascader } from "@/components/products/NaverCategoryCascad
 import { CompetitorTotalSummary } from "@/components/products/CompetitorTotalSummary";
 import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
 import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
 
 export default function ProductDetailPage({
@@ -421,6 +422,24 @@ export default function ProductDetailPage({
           <div className="text-lg font-bold mt-1 tabular-nums">
             {product.my_rank ? `${product.my_rank}위` : "-"}
           </div>
+          {product.rank_change != null && (
+            <div
+              className={cn(
+                "mt-1 text-xs",
+                product.rank_change > 0
+                  ? "text-red-500"
+                  : product.rank_change < 0
+                  ? "text-emerald-500"
+                  : "text-[var(--muted-foreground)]"
+              )}
+            >
+              {product.rank_change > 0
+                ? `노출 하락 ${product.rank_change}`
+                : product.rank_change < 0
+                ? `노출 상승 ${Math.abs(product.rank_change)}`
+                : "노출 변동 없음"}
+            </div>
+          )}
         </div>
       </div>
 
