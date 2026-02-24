@@ -77,7 +77,7 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
       color: "text-red-500",
     },
     {
-      label: "동일가",
+      label: "동일총액",
       value: samePriceCount,
       time: latestDetectedAt(samePriceProducts),
       icon: Minus,

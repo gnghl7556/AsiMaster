@@ -15,10 +15,21 @@ interface PriceGapProps {
 export function PriceGap({ gap, gapPercent, status, size = "lg" }: PriceGapProps) {
   const config = STATUS_CONFIG[status];
 
-  if (gap == null || gap === 0) {
+  if (gap == null) {
     return (
       <div className={cn("font-bold", config.color, size === "lg" ? "text-2xl" : "text-base")}>
         -
+      </div>
+    );
+  }
+
+  if (gap === 0) {
+    return (
+      <div className="flex flex-col items-end">
+        <span className={cn("font-bold tabular-nums", config.color, size === "lg" ? "text-xl" : "text-base")}>
+          0원
+        </span>
+        <span className="text-[11px] text-[var(--muted-foreground)]">동일총액</span>
       </div>
     );
   }

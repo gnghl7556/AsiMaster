@@ -60,7 +60,7 @@ export function ActionQueue() {
         <div>
           <h2 className="text-lg font-bold">지금 조치가 필요한 상품</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
-            밀림/동일가 상품 우선 표시
+            밀림/동일 총액 상품 우선 표시
           </p>
         </div>
         <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium">
@@ -73,7 +73,7 @@ export function ActionQueue() {
           <RefreshCw className="mb-2 h-6 w-6 text-[var(--muted-foreground)]" />
           <p className="text-sm font-medium">조치 필요 상품이 없습니다</p>
           <p className="text-xs text-[var(--muted-foreground)]">
-            현재 밀림/동일가 상태의 상품이 없습니다
+            현재 밀림/동일 총액 상태의 상품이 없습니다
           </p>
         </div>
       ) : (
@@ -100,7 +100,7 @@ export function ActionQueue() {
                       ) : (
                         <Equal className="h-3 w-3" />
                       )}
-                      {product.issueType === "losing" ? "밀림" : "동일가"}
+                      {product.issueType === "losing" ? "밀림" : "동일총액"}
                     </span>
                     {product.my_rank && (
                       <span className="text-[11px] text-[var(--muted-foreground)]">

@@ -373,7 +373,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                             )}
                           >
                             {diffFromMe === 0
-                              ? "동일"
+                              ? "동일총액"
                               : diffFromMe < 0
                               ? `${formatPrice(diffFromMe)}원`
                               : `+${formatPrice(diffFromMe)}원`}
@@ -442,7 +442,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           )}
                         >
                           {diffFromMe === 0
-                            ? "동일"
+                            ? "동일총액"
                             : diffFromMe < 0
                             ? `${formatPrice(diffFromMe)}원`
                             : `+${formatPrice(diffFromMe)}원`}
