@@ -166,8 +166,12 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
             .map((item) => ({ item, keywordId: kw.id }))
         );
         const keywordCount = new Set(matches.map((match) => match.keywordId)).size;
+        const uniqueProductCount = new Set(
+          matches.map((match) => match.item.naver_product_id || `${match.item.mall_name}:${match.item.product_name}`)
+        ).size;
         return {
           rowCount: matches.length,
+          uniqueProductCount,
           keywordCount,
         };
       })()
@@ -560,7 +564,9 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
               </p>
               {excludeImpactPreview && (
                 <p className="mt-1 text-xs text-amber-500">
-                  현재 로드된 결과 기준 {excludeImpactPreview.rowCount}개 항목
+                  현재 로드된 결과 기준 {excludeImpactPreview.rowCount}개 노출행
+                  {excludeImpactPreview.uniqueProductCount > 0 &&
+                    ` · 상품 ${excludeImpactPreview.uniqueProductCount}개`}
                   {excludeImpactPreview.keywordCount > 1
                     ? ` (키워드 ${excludeImpactPreview.keywordCount}개)`
                     : ""}{" "}
