@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Bell, Check, ChevronRight, Loader2 } from "lucide-react";
 import { useAlerts, useMarkAlertRead } from "@/lib/hooks/useAlerts";
@@ -15,6 +16,7 @@ const ALERT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 export function RecentAlertsPanel() {
   const { data: alerts = [], isLoading } = useAlerts();
   const markReadMutation = useMarkAlertRead();
+  const [pendingAlertId, setPendingAlertId] = useState<number | null>(null);
   const unread = alerts.filter((a) => !a.is_read).slice(0, 5);
 
   return (
@@ -67,13 +69,18 @@ export function RecentAlertsPanel() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => markReadMutation.mutate(alert.id)}
-                      disabled={markReadMutation.isPending}
+                      onClick={() => {
+                        setPendingAlertId(alert.id);
+                        markReadMutation.mutate(alert.id, {
+                          onSettled: () => setPendingAlertId((current) => (current === alert.id ? null : current)),
+                        });
+                      }}
+                      disabled={markReadMutation.isPending && pendingAlertId === alert.id}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500 disabled:opacity-50"
                       aria-label="읽음 처리"
                       title="읽음 처리"
                     >
-                      {markReadMutation.isPending ? (
+                      {markReadMutation.isPending && pendingAlertId === alert.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Check className="h-3.5 w-3.5" />
