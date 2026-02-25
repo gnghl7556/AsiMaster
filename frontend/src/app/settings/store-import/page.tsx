@@ -36,6 +36,13 @@ const TOKEN_LEGEND = [
   { label: "색상", category: "COLOR" },
   { label: "제외어", category: "MODIFIER" },
 ] as const;
+const AUTO_SPEC_TOKEN_CATEGORIES = new Set([
+  "QUANTITY",
+  "SIZE",
+  "CAPACITY",
+  "MATERIAL",
+  "FEATURE",
+]);
 
 type StoreInputParseResult =
   | { kind: "empty" }
@@ -84,6 +91,38 @@ function parseStoreInput(raw: string): StoreInputParseResult {
   }
 
   return { kind: "invalid_url", input: value };
+}
+
+function buildAccuracyFieldsFromSuggestion(suggestion?: KeywordSuggestion | null): {
+  model_code?: string;
+  spec_keywords?: string[];
+} {
+  if (!suggestion) return {};
+
+  const normalizedTokens = suggestion.tokens
+    .map((token) => ({
+      ...token,
+      text: token.text.trim(),
+    }))
+    .filter((token) => token.text.length >= 2);
+
+  const modelToken = normalizedTokens
+    .filter((token) => token.category === "MODEL")
+    .sort((a, b) => b.weight - a.weight || b.text.length - a.text.length)[0];
+
+  const specKeywords = Array.from(
+    new Set(
+      normalizedTokens
+        .filter((token) => AUTO_SPEC_TOKEN_CATEGORIES.has(token.category))
+        .sort((a, b) => b.weight - a.weight || b.text.length - a.text.length)
+        .map((token) => token.text)
+    )
+  ).slice(0, 6);
+
+  return {
+    model_code: modelToken?.text || undefined,
+    spec_keywords: specKeywords.length > 0 ? specKeywords : undefined,
+  };
 }
 
 export default function StoreImportPage() {
@@ -197,6 +236,28 @@ export default function StoreImportPage() {
     loadingKeywordMetaIds,
     failedKeywordMetaIds,
   ]);
+  const selectedAutoAccuracySummary = useMemo(() => {
+    let modelCodeCount = 0;
+    let specKeywordsCount = 0;
+    let anyAccuracyCount = 0;
+
+    for (const product of selectedProducts) {
+      const accuracy = buildAccuracyFieldsFromSuggestion(
+        keywordMetaByProduct[product.naver_product_id]
+      );
+      const hasModel = Boolean(accuracy.model_code);
+      const hasSpec = Boolean(accuracy.spec_keywords?.length);
+      if (hasModel) modelCodeCount += 1;
+      if (hasSpec) specKeywordsCount += 1;
+      if (hasModel || hasSpec) anyAccuracyCount += 1;
+    }
+
+    return {
+      modelCodeCount,
+      specKeywordsCount,
+      anyAccuracyCount,
+    };
+  }, [selectedProducts, keywordMetaByProduct]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -315,6 +376,9 @@ export default function StoreImportPage() {
         userId!,
         selectedProducts.map((p) => {
           const keywords = Array.from(selectedKeywords.get(p.naver_product_id) || []);
+          const accuracy = buildAccuracyFieldsFromSuggestion(
+            keywordMetaByProduct[p.naver_product_id]
+          );
           return {
             name: p.name,
             selling_price: p.price,
@@ -322,13 +386,20 @@ export default function StoreImportPage() {
             category: p.category || undefined,
             naver_product_id: p.naver_product_id,
             keywords: keywords.length > 0 ? keywords : undefined,
+            model_code: accuracy.model_code,
+            spec_keywords: accuracy.spec_keywords,
           };
         })
       ),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      const createdMappings = result.created_products?.length ?? 0;
       toast.success(
-        `${result.created}개 등록${result.skipped > 0 ? `, ${result.skipped}개 중복 스킵` : ""}`
+        `${result.created}개 등록${result.skipped > 0 ? `, ${result.skipped}개 중복 스킵` : ""}${
+          selectedAutoAccuracySummary.anyAccuracyCount > 0
+            ? ` · 정확도 자동설정 ${selectedAutoAccuracySummary.anyAccuracyCount}개`
+            : ""
+        }${createdMappings > 0 ? ` · 생성 매핑 ${createdMappings}개` : ""}`
       );
       setStoreProducts([]);
       setSelectedIds(new Set());
@@ -968,6 +1039,19 @@ export default function StoreImportPage() {
                   <div className="text-[10px] text-[var(--muted-foreground)]">
                     대상 {selectedAiMetaSummary.targetCount}개
                   </div>
+                </div>
+              </div>
+            )}
+            {selectedCount > 0 && selectedAutoAccuracySummary.anyAccuracyCount > 0 && (
+              <div className="mb-2 rounded-lg border border-blue-500/15 bg-blue-500/5 px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[var(--muted-foreground)]">
+                  <span className="text-blue-500">검색 정확도 자동설정</span>
+                  <span>적용 대상 {selectedAutoAccuracySummary.anyAccuracyCount}개</span>
+                  <span>모델코드 {selectedAutoAccuracySummary.modelCodeCount}개</span>
+                  <span>규격 키워드 {selectedAutoAccuracySummary.specKeywordsCount}개</span>
+                </div>
+                <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                  가격 범위 필터는 운영 정책값이라 자동 적용하지 않습니다.
                 </div>
               </div>
             )}

@@ -109,6 +109,12 @@ export interface StoreImportResult {
   created: number;
   skipped: number;
   skipped_names: string[];
+  created_products?: StoreImportCreatedProduct[];
+}
+
+export interface StoreImportCreatedProduct {
+  name: string;
+  product_id: number;
 }
 
 export interface ClassifiedToken {

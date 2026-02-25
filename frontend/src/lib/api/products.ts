@@ -88,7 +88,18 @@ export const productsApi = {
 
   importStoreProducts: (
     userId: number,
-    products: { name: string; selling_price: number; image_url?: string; category?: string; naver_product_id?: string; keywords?: string[] }[]
+    products: {
+      name: string;
+      selling_price: number;
+      image_url?: string;
+      category?: string;
+      naver_product_id?: string;
+      keywords?: string[];
+      model_code?: string;
+      spec_keywords?: string[];
+      price_filter_min_pct?: number | null;
+      price_filter_max_pct?: number | null;
+    }[]
   ) =>
     apiClient
       .post<StoreImportResult>(`/users/${userId}/store/import`, { products })
