@@ -8,6 +8,7 @@ from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.models.user import User
 from app.schemas.store_import import (
+    CreatedProductMapping,
     StoreImportRequest,
     StoreImportResult,
     StoreProductItem,
@@ -72,6 +73,7 @@ async def import_store_products(
     created = 0
     skipped = 0
     skipped_names = []
+    created_products = []
 
     for item in data.products:
         if item.name.lower() in existing_names:
@@ -87,6 +89,10 @@ async def import_store_products(
             image_url=item.image_url,
             category=item.category,
             naver_product_id=item.naver_product_id,
+            model_code=item.model_code or None,
+            spec_keywords=item.spec_keywords if item.spec_keywords else None,
+            price_filter_min_pct=item.price_filter_min_pct,
+            price_filter_max_pct=item.price_filter_max_pct,
         )
         db.add(product)
         await db.flush()
@@ -103,9 +109,14 @@ async def import_store_products(
 
         existing_names.add(item.name.lower())
         created += 1
+        created_products.append(CreatedProductMapping(
+            name=item.name,
+            product_id=product.id,
+        ))
 
     return StoreImportResult(
         created=created,
         skipped=skipped,
         skipped_names=skipped_names,
+        created_products=created_products,
     )

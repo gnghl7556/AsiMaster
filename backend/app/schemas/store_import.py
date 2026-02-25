@@ -21,6 +21,11 @@ class StoreImportItem(BaseModel):
     category: str | None = None
     naver_product_id: str | None = None
     keywords: list[str] | None = None
+    # 검색 정확도 설정 (ProductCreate/Update와 동일 검증)
+    model_code: str | None = Field(None, max_length=100)
+    spec_keywords: list[str] | None = None
+    price_filter_min_pct: int | None = Field(None, ge=0, le=100)
+    price_filter_max_pct: int | None = Field(None, ge=100)
 
 
 class StoreImportRequest(BaseModel):
@@ -28,8 +33,15 @@ class StoreImportRequest(BaseModel):
     products: list[StoreImportItem] = Field(..., min_length=1, max_length=100)
 
 
+class CreatedProductMapping(BaseModel):
+    """생성된 상품의 이름 → ID 매핑."""
+    name: str
+    product_id: int
+
+
 class StoreImportResult(BaseModel):
     """등록 결과."""
     created: int
     skipped: int
     skipped_names: list[str]
+    created_products: list[CreatedProductMapping] = []
