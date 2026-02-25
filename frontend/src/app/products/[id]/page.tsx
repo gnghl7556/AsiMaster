@@ -935,10 +935,9 @@ export default function ProductDetailPage({
         />
       </div>
 
-      {/* 제외된 상품 관리 */}
-      {excludedProducts.length > 0 && (
-        <div>
-          <div className="glass-card overflow-hidden">
+      {/* 제외된 상품 관리 (수동 블랙리스트) */}
+      <div>
+        <div className="glass-card overflow-hidden">
             <button
               type="button"
               onClick={() => setIsExcludedOpen((prev) => !prev)}
@@ -958,6 +957,10 @@ export default function ProductDetailPage({
             {isExcludedOpen && (
               <div className="divide-y divide-[var(--border)]">
                 <div className="px-4 py-3 space-y-2">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/50 px-3 py-2 text-[11px] text-[var(--muted-foreground)]">
+                    이 영역은 <span className="font-medium text-[var(--foreground)]">수동 Ban(블랙리스트)</span>만 표시합니다.
+                    가격 범위/모델코드/규격 키워드로 자동 제외된 항목은 아래 &quot;키워드별 경쟁사 순위&quot;에서 흐리게 표시됩니다.
+                  </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <input
                       type="text"
@@ -1108,9 +1111,8 @@ export default function ProductDetailPage({
                 ))}
               </div>
             )}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
