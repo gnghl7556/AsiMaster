@@ -34,12 +34,29 @@ async def _fetch_shipping_fee(client: httpx.AsyncClient, product_url: str) -> in
 
         html = resp.text
 
-        match = re.search(r'__PRELOADED_STATE__\s*=\s*({.+?})\s*</script>', html, re.DOTALL)
+        match = re.search(r'__PRELOADED_STATE__\s*=\s*(\{.+?\})\s*</script>', html, re.DOTALL)
         if not match:
             return 0
 
         data = json.loads(match.group(1))
 
+        # 1차: simpleProductForDetailPage.{key}.productDeliveryInfo (2025~ 구조)
+        simple_data = data.get("simpleProductForDetailPage", {})
+        for key in simple_data:
+            item = simple_data[key]
+            if not isinstance(item, dict):
+                continue
+            delivery_info = item.get("productDeliveryInfo")
+            if not isinstance(delivery_info, dict):
+                continue
+            fee_type = delivery_info.get("deliveryFeeType", "")
+            if fee_type == "FREE":
+                return 0
+            base_fee = delivery_info.get("baseFee", 0)
+            if base_fee:
+                return int(base_fee)
+
+        # 2차 폴백: product.{key}.channel.delivery (레거시 구조)
         product_data = data.get("product", {})
         for key in product_data:
             channel = product_data[key]
