@@ -61,6 +61,7 @@ export default function ProductDetailPage({
   const [excludedGroupSort, setExcludedGroupSort] = useState<"recent" | "name" | "count">(
     "recent"
   );
+  const [collapsedExcludedGroups, setCollapsedExcludedGroups] = useState<Set<string>>(new Set());
   const [highlightedAnchor, setHighlightedAnchor] = useState<"basic-info" | "profitability" | null>(
     null
   );
@@ -381,6 +382,15 @@ export default function ProductDetailPage({
       return (b.latestCreatedAt ?? "").localeCompare(a.latestCreatedAt ?? "");
     });
   const excludedVisibleCount = excludedProductGroups.reduce((sum, group) => sum + group.items.length, 0);
+
+  const toggleExcludedGroupCollapsed = (mallName: string) => {
+    setCollapsedExcludedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(mallName)) next.delete(mallName);
+      else next.add(mallName);
+      return next;
+    });
+  };
   const priceFilterRangePreview = {
     minPct: Number.isFinite(normalizedEditedMinPct as number)
       ? normalizedEditedMinPct
@@ -949,6 +959,24 @@ export default function ProductDetailPage({
                   <div className="text-[11px] text-[var(--muted-foreground)]">
                     {excludedProductGroups.length}개 판매자 그룹 / {excludedVisibleCount}개 제외 상품 표시
                   </div>
+                  {excludedProductGroups.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedExcludedGroups(new Set(excludedProductGroups.map((g) => g.mallName)))}
+                        className="rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                      >
+                        전체 접기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedExcludedGroups(new Set())}
+                        className="rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                      >
+                        전체 펼치기
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {excludedProductGroups.length === 0 && (
                   <div className="px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
@@ -958,14 +986,26 @@ export default function ProductDetailPage({
                 {excludedProductGroups.map((group) => (
                   <div key={group.mallName} className="px-4 py-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleExcludedGroupCollapsed(group.mallName)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)] transition-transform",
+                            collapsedExcludedGroups.has(group.mallName) && "-rotate-90"
+                          )}
+                        />
+                        <div className="flex min-w-0 items-center gap-2">
                         <span className="inline-flex items-center rounded-full border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
                           {group.mallName}
                         </span>
                         <span className="text-[11px] text-[var(--muted-foreground)]">
                           {group.items.length}개
                         </span>
-                      </div>
+                        </div>
+                      </button>
                       {group.latestCreatedAt && (
                         <span className="text-[10px] text-[var(--muted-foreground)] shrink-0">
                           최근 제외 {timeAgo(group.latestCreatedAt)}
@@ -992,6 +1032,7 @@ export default function ProductDetailPage({
                         모두 복원
                       </button>
                     </div>
+                    {!collapsedExcludedGroups.has(group.mallName) && (
                     <div className="space-y-2">
                       {group.items.map((ep) => (
                         <div
@@ -1026,6 +1067,7 @@ export default function ProductDetailPage({
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
