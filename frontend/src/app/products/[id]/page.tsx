@@ -941,7 +941,11 @@ export default function ProductDetailPage({
       />
 
       {/* 가격 기준 경쟁 요약 (배송비 포함) */}
-      <CompetitorTotalSummary competitors={product.competitors ?? []} />
+      <CompetitorTotalSummary
+        competitors={product.competitors ?? []}
+        keywords={product.keywords ?? []}
+        myProductNaverId={product.naver_product_id}
+      />
 
       {/* 키워드별 경쟁사 순위 */}
       <div>
