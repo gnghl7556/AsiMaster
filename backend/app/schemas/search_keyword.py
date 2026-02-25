@@ -43,6 +43,7 @@ class RankingItemResponse(BaseModel):
     category3: str | None = None
     category4: str | None = None
     shipping_fee: int = 0
+    shipping_fee_type: str = "unknown"
     crawled_at: datetime
 
     model_config = {"from_attributes": True}

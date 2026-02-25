@@ -20,6 +20,7 @@ class RankingItem:
     category3: str = ""
     category4: str = ""
     shipping_fee: int = 0
+    shipping_fee_type: str = "unknown"  # paid|free|unknown|error
 
 
 @dataclass

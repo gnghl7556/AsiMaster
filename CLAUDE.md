@@ -310,3 +310,25 @@ Product → CostItems
 **스키마 변경:**
 - `ProductCreate`, `ProductUpdate`에 `price_filter_min_pct`, `price_filter_max_pct` 추가
 - `ProductResponse`, `ProductDetail`에 두 필드 추가
+
+### 2026-02-25: 배송비 추출 실패 vs 무료배송 구분 (shipping_fee_type)
+
+**KeywordRanking 모델 확장:**
+- `shipping_fee_type` (VARCHAR(20), 기본값 `"unknown"`): 배송비 타입 (`paid` | `free` | `unknown` | `error`)
+
+**크롤링 변경:**
+- `_fetch_shipping_fee()` 반환값: `int` → `tuple[int, str]` (fee, type)
+- 오류 페이지 감지: `<title>`에 `에러` 포함 시 `(0, "error")` 반환
+- `error` 결과에 1회 재시도 (200~400ms 딜레이)
+- 캐시 오염 방지: `paid`/`free`만 캐시 저장, `error`/`unknown`은 미저장 (다음 키워드에서 재시도)
+- 키워드별 배송비 타입 집계 로그 (paid/free/unknown/error 카운트)
+
+**스키마 변경:**
+- `RankingItemResponse`에 `shipping_fee_type: str = "unknown"` 필드 추가
+- `CompetitorSummary`에 `shipping_fee_type: str = "unknown"` 필드 추가
+- 상품 상세 API keywords[].rankings[] 및 competitors[]에 `shipping_fee_type` 필드 포함
+
+**하위호환:**
+- `shipping_fee: int` 유지 → 기존 프론트 정상 동작
+- `shipping_fee_type` 새 필드 → 기존 프론트가 무시해도 OK
+- 기존 DB 데이터: default `"unknown"` 자동 적용

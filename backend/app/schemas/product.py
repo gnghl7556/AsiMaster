@@ -102,6 +102,7 @@ class CompetitorSummary(BaseModel):
     brand: str | None = None
     maker: str | None = None
     shipping_fee: int = 0
+    shipping_fee_type: str = "unknown"
 
 
 class ExcludeProductRequest(BaseModel):

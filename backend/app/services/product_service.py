@@ -568,6 +568,7 @@ async def get_product_detail(
             "brand": r.brand,
             "maker": r.maker,
             "shipping_fee": r.shipping_fee or 0,
+            "shipping_fee_type": r.shipping_fee_type or "unknown",
         })
 
     # 키워드별 최신 순위
@@ -609,6 +610,7 @@ async def get_product_detail(
                     "category3": r.category3,
                     "category4": r.category4,
                     "shipping_fee": r.shipping_fee or 0,
+                    "shipping_fee_type": r.shipping_fee_type or "unknown",
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest
