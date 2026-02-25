@@ -48,6 +48,7 @@ export default function ProductDetailPage({
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
+  const [isTrackingSettingsOpen, setIsTrackingSettingsOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
   const [editableCategory, setEditableCategory] = useState("");
   const [editableCostPrice, setEditableCostPrice] = useState("");
@@ -562,170 +563,187 @@ export default function ProductDetailPage({
         </form>
 
         <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 p-3">
-          <div className="mb-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-medium">검색 정확도 설정</h4>
-              {isTrackingFieldsChanged && (
-                <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
-                  저장 필요
-                </span>
+          <button
+            type="button"
+            onClick={() => setIsTrackingSettingsOpen((prev) => !prev)}
+            className="flex w-full items-start justify-between gap-3 text-left"
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-medium">검색 정확도 설정</h4>
+                {isTrackingFieldsChanged && (
+                  <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                    저장 필요
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                모델코드/규격 키워드/가격 범위 필터를 접어서 관리할 수 있습니다.
+              </p>
+            </div>
+            <ChevronDown
+              className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform",
+                isTrackingSettingsOpen && "rotate-180"
               )}
-            </div>
-            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-              모델코드/규격 키워드를 설정하면 관련 없는 검색 결과가 경쟁상품으로 잡히는 문제를 줄일 수 있습니다.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
-                <span className="inline-flex items-center gap-1">
-                  <Hash className="h-3 w-3" />
-                  네이버 상품번호
-                </span>
-              </label>
-              <input
-                type="text"
-                value={editableNaverProductId}
-                onChange={(e) => setEditableNaverProductId(e.target.value)}
-                placeholder="예: 87265928596"
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
-                inputMode="numeric"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
-                <span className="inline-flex items-center gap-1">
-                  <Tag className="h-3 w-3" />
-                  모델코드
-                </span>
-              </label>
-              <input
-                type="text"
-                value={editableModelCode}
-                onChange={(e) => setEditableModelCode(e.target.value)}
-                placeholder="예: RF85B9121AP"
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
-              />
-            </div>
-          </div>
-          <div className="mt-2">
-            <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
-              규격 키워드 (쉼표 구분)
-            </label>
-            <input
-              type="text"
-              value={editableSpecKeywords}
-              onChange={(e) => setEditableSpecKeywords(e.target.value)}
-              placeholder="예: 43035, 중형, 200매"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
             />
-            {parsedEditedSpecKeywords.length > 0 && (
-              <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2">
-                <div className="mb-1 text-[11px] text-[var(--muted-foreground)]">
-                  적용 예정 필터 ({parsedEditedSpecKeywords.length}개)
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {parsedEditedSpecKeywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
-                    >
-                      {kw}
+          </button>
+
+          {isTrackingSettingsOpen && (
+            <>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                    <span className="inline-flex items-center gap-1">
+                      <Hash className="h-3 w-3" />
+                      네이버 상품번호
                     </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editableNaverProductId}
+                    onChange={(e) => setEditableNaverProductId(e.target.value)}
+                    placeholder="예: 87265928596"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                    <span className="inline-flex items-center gap-1">
+                      <Tag className="h-3 w-3" />
+                      모델코드
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editableModelCode}
+                    onChange={(e) => setEditableModelCode(e.target.value)}
+                    placeholder="예: RF85B9121AP"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="mt-2">
+                <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+                  규격 키워드 (쉼표 구분)
+                </label>
+                <input
+                  type="text"
+                  value={editableSpecKeywords}
+                  onChange={(e) => setEditableSpecKeywords(e.target.value)}
+                  placeholder="예: 43035, 중형, 200매"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+                />
+                {parsedEditedSpecKeywords.length > 0 && (
+                  <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2">
+                    <div className="mb-1 text-[11px] text-[var(--muted-foreground)]">
+                      적용 예정 필터 ({parsedEditedSpecKeywords.length}개)
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {parsedEditedSpecKeywords.map((kw) => (
+                        <span
+                          key={kw}
+                          className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
+                        >
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-3">
+                <div className="mb-1.5 text-xs font-medium">가격 범위 필터</div>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { label: "표준 30~200%", min: "30", max: "200" },
+                      { label: "엄격 50~150%", min: "50", max: "150" },
+                      { label: "넓게 20~300%", min: "20", max: "300" },
+                      { label: "해제", min: "", max: "" },
+                    ] as const
+                  ).map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setEditablePriceFilterMinPct(preset.min);
+                        setEditablePriceFilterMaxPct(preset.max);
+                      }}
+                      className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      {preset.label}
+                    </button>
                   ))}
                 </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
+                      최소 비율 (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={editablePriceFilterMinPct}
+                        onChange={(e) => setEditablePriceFilterMinPct(e.target.value)}
+                        placeholder="예: 30"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
+                      최대 비율 (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={100}
+                        value={editablePriceFilterMaxPct}
+                        onChange={(e) => setEditablePriceFilterMaxPct(e.target.value)}
+                        placeholder="예: 200"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+                  규격이 다른 상품(낱개/대용량)을 자동으로 제외합니다.
+                </div>
+                {(minPricePreview != null || maxPricePreview != null) && (
+                  <div className="mt-1 text-xs text-[var(--foreground)]">
+                    판매가 {formatPrice(product.selling_price)}원 기준:{" "}
+                    {minPricePreview != null ? `${formatPrice(minPricePreview)}원` : "제한 없음"} ~{" "}
+                    {maxPricePreview != null ? `${formatPrice(maxPricePreview)}원` : "제한 없음"}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-3">
-            <div className="mb-1.5 text-xs font-medium">가격 범위 필터</div>
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {(
-                [
-                  { label: "표준 30~200%", min: "30", max: "200" },
-                  { label: "엄격 50~150%", min: "50", max: "150" },
-                  { label: "넓게 20~300%", min: "20", max: "300" },
-                  { label: "해제", min: "", max: "" },
-                ] as const
-              ).map((preset) => (
+              <div className="mt-3 flex justify-end">
                 <button
-                  key={preset.label}
                   type="button"
-                  onClick={() => {
-                    setEditablePriceFilterMinPct(preset.min);
-                    setEditablePriceFilterMaxPct(preset.max);
-                  }}
-                  className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                  onClick={handleSaveTrackingFields}
+                  disabled={updateTrackingFieldsMutation.isPending || !isTrackingFieldsChanged}
+                  className={cn(
+                    "rounded-lg border bg-[var(--card)] px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
+                    isTrackingFieldsChanged
+                      ? "border-blue-500/30 text-blue-500 hover:bg-blue-500/5"
+                      : "border-[var(--border)] hover:bg-[var(--muted)]"
+                  )}
                 >
-                  {preset.label}
+                  {updateTrackingFieldsMutation.isPending ? "저장 중..." : "정확도 설정 저장"}
                 </button>
-              ))}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
-                  최소 비율 (%)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={editablePriceFilterMinPct}
-                    onChange={(e) => setEditablePriceFilterMinPct(e.target.value)}
-                    placeholder="예: 30"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
-                    %
-                  </span>
-                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
-                  최대 비율 (%)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={100}
-                    value={editablePriceFilterMaxPct}
-                    onChange={(e) => setEditablePriceFilterMaxPct(e.target.value)}
-                    placeholder="예: 200"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 pr-7 text-sm outline-none focus:border-blue-500 transition-colors"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
-                    %
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
-              규격이 다른 상품(낱개/대용량)을 자동으로 제외합니다.
-            </div>
-            {(minPricePreview != null || maxPricePreview != null) && (
-              <div className="mt-1 text-xs text-[var(--foreground)]">
-                판매가 {formatPrice(product.selling_price)}원 기준:{" "}
-                {minPricePreview != null ? `${formatPrice(minPricePreview)}원` : "제한 없음"} ~{" "}
-                {maxPricePreview != null ? `${formatPrice(maxPricePreview)}원` : "제한 없음"}
-              </div>
-            )}
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSaveTrackingFields}
-              disabled={updateTrackingFieldsMutation.isPending || !isTrackingFieldsChanged}
-              className={cn(
-                "rounded-lg border bg-[var(--card)] px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
-                isTrackingFieldsChanged
-                  ? "border-blue-500/30 text-blue-500 hover:bg-blue-500/5"
-                  : "border-[var(--border)] hover:bg-[var(--muted)]"
-              )}
-            >
-              {updateTrackingFieldsMutation.isPending ? "저장 중..." : "정확도 설정 저장"}
-            </button>
-          </div>
+            </>
+          )}
         </div>
       </div>
 
