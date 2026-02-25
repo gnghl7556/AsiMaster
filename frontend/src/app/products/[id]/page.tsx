@@ -595,6 +595,28 @@ export default function ProductDetailPage({
           </div>
           <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-3">
             <div className="mb-1.5 text-xs font-medium">가격 범위 필터</div>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {(
+                [
+                  { label: "표준 30~200%", min: "30", max: "200" },
+                  { label: "엄격 50~150%", min: "50", max: "150" },
+                  { label: "넓게 20~300%", min: "20", max: "300" },
+                  { label: "해제", min: "", max: "" },
+                ] as const
+              ).map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    setEditablePriceFilterMinPct(preset.min);
+                    setEditablePriceFilterMaxPct(preset.max);
+                  }}
+                  className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[11px] text-[var(--muted-foreground)]">
