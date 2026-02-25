@@ -12,6 +12,13 @@ interface Props {
 export function CompetitorTotalSummary({ competitors }: Props) {
   if (!competitors.length) return null;
 
+  const getShippingBreakdownText = (shippingFee: number, shippingFeeType?: string) => {
+    if (shippingFee > 0) return ` + 배송비 ${formatPrice(shippingFee)}원`;
+    if (shippingFeeType === "free") return " · 무료배송";
+    if (shippingFeeType === "error" || shippingFeeType === "unknown") return " · 배송비 미확인";
+    return " · 무료배송";
+  };
+
   const byTotal = [...competitors]
     .map((c) => ({
       ...c,
@@ -63,9 +70,7 @@ export function CompetitorTotalSummary({ competitors }: Props) {
               </div>
               <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
                 상품가 {formatPrice(item.price)}원
-                {item.shipping_fee > 0
-                  ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
-                  : " · 무료배송"}
+                {getShippingBreakdownText(item.shipping_fee, item.shipping_fee_type)}
               </div>
             </div>
           </div>

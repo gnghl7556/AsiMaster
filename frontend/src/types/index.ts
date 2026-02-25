@@ -72,6 +72,7 @@ export interface RankingItem {
   category3: string | null;
   category4: string | null;
   shipping_fee: number;
+  shipping_fee_type: string;
   crawled_at: string;
 }
 
@@ -169,6 +170,7 @@ export interface CompetitorSummary {
   brand: string | null;
   maker: string | null;
   shipping_fee: number;
+  shipping_fee_type: string;
 }
 
 export interface CostItemCalculated {

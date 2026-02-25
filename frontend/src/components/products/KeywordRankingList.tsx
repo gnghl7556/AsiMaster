@@ -145,6 +145,13 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     );
   };
 
+  const getShippingBreakdownText = (shippingFee: number, shippingFeeType?: string) => {
+    if (shippingFee > 0) return ` + 배송비 ${formatPrice(shippingFee)}원`;
+    if (shippingFeeType === "free") return " · 무료배송";
+    if (shippingFeeType === "error" || shippingFeeType === "unknown") return " · 배송비 미확인";
+    return " · 무료배송";
+  };
+
   const requestExclude = (item: {
     naver_product_id: string;
     product_name: string;
@@ -405,9 +412,10 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           </div>
                           <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
                             상품가 {formatPrice(item.price)}원
-                            {item.shipping_fee > 0
-                              ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
-                              : " · 무료배송"}
+                            {getShippingBreakdownText(
+                              item.shipping_fee,
+                              item.shipping_fee_type
+                            )}
                           </div>
                           <div
                             className={cn(
@@ -475,9 +483,10 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         </div>
                         <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
                           상품가 {formatPrice(item.price)}원
-                          {item.shipping_fee > 0
-                            ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
-                            : " · 무료배송"}
+                          {getShippingBreakdownText(
+                            item.shipping_fee,
+                            item.shipping_fee_type
+                          )}
                         </div>
                         <div
                           className={cn(
