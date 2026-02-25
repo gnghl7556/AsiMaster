@@ -62,8 +62,10 @@ export function CompetitorTotalSummary({ competitors }: Props) {
                 {formatPrice(item.total_price)}원
               </div>
               <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
-                상품 {formatPrice(item.price)}원
-                {item.shipping_fee > 0 ? ` + 배송비 ${formatPrice(item.shipping_fee)}원` : ""}
+                상품가 {formatPrice(item.price)}원
+                {item.shipping_fee > 0
+                  ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
+                  : " · 무료배송"}
               </div>
             </div>
           </div>
