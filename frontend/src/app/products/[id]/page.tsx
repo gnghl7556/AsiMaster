@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { Fragment, type ReactNode, use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -382,6 +382,40 @@ export default function ProductDetailPage({
       return (b.latestCreatedAt ?? "").localeCompare(a.latestCreatedAt ?? "");
     });
   const excludedVisibleCount = excludedProductGroups.reduce((sum, group) => sum + group.items.length, 0);
+
+  const renderExcludedSearchHighlight = (text: string) => {
+    if (!normalizedExcludedGroupQuery) return text;
+    const source = text ?? "";
+    const lower = source.toLowerCase();
+    const query = normalizedExcludedGroupQuery;
+    if (!query || !lower.includes(query)) return source;
+
+    const nodes: ReactNode[] = [];
+    let start = 0;
+    let key = 0;
+
+    while (start < source.length) {
+      const idx = lower.indexOf(query, start);
+      if (idx === -1) {
+        nodes.push(<Fragment key={`t-${key++}`}>{source.slice(start)}</Fragment>);
+        break;
+      }
+      if (idx > start) {
+        nodes.push(<Fragment key={`t-${key++}`}>{source.slice(start, idx)}</Fragment>);
+      }
+      nodes.push(
+        <mark
+          key={`m-${key++}`}
+          className="rounded bg-amber-500/20 px-0.5 text-inherit dark:bg-amber-400/20"
+        >
+          {source.slice(idx, idx + query.length)}
+        </mark>
+      );
+      start = idx + query.length;
+    }
+
+    return nodes;
+  };
 
   const toggleExcludedGroupCollapsed = (mallName: string) => {
     setCollapsedExcludedGroups((prev) => {
@@ -999,7 +1033,7 @@ export default function ProductDetailPage({
                         />
                         <div className="flex min-w-0 items-center gap-2">
                         <span className="inline-flex items-center rounded-full border border-blue-500/25 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
-                          {group.mallName}
+                          {renderExcludedSearchHighlight(group.mallName)}
                         </span>
                         <span className="text-[11px] text-[var(--muted-foreground)]">
                           {group.items.length}개
@@ -1046,10 +1080,12 @@ export default function ProductDetailPage({
                               </span>
                             </div>
                             <div className="text-sm font-medium leading-snug break-words">
-                              {ep.naver_product_name || "상품명 정보 없음"}
+                              {ep.naver_product_name
+                                ? renderExcludedSearchHighlight(ep.naver_product_name)
+                                : "상품명 정보 없음"}
                             </div>
                             <div className="mt-1 text-xs text-[var(--muted-foreground)] font-mono break-all">
-                              ID: {ep.naver_product_id}
+                              ID: {renderExcludedSearchHighlight(ep.naver_product_id)}
                             </div>
                           </div>
                           <button
