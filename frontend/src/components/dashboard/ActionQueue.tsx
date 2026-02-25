@@ -19,6 +19,8 @@ type QueueItem = ProductListItem & {
   issueType: "losing" | "same_price";
 };
 
+type QueueSeverity = "critical" | "high" | "medium" | "watch";
+
 const ACTION_QUEUE_MODE_KEY = "asimaster:dashboard-action-queue-mode";
 const DASHBOARD_SCAN_LIMIT = 500;
 
@@ -47,6 +49,26 @@ function buildQueue(
     if (aGap !== bGap) return bGap - aGap;
     return (a.my_rank ?? 999) - (b.my_rank ?? 999);
   });
+}
+
+function getQueueSeverity(item: QueueItem): QueueSeverity {
+  if (item.issueType === "same_price") return "watch";
+  const gapPct = Math.abs(item.price_gap_percent ?? 0);
+  if (gapPct >= 10) return "critical";
+  if (gapPct >= 5) return "high";
+  if (gapPct >= 2) return "medium";
+  return "watch";
+}
+
+function getCrawlFreshness(lastCrawledAt: string | null): "fresh" | "stale" | "old" {
+  if (!lastCrawledAt) return "old";
+  const parsed = new Date(lastCrawledAt.endsWith("Z") ? lastCrawledAt : `${lastCrawledAt}Z`);
+  const diffMs = Date.now() - parsed.getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "fresh";
+  const diffHours = diffMs / (1000 * 60 * 60);
+  if (diffHours >= 24) return "old";
+  if (diffHours >= 6) return "stale";
+  return "fresh";
 }
 
 export function ActionQueue() {
@@ -113,6 +135,8 @@ export function ActionQueue() {
 
   const queue = buildQueue(products, { includeSameTotal });
   const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
+  const queueLosingCount = queue.filter((p) => p.issueType === "losing").length;
+  const queueSameTotalCount = queue.length - queueLosingCount;
 
   return (
     <section className="glass-card p-4">
@@ -123,9 +147,19 @@ export function ActionQueue() {
             {includeSameTotal ? "밀림/동일 총액 상품 우선 표시" : "밀림 상품만 표시"}
           </p>
         </div>
-        <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium">
-          {queue.length}개
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-500">
+            밀림 {queueLosingCount}
+          </span>
+          {includeSameTotal && (
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-500">
+              동일총액 {queueSameTotalCount}
+            </span>
+          )}
+          <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium">
+            {queue.length}개
+          </span>
+        </div>
       </div>
       <div className="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
         <button
@@ -175,9 +209,28 @@ export function ActionQueue() {
             <Link
               key={product.id}
               href={`/products/${product.id}`}
-              className="group block rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-3 transition-colors hover:bg-[var(--card)]"
+              className={cn(
+                "group block rounded-xl border bg-[var(--card)]/70 p-3 transition-colors hover:bg-[var(--card)]",
+                getQueueSeverity(product) === "critical"
+                  ? "border-red-500/25"
+                  : getQueueSeverity(product) === "high"
+                  ? "border-orange-500/20"
+                  : "border-[var(--border)]"
+              )}
             >
               <div className="flex items-start justify-between gap-3">
+                <div
+                  className={cn(
+                    "mt-0.5 h-12 w-1 shrink-0 rounded-full",
+                    getQueueSeverity(product) === "critical"
+                      ? "bg-red-500/80"
+                      : getQueueSeverity(product) === "high"
+                      ? "bg-orange-500/70"
+                      : getQueueSeverity(product) === "medium"
+                      ? "bg-amber-500/70"
+                      : "bg-[var(--border)]"
+                  )}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center gap-2">
                     <span
@@ -216,6 +269,28 @@ export function ActionQueue() {
                           : product.rank_change < 0
                           ? `노출 상승 ${Math.abs(product.rank_change)}`
                           : "노출 변동 없음"}
+                      </span>
+                    )}
+                    {product.issueType === "losing" && (
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          getQueueSeverity(product) === "critical"
+                            ? "bg-red-500/10 text-red-500"
+                            : getQueueSeverity(product) === "high"
+                            ? "bg-orange-500/10 text-orange-500"
+                            : getQueueSeverity(product) === "medium"
+                            ? "bg-amber-500/10 text-amber-500"
+                            : "bg-[var(--muted)] text-[var(--muted-foreground)]"
+                        )}
+                      >
+                        {getQueueSeverity(product) === "critical"
+                          ? "심각"
+                          : getQueueSeverity(product) === "high"
+                          ? "높음"
+                          : getQueueSeverity(product) === "medium"
+                          ? "주의"
+                          : "관찰"}
                       </span>
                     )}
                   </div>
@@ -306,9 +381,25 @@ export function ActionQueue() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end justify-between gap-2">
                   <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
-                  <span className="text-[11px] text-[var(--muted-foreground)]">
-                    {timeAgo(product.last_crawled_at)}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[11px] text-[var(--muted-foreground)]">
+                      {timeAgo(product.last_crawled_at)}
+                    </span>
+                    {getCrawlFreshness(product.last_crawled_at) !== "fresh" && (
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          getCrawlFreshness(product.last_crawled_at) === "old"
+                            ? "bg-rose-500/10 text-rose-500"
+                            : "bg-amber-500/10 text-amber-500"
+                        )}
+                      >
+                        {getCrawlFreshness(product.last_crawled_at) === "old"
+                          ? "수집 오래됨"
+                          : "수집 지연"}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </Link>
