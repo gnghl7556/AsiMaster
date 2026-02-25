@@ -266,7 +266,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           )}
                         >
                           <TrendingUp className="h-3.5 w-3.5" />
-                          노출 순위
+                          노출
                         </button>
                         <button
                           type="button"
@@ -281,7 +281,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           )}
                         >
                           <DollarSign className="h-3.5 w-3.5" />
-                          총액 순위
+                          총액
                         </button>
                       </div>
                       {sortMode === "price" && (
@@ -403,11 +403,12 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           <div className="text-base font-bold tabular-nums">
                             {formatPrice(totalPrice)}원
                           </div>
-                          {item.shipping_fee > 0 && (
-                            <div className="text-[10px] text-[var(--muted-foreground)]">
-                              배송비 +{formatPrice(item.shipping_fee)}원
-                            </div>
-                          )}
+                          <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
+                            상품가 {formatPrice(item.price)}원
+                            {item.shipping_fee > 0
+                              ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
+                              : " · 무료배송"}
+                          </div>
                           <div
                             className={cn(
                               "text-xs tabular-nums",
@@ -472,11 +473,12 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                         <div className="text-sm font-bold tabular-nums">
                           {formatPrice(totalPrice)}원
                         </div>
-                        {item.shipping_fee > 0 && (
-                          <div className="text-[10px] text-[var(--muted-foreground)]">
-                            배송비 +{formatPrice(item.shipping_fee)}원
-                          </div>
-                        )}
+                        <div className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
+                          상품가 {formatPrice(item.price)}원
+                          {item.shipping_fee > 0
+                            ? ` + 배송비 ${formatPrice(item.shipping_fee)}원`
+                            : " · 무료배송"}
+                        </div>
                         <div
                           className={cn(
                             "text-xs tabular-nums",
