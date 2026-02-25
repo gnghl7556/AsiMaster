@@ -340,6 +340,27 @@ export function ActionQueue() {
                     )}
                   </div>
                   <div className="truncate text-sm font-medium">{product.name}</div>
+                  {product.price_gap != null && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                          product.issueType === "losing"
+                            ? "bg-red-500/10 text-red-500"
+                            : "bg-amber-500/10 text-amber-500"
+                        )}
+                      >
+                        가격차 {product.price_gap > 0 ? "+" : ""}
+                        {formatPrice(product.price_gap)}원
+                      </span>
+                      {product.price_gap_percent != null && (
+                        <span className="text-[11px] text-[var(--muted-foreground)] tabular-nums">
+                          {product.price_gap_percent > 0 ? "+" : ""}
+                          {product.price_gap_percent.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
                     <div>
                       <div className="text-[var(--muted-foreground)]">내 가격</div>
