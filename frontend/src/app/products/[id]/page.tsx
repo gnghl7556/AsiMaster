@@ -48,6 +48,7 @@ export default function ProductDetailPage({
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
+  const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(false);
   const [isTrackingSettingsOpen, setIsTrackingSettingsOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
   const [editableCategory, setEditableCategory] = useState("");
@@ -288,6 +289,12 @@ export default function ProductDetailPage({
     };
   }, []);
 
+  useEffect(() => {
+    if (highlightedAnchor === "basic-info") {
+      setIsBasicInfoOpen(true);
+    }
+  }, [highlightedAnchor]);
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
@@ -486,24 +493,47 @@ export default function ProductDetailPage({
             "ring-2 ring-blue-500/40 shadow-[0_0_0_4px_rgba(59,130,246,0.08)]"
         )}
       >
-        <div className="mb-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium">상품 기본 정보</h3>
-            {isBasicInfoChanged && (
-              <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
-                저장 필요
-              </span>
-            )}
-            {isCategoryChanged && (
-              <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                카테고리 변경됨
-              </span>
-            )}
+        <button
+          type="button"
+          onClick={() => setIsBasicInfoOpen((prev) => !prev)}
+          className="mb-3 flex w-full items-start justify-between gap-3 text-left"
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-medium">상품 기본 정보</h3>
+              {isBasicInfoChanged && (
+                <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  저장 필요
+                </span>
+              )}
+              {isCategoryChanged && (
+                <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                  카테고리 변경됨
+                </span>
+              )}
+              {isTrackingFieldsChanged && (
+                <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-500">
+                  정확도 설정 변경
+                </span>
+              )}
+            </div>
+            <div className="mt-1 space-y-0.5">
+              <div className="truncate text-sm font-medium">{product.name}</div>
+              <div className="truncate text-xs text-[var(--muted-foreground)]">
+                {product.category || "카테고리 미설정"} · 상세 편집/검색 정확도 설정
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-[var(--muted-foreground)] mt-1">
-            상품명과 검색 정확도 설정을 관리합니다. 매입비용은 수익성 분석 영역에서 수정할 수 있습니다.
-          </p>
-        </div>
+          <ChevronDown
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform",
+              isBasicInfoOpen && "rotate-180"
+            )}
+          />
+        </button>
+
+        {isBasicInfoOpen && (
+          <>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -745,6 +775,8 @@ export default function ProductDetailPage({
             </>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {/* 핵심 지표 카드 3개 */}
