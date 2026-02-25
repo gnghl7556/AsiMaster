@@ -36,7 +36,7 @@ function buildQueue(
     .filter(
       (p) =>
         p.status === "losing" ||
-        (options.includeSameTotal && p.price_gap === 0 && p.status !== "winning")
+        (options.includeSameTotal && p.price_gap === 0)
     )
     .map((p): QueueItem => ({
       ...p,
@@ -153,6 +153,18 @@ export function ActionQueue() {
   }
 
   const queue = buildQueue(products, { includeSameTotal, sortMode: queueSortMode });
+  const lockedProducts = [...products]
+    .filter((p) => p.is_price_locked)
+    .sort((a, b) => {
+      const aFresh = getCrawlFreshness(a.last_crawled_at);
+      const bFresh = getCrawlFreshness(b.last_crawled_at);
+      const rank = { old: 0, stale: 1, fresh: 2 } as const;
+      if (rank[aFresh] !== rank[bFresh]) return rank[aFresh] - rank[bFresh];
+      const aGap = Math.abs(a.price_gap ?? 0);
+      const bGap = Math.abs(b.price_gap ?? 0);
+      if (aGap !== bGap) return bGap - aGap;
+      return (a.my_rank ?? 999) - (b.my_rank ?? 999);
+    });
   const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
   const queueLosingCount = queue.filter((p) => p.issueType === "losing").length;
   const queueSameTotalCount = queue.length - queueLosingCount;
@@ -492,6 +504,122 @@ export function ActionQueue() {
           )}
         </div>
       )}
+
+      <div className="mt-4 border-t border-[var(--border)] pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">가격고정 상품</h3>
+            <p className="text-[11px] text-[var(--muted-foreground)]">
+              조치 큐에서는 제외되며, 필요 시 여기서 해제할 수 있습니다
+            </p>
+          </div>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium">
+            {lockedProducts.length}개
+          </span>
+        </div>
+
+        {lockedProducts.length === 0 ? (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 px-3 py-4 text-center text-xs text-[var(--muted-foreground)]">
+            가격고정 상품이 없습니다
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {lockedProducts.slice(0, 8).map((product) => (
+              <Link
+                key={`locked-${product.id}`}
+                href={`/products/${product.id}`}
+                className="group block rounded-xl border border-[var(--border)] bg-[var(--card)]/60 p-3 transition-colors hover:bg-[var(--card)]"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-500/10 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                        <Lock className="h-3 w-3" />
+                        가격고정
+                      </span>
+                      {product.my_rank && (
+                        <span className="text-[11px] text-[var(--muted-foreground)]">
+                          노출 {product.my_rank}위
+                        </span>
+                      )}
+                      {product.price_gap != null && (
+                        <span className="text-[11px] text-[var(--muted-foreground)] tabular-nums">
+                          가격차 {product.price_gap > 0 ? "+" : ""}
+                          {formatPrice(product.price_gap)}원
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-sm font-medium">{product.name}</div>
+                    {product.price_lock_reason && (
+                      <div className="mt-1 truncate text-[11px] text-[var(--muted-foreground)]">
+                        사유: {product.price_lock_reason}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!userId) return;
+                          setPendingLockProductId(product.id);
+                          toggleLockMutation.mutate({
+                            productId: product.id,
+                            nextLocked: false,
+                          });
+                        }}
+                        disabled={toggleLockMutation.isPending || !userId}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-amber-500 disabled:opacity-50"
+                      >
+                        {toggleLockMutation.isPending && pendingLockProductId === product.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Unlock className="h-3 w-3" />
+                        )}
+                        고정해제
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => navigateToProductAnchor(e, product.id, "profitability")}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500"
+                      >
+                        가격수정
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
+                    <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[11px] text-[var(--muted-foreground)]">
+                        {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
+                      </span>
+                      {getCrawlFreshness(product.last_crawled_at) !== "fresh" && (
+                        <span
+                          className={cn(
+                            "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            getCrawlFreshness(product.last_crawled_at) === "old"
+                              ? "bg-rose-500/10 text-rose-500"
+                              : "bg-amber-500/10 text-amber-500"
+                          )}
+                        >
+                          {getCrawlFreshness(product.last_crawled_at) === "old"
+                            ? "수집 오래됨"
+                            : "수집 지연"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {lockedProducts.length > 8 && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/50 px-3 py-2 text-xs text-[var(--muted-foreground)]">
+                가격고정 상품 {lockedProducts.length - 8}개가 더 있습니다. 상품 메뉴에서 전체 확인하세요.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
