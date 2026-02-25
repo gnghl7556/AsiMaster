@@ -183,6 +183,64 @@ async def _fetch_sparkline_data(
     return [row.min_price for row in sorted(rows, key=lambda r: r.day)]
 
 
+async def _fetch_sparkline_data_batch(
+    db: AsyncSession,
+    all_keyword_ids: list[int],
+    since,
+) -> dict[int, list]:
+    """전체 keyword_ids에 대한 sparkline 원시 데이터를 1회 쿼리로 수집.
+
+    Returns: {keyword_id: [(day, price + shipping_fee, naver_product_id, mall_name)]}
+    상품별 블랙리스트가 다르므로 원시 데이터만 수집, Python에서 필터링.
+    """
+    if not all_keyword_ids:
+        return {}
+
+    query = (
+        select(
+            KeywordRanking.keyword_id,
+            func.date(KeywordRanking.crawled_at).label("day"),
+            (KeywordRanking.price + func.coalesce(KeywordRanking.shipping_fee, 0)).label("total_price"),
+            KeywordRanking.naver_product_id,
+            KeywordRanking.mall_name,
+        )
+        .where(
+            KeywordRanking.keyword_id.in_(all_keyword_ids),
+            KeywordRanking.crawled_at >= since,
+            KeywordRanking.is_relevant == True,
+        )
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    grouped: dict[int, list] = {}
+    for r in rows:
+        grouped.setdefault(r.keyword_id, []).append(r)
+    return grouped
+
+
+def _build_sparkline_from_batch(
+    raw_data: dict[int, list],
+    keyword_ids: list[int],
+    excluded_ids: set[str],
+    excluded_malls: set[str],
+) -> list[int]:
+    """배치 원시 데이터에서 상품별 블랙리스트를 적용하여 sparkline 생성."""
+    day_mins: dict = {}
+    for kid in keyword_ids:
+        for r in raw_data.get(kid, []):
+            npid = r.naver_product_id
+            mname = (r.mall_name or "").strip().lower()
+            if excluded_ids and npid and npid in excluded_ids:
+                continue
+            if excluded_malls and mname in excluded_malls:
+                continue
+            day = r.day
+            if day not in day_mins or r.total_price < day_mins[day]:
+                day_mins[day] = r.total_price
+    return [day_mins[d] for d in sorted(day_mins)]
+
+
 async def _fetch_rank_change(
     db: AsyncSession,
     keyword_ids: list[int],
@@ -233,6 +291,67 @@ async def _fetch_rank_change(
         prev_rank = min(r.rank for r in prev_at)
         return current_rank - prev_rank
 
+    return None
+
+
+async def _fetch_rank_change_batch(
+    db: AsyncSession,
+    all_keyword_ids: list[int],
+) -> dict[int, list]:
+    """전체 keyword_ids에 대한 내 상품 rank 원시 데이터를 1회 쿼리로 수집.
+
+    Returns: {keyword_id: [(rank, crawled_at, naver_product_id, is_my_store)]}
+    상품별 naver_product_id가 다르므로 원시 데이터만 수집, Python에서 필터링.
+    """
+    if not all_keyword_ids:
+        return {}
+
+    query = (
+        select(
+            KeywordRanking.keyword_id,
+            KeywordRanking.rank,
+            KeywordRanking.crawled_at,
+            KeywordRanking.naver_product_id,
+            KeywordRanking.is_my_store,
+        )
+        .where(KeywordRanking.keyword_id.in_(all_keyword_ids))
+        .order_by(KeywordRanking.crawled_at.desc())
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    grouped: dict[int, list] = {}
+    for r in rows:
+        grouped.setdefault(r.keyword_id, []).append(r)
+    return grouped
+
+
+def _calc_rank_change_from_batch(
+    raw_data: dict[int, list],
+    keyword_ids: list[int],
+    product_naver_id: str | None,
+) -> int | None:
+    """배치 원시 데이터에서 상품별 naver_product_id로 rank_change 계산."""
+    for kid in keyword_ids:
+        kw_rows = raw_data.get(kid, [])
+        # 내 상품만 필터
+        if product_naver_id:
+            my_rows = [r for r in kw_rows if r.naver_product_id == product_naver_id]
+        else:
+            my_rows = [r for r in kw_rows if r.is_my_store]
+
+        if len(my_rows) < 2:
+            continue
+        latest_time = my_rows[0].crawled_at
+        latest = [r for r in my_rows if r.crawled_at == latest_time]
+        prev = [r for r in my_rows if r.crawled_at != latest_time]
+        if not latest or not prev:
+            continue
+        prev_time = max(r.crawled_at for r in prev)
+        prev_at = [r for r in prev if r.crawled_at == prev_time]
+        current_rank = min(r.rank for r in latest)
+        prev_rank = min(r.rank for r in prev_at)
+        return current_rank - prev_rank
     return None
 
 
@@ -294,6 +413,10 @@ async def get_product_list_items(
     now = utcnow()
     seven_days_ago = now - timedelta(days=7)
 
+    # 배치 쿼리: sparkline 원시 데이터 + rank_change 원시 데이터 (각 1회)
+    sparkline_raw = await _fetch_sparkline_data_batch(db, all_keyword_ids, seven_days_ago)
+    rank_change_raw = await _fetch_rank_change_batch(db, all_keyword_ids)
+
     items = []
     for product in products:
         active_keywords = product_active_keywords[product.id]
@@ -321,12 +444,12 @@ async def get_product_list_items(
         ]
         margin = calculate_margin(product.selling_price, product.cost_price, cost_items_data)
 
-        # sparkline과 rank_change는 키워드별 별도 쿼리
-        sparkline = await _fetch_sparkline_data(
-            db, kw_ids, seven_days_ago, excluded_ids, excluded_malls,
+        # sparkline과 rank_change는 배치 데이터에서 Python 필터링
+        sparkline = _build_sparkline_from_batch(
+            sparkline_raw, kw_ids, excluded_ids, excluded_malls,
         )
         last_crawled = _calc_last_crawled(active_keywords)
-        rank_change = await _fetch_rank_change(db, kw_ids, product_naver_id)
+        rank_change = _calc_rank_change_from_batch(rank_change_raw, kw_ids, product_naver_id)
 
         items.append({
             "id": product.id,

@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+from datetime import timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.services.push_service import send_push_to_user
+from app.core.utils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,22 @@ async def _is_alert_enabled(db: AsyncSession, user_id: int, alert_type: str) -> 
     if setting is None:
         return True, None
     return setting.is_enabled, float(setting.threshold) if setting.threshold else None
+
+
+async def _has_recent_unread(
+    db: AsyncSession, user_id: int, product_id: int, alert_type: str, hours: int = 24,
+) -> bool:
+    """최근 N시간 내 동일 조건의 읽지 않은 알림이 있는지 확인."""
+    result = await db.execute(
+        select(Alert.id).where(
+            Alert.user_id == user_id,
+            Alert.product_id == product_id,
+            Alert.type == alert_type,
+            Alert.is_read == False,
+            Alert.created_at > utcnow() - timedelta(hours=hours),
+        ).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
 
 
 async def check_price_undercut(
@@ -85,6 +103,10 @@ async def check_price_undercut(
 
     gap = product.selling_price - lowest.price
     gap_percent = (gap / product.selling_price) * 100 if product.selling_price > 0 else 0
+
+    # 중복 알림 방지: 24시간 내 동일 상품의 읽지 않은 price_undercut 알림이 있으면 스킵
+    if await _has_recent_unread(db, product.user_id, product.id, "price_undercut"):
+        return
 
     title = f"{product.name} - 최저가 이탈"
     message = f"{lowest.mall_name} {lowest.price:,}원 (내 가격 대비 -{gap:,}원, -{gap_percent:.1f}%)"
@@ -159,6 +181,10 @@ async def check_rank_drop(
         prev_rank = min(prev_ranks)
 
         if current_rank > prev_rank:
+            # 중복 알림 방지
+            if await _has_recent_unread(db, product.user_id, product.id, "rank_drop"):
+                continue
+
             kw = kw_map.get(kw_id)
             kw_name = kw.keyword if kw else ""
             title = f"{product.name} - 순위 하락"

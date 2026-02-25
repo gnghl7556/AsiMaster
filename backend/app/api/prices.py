@@ -3,12 +3,12 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
 from app.core.utils import utcnow
 from app.models.keyword_ranking import KeywordRanking
 from app.models.search_keyword import SearchKeyword
+from app.services.product_service import _fetch_latest_rankings
 
 router = APIRouter(tags=["prices"])
 
@@ -58,22 +58,26 @@ async def get_price_history(
 @router.get("/products/{product_id}/price-snapshot")
 async def get_price_snapshot(product_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(SearchKeyword)
-        .options(selectinload(SearchKeyword.rankings))
-        .where(
+        select(SearchKeyword).where(
             SearchKeyword.product_id == product_id,
             SearchKeyword.is_active == True,
         )
     )
-    keywords = result.scalars().unique().all()
+    keywords = result.scalars().all()
+    if not keywords:
+        return []
+
+    kw_ids = [kw.id for kw in keywords]
+    kw_map = {kw.id: kw for kw in keywords}
+
+    latest_by_kw = await _fetch_latest_rankings(db, kw_ids)
 
     snapshot = []
-    for kw in keywords:
-        if not kw.rankings:
+    for kw_id, rankings in latest_by_kw.items():
+        kw = kw_map.get(kw_id)
+        if not kw:
             continue
-        latest_time = max(r.crawled_at for r in kw.rankings)
-        latest = [r for r in kw.rankings if r.crawled_at == latest_time]
-        for r in sorted(latest, key=lambda x: x.rank):
+        for r in sorted(rankings, key=lambda x: x.rank):
             snapshot.append({
                 "keyword_id": kw.id,
                 "keyword": kw.keyword,

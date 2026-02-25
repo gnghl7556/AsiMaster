@@ -123,23 +123,22 @@ class CrawlManager:
 
         if result.success and result.items:
             for item in result.items:
-                # 블랙리스트 체크 (naver_product_id OR mall_name)
-                if excluded_ids and item.naver_product_id in excluded_ids:
-                    continue
-                if excluded_malls and item.mall_name.strip().lower() in excluded_malls:
-                    continue
-
                 is_my = (
                     bool(naver_store_name)
                     and item.mall_name.strip().lower() == naver_store_name.strip().lower()
                 )
-                # 내 등록 상품이면 경쟁 대상에서 제외 (자기 자신 + 내 스토어의 다른 상품)
+
+                # 블랙리스트 체크 → is_relevant=False로 저장 (데이터 보존)
+                is_blacklisted = (
+                    (excluded_ids and item.naver_product_id in excluded_ids)
+                    or (excluded_malls and item.mall_name.strip().lower() in excluded_malls)
+                )
                 is_my_product = (
                     my_product_ids
                     and item.naver_product_id
                     and item.naver_product_id in my_product_ids
                 )
-                is_relevant = False if is_my_product else _check_relevance(item, product)
+                is_relevant = False if (is_blacklisted or is_my_product) else _check_relevance(item, product)
 
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,
@@ -180,6 +179,7 @@ class CrawlManager:
             return await self._crawl_product_impl(db, product_id)
 
     async def _crawl_product_impl(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
+        crawler.clear_shipping_cache()
         product = await db.get(Product, product_id)
         if not product:
             return []
@@ -261,6 +261,7 @@ class CrawlManager:
             return await self._crawl_user_all_impl(db, user_id)
 
     async def _crawl_user_all_impl(self, db: AsyncSession, user_id: int) -> dict:
+        crawler.clear_shipping_cache()
         user = await db.get(User, user_id)
         if not user:
             return {"total": 0, "success": 0, "failed": 0}

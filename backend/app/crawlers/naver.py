@@ -79,6 +79,10 @@ class NaverCrawler(BaseCrawler):
             timeout=10,
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
+        self._shipping_cache: dict[str, int] = {}
+
+    def clear_shipping_cache(self):
+        self._shipping_cache.clear()
 
     async def close(self):
         await self._client.aclose()
@@ -128,12 +132,20 @@ class NaverCrawler(BaseCrawler):
                     category4=item.get("category4", ""),
                 ))
 
-            # 스마트스토어 상품의 배송비 병렬 스크래핑
+            # 스마트스토어 상품의 배송비 병렬 스크래핑 (캐시 적용)
             sem = asyncio.Semaphore(3)
+            cache = self._shipping_cache
 
             async def _enrich_shipping(item: RankingItem) -> None:
+                npid = item.naver_product_id
+                if npid and npid in cache:
+                    item.shipping_fee = cache[npid]
+                    return
                 async with sem:
-                    item.shipping_fee = await _fetch_shipping_fee(self._client, item.product_url)
+                    fee = await _fetch_shipping_fee(self._client, item.product_url)
+                    item.shipping_fee = fee
+                    if npid:
+                        cache[npid] = fee
 
             await asyncio.gather(*[_enrich_shipping(item) for item in items])
 
