@@ -55,7 +55,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       queryClient.invalidateQueries({ queryKey: ["excluded-products", productId] });
       setExcludeTarget(null);
-      toast.success("판매자 기준으로 경쟁사가 제외되었습니다");
+      toast.success("해당 경쟁상품이 제외되었습니다");
     },
     onError: () => toast.error("제외에 실패했습니다"),
   });
@@ -162,13 +162,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
 
   const excludeImpactPreview = excludeTarget
     ? (() => {
-        const targetMall = excludeTarget.mall_name.trim().toLowerCase();
+        const targetProductId = excludeTarget.naver_product_id;
         const matches = keywords.flatMap((kw) =>
           kw.rankings
             .filter(
               (item) =>
                 !item.is_my_store &&
-                (item.mall_name || "").trim().toLowerCase() === targetMall
+                !!item.naver_product_id &&
+                item.naver_product_id === targetProductId
             )
             .map((item) => ({ item, keywordId: kw.id }))
         );
@@ -347,7 +348,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                               }
                               disabled={excludeMutation.isPending}
                               className="mx-1.5 flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 transition-colors hover:bg-red-500/15 disabled:opacity-60"
-                              title="판매자 제외"
+                              title="상품 제외"
                             >
                               {excludeMutation.isPending ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -527,7 +528,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           }
                           disabled={excludeMutation.isPending}
                           className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                          title="판매자 제외"
+                          title="상품 제외"
                         >
                           {excludeMutation.isPending ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -577,9 +578,9 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
             <div>
-              <h3 className="text-lg font-bold">판매자 제외 확인</h3>
+              <h3 className="text-lg font-bold">상품 제외 확인</h3>
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                같은 판매자명으로 노출된 항목도 함께 제외될 수 있습니다.
+                같은 상품이 다른 키워드 결과에 함께 노출된 경우 같이 제외될 수 있습니다.
               </p>
               {excludeImpactPreview && (
                 <p className="mt-1 text-xs text-amber-500">
@@ -598,6 +599,8 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
               <div className="truncate text-sm font-medium">{excludeTarget.mall_name}</div>
               <div className="mt-2 text-xs text-[var(--muted-foreground)]">선택 상품</div>
               <div className="line-clamp-2 text-sm">{excludeTarget.product_name}</div>
+              <div className="mt-2 text-xs text-[var(--muted-foreground)]">상품코드</div>
+              <div className="truncate font-mono text-xs">{excludeTarget.naver_product_id}</div>
             </div>
             <div className="flex gap-3 pt-1">
               <button
