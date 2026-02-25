@@ -46,7 +46,7 @@ async def add_excluded(
         mall_name=mall_name,
     )
     db.add(excluded)
-    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=False로 즉시 반영
+    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=False로 즉시 반영
     keyword_ids_result = await db.execute(
         select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
     )
@@ -60,15 +60,6 @@ async def add_excluded(
             )
             .values(is_relevant=False)
         )
-        if mall_name:
-            await db.execute(
-                update(KeywordRanking)
-                .where(
-                    KeywordRanking.keyword_id.in_(keyword_ids),
-                    KeywordRanking.mall_name == mall_name,
-                )
-                .values(is_relevant=False)
-            )
     await db.flush()
     await db.refresh(excluded)
     return excluded
@@ -86,9 +77,8 @@ async def remove_excluded(
     excluded = result.scalars().first()
     if not excluded:
         raise HTTPException(404, "제외 목록에 없는 상품입니다.")
-    mall_name = excluded.mall_name
     await db.delete(excluded)
-    # 기존 랭킹에서 해당 naver_product_id 또는 mall_name을 is_relevant=True로 복원
+    # 기존 랭킹에서 해당 naver_product_id를 is_relevant=True로 복원
     keyword_ids_result = await db.execute(
         select(SearchKeyword.id).where(SearchKeyword.product_id == product_id)
     )
@@ -102,12 +92,3 @@ async def remove_excluded(
             )
             .values(is_relevant=True)
         )
-        if mall_name:
-            await db.execute(
-                update(KeywordRanking)
-                .where(
-                    KeywordRanking.keyword_id.in_(keyword_ids),
-                    KeywordRanking.mall_name == mall_name,
-                )
-                .values(is_relevant=True)
-            )

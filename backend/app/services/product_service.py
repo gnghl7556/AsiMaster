@@ -51,13 +51,12 @@ def calculate_margin(selling_price: int, cost_price: int, cost_items: list) -> d
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
-def _filter_relevant(rankings: list, excluded_ids: set[str], excluded_malls: set[str]) -> list:
-    """is_relevant=True + 블랙리스트 제외 필터."""
+def _filter_relevant(rankings: list, excluded_ids: set[str]) -> list:
+    """is_relevant=True + 블랙리스트(naver_product_id) 제외 필터."""
     return [
         r for r in rankings
         if r.is_relevant
         and r.naver_product_id not in excluded_ids
-        and (r.mall_name or "").strip().lower() not in excluded_malls
     ]
 
 
@@ -144,7 +143,6 @@ async def _fetch_sparkline_data(
     keyword_ids: list[int],
     since,
     excluded_ids: set[str],
-    excluded_malls: set[str],
 ) -> list[int]:
     """7일 일별 최저가 sparkline을 DB 집계로 생성."""
     if not keyword_ids:
@@ -168,13 +166,6 @@ async def _fetch_sparkline_data(
             ~KeywordRanking.naver_product_id.in_(excluded_ids)
             | KeywordRanking.naver_product_id.is_(None)
         )
-
-    # 블랙리스트 mall_name 제외
-    if excluded_malls:
-        for mall in excluded_malls:
-            query = query.where(
-                func.lower(func.trim(KeywordRanking.mall_name)) != mall
-            )
 
     query = query.group_by(func.date(KeywordRanking.crawled_at))
     result = await db.execute(query)
@@ -223,17 +214,13 @@ def _build_sparkline_from_batch(
     raw_data: dict[int, list],
     keyword_ids: list[int],
     excluded_ids: set[str],
-    excluded_malls: set[str],
 ) -> list[int]:
     """배치 원시 데이터에서 상품별 블랙리스트를 적용하여 sparkline 생성."""
     day_mins: dict = {}
     for kid in keyword_ids:
         for r in raw_data.get(kid, []):
             npid = r.naver_product_id
-            mname = (r.mall_name or "").strip().lower()
             if excluded_ids and npid and npid in excluded_ids:
-                continue
-            if excluded_malls and mname in excluded_malls:
                 continue
             day = r.day
             if day not in day_mins or r.total_price < day_mins[day]:
@@ -397,15 +384,12 @@ async def get_product_list_items(
     # 상품별 블랙리스트 조회
     product_ids = [p.id for p in products]
     excluded_ids_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
-    excluded_malls_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
     if product_ids:
         ex_result = await db.execute(
             select(ExcludedProduct).where(ExcludedProduct.product_id.in_(product_ids))
         )
         for ep in ex_result.scalars().all():
             excluded_ids_by_product[ep.product_id].add(ep.naver_product_id)
-            if ep.mall_name:
-                excluded_malls_by_product[ep.product_id].add(ep.mall_name.strip().lower())
 
     # DB 쿼리: 최신 rankings (전체 키워드 한 번에)
     all_latest = await _fetch_latest_rankings(db, all_keyword_ids)
@@ -422,14 +406,13 @@ async def get_product_list_items(
         active_keywords = product_active_keywords[product.id]
         kw_ids = product_keyword_map[product.id]
         excluded_ids = excluded_ids_by_product.get(product.id, set())
-        excluded_malls = excluded_malls_by_product.get(product.id, set())
 
         # 키워드별 최신 rankings 합치기
         latest_rankings = []
         for kid in kw_ids:
             latest_rankings.extend(all_latest.get(kid, []))
 
-        relevant_rankings = _filter_relevant(latest_rankings, excluded_ids, excluded_malls)
+        relevant_rankings = _filter_relevant(latest_rankings, excluded_ids)
         lowest_price, lowest_seller = _find_lowest(relevant_rankings)
 
         product_naver_id = product.naver_product_id
@@ -446,7 +429,7 @@ async def get_product_list_items(
 
         # sparkline과 rank_change는 배치 데이터에서 Python 필터링
         sparkline = _build_sparkline_from_batch(
-            sparkline_raw, kw_ids, excluded_ids, excluded_malls,
+            sparkline_raw, kw_ids, excluded_ids,
         )
         last_crawled = _calc_last_crawled(active_keywords)
         rank_change = _calc_rank_change_from_batch(rank_change_raw, kw_ids, product_naver_id)
@@ -518,7 +501,6 @@ async def get_product_detail(
     )
     excluded_rows = ex_result.scalars().all()
     excluded_ids = {ep.naver_product_id for ep in excluded_rows}
-    excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
     # DB 쿼리: 최신 rankings
     latest_by_kw = await _fetch_latest_rankings(db, kw_ids)
@@ -528,7 +510,7 @@ async def get_product_detail(
     for kid in kw_ids:
         latest_rankings.extend(latest_by_kw.get(kid, []))
 
-    relevant_rankings = _filter_relevant(latest_rankings, excluded_ids, excluded_malls)
+    relevant_rankings = _filter_relevant(latest_rankings, excluded_ids)
     lowest_price, lowest_seller = _find_lowest(relevant_rankings)
 
     product_naver_id = product.naver_product_id
@@ -542,7 +524,7 @@ async def get_product_detail(
 
     seven_days_ago = utcnow() - timedelta(days=7)
     sparkline = await _fetch_sparkline_data(
-        db, kw_ids, seven_days_ago, excluded_ids, excluded_malls,
+        db, kw_ids, seven_days_ago, excluded_ids,
     )
 
     # 경쟁사 요약 (블랙리스트 제외)
@@ -550,8 +532,6 @@ async def get_product_detail(
     seen_malls = set()
     for r in sorted(latest_rankings, key=lambda r: r.rank):
         if r.naver_product_id and r.naver_product_id in excluded_ids:
-            continue
-        if (r.mall_name or "").strip().lower() in excluded_malls:
             continue
         if r.mall_name in seen_malls:
             continue
@@ -577,8 +557,7 @@ async def get_product_detail(
         kw_rankings = latest_by_kw.get(kw.id, [])
         kw_latest = sorted(
             [r for r in kw_rankings
-             if not (r.naver_product_id and r.naver_product_id in excluded_ids)
-             and (r.mall_name or "").strip().lower() not in excluded_malls],
+             if not (r.naver_product_id and r.naver_product_id in excluded_ids)],
             key=lambda r: r.rank,
         )
 

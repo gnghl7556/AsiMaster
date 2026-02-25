@@ -108,29 +108,6 @@ async def migrate_to_keyword_system(session):
         logger.error(f"키워드 마이그레이션 실패: {e}")
 
 
-async def backfill_excluded_mall_names(session):
-    """기존 excluded_products에 mall_name 역채움 (keyword_rankings 기반)."""
-    try:
-        await session.execute(text("""
-            UPDATE excluded_products ep
-            SET mall_name = sub.mall_name
-            FROM (
-                SELECT DISTINCT kr.naver_product_id, kr.mall_name
-                FROM keyword_rankings kr
-                WHERE kr.naver_product_id IS NOT NULL
-                  AND kr.mall_name IS NOT NULL
-                  AND kr.mall_name != ''
-            ) sub
-            WHERE ep.naver_product_id = sub.naver_product_id
-              AND ep.mall_name IS NULL
-        """))
-        await session.commit()
-        logger.info("excluded_products mall_name 역채움 완료")
-    except Exception as e:
-        await session.rollback()
-        logger.warning(f"mall_name 역채움 스킵: {e}")
-
-
 async def cleanup_old_tables(session):
     """기존 competitors, price_history, platforms 관련 테이블 drop (존재하면)."""
     tables_to_drop = [
@@ -165,10 +142,6 @@ async def lifespan(app: FastAPI):
     # 기존 데이터 마이그레이션
     async with async_session() as session:
         await migrate_to_keyword_system(session)
-
-    # 기존 excluded_products에 mall_name 역채움
-    async with async_session() as session:
-        await backfill_excluded_mall_names(session)
 
     # 기존 테이블 정리
     async with async_session() as session:

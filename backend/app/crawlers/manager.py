@@ -109,7 +109,6 @@ class CrawlManager:
         duration_ms: int,
         product: Product | None = None,
         excluded_ids: set[str] | None = None,
-        excluded_malls: set[str] | None = None,
         my_product_ids: set[str] | None = None,
     ) -> None:
         """크롤링 결과를 DB에 저장 (순차 호출)."""
@@ -130,8 +129,7 @@ class CrawlManager:
 
                 # 블랙리스트 체크 → is_relevant=False로 저장 (데이터 보존)
                 is_blacklisted = (
-                    (excluded_ids and item.naver_product_id in excluded_ids)
-                    or (excluded_malls and item.mall_name.strip().lower() in excluded_malls)
+                    excluded_ids and item.naver_product_id in excluded_ids
                 )
                 is_my_product = (
                     my_product_ids
@@ -204,7 +202,6 @@ class CrawlManager:
         )
         excluded_rows = excluded_result.scalars().all()
         excluded_ids = {ep.naver_product_id for ep in excluded_rows}
-        excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
         # 유저의 모든 등록 상품 naver_product_id 수집 (내 스토어 다른 제품 제외용)
         all_products_result = await db.execute(
@@ -240,7 +237,6 @@ class CrawlManager:
                 await self._save_keyword_result(
                     db, kw, crawl_result, naver_store_name, duration_ms,
                     product=product, excluded_ids=excluded_ids,
-                    excluded_malls=excluded_malls,
                     my_product_ids=my_product_ids,
                 )
             except Exception as e:
@@ -285,14 +281,11 @@ class CrawlManager:
         # 상품별 블랙리스트 조회 (배치 쿼리)
         product_ids = {kw.product_id for kw in all_keywords}
         excluded_ids_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
-        excluded_malls_by_product: dict[int, set[str]] = {pid: set() for pid in product_ids}
         ex_result = await db.execute(
             select(ExcludedProduct).where(ExcludedProduct.product_id.in_(product_ids))
         )
         for ep in ex_result.scalars().all():
             excluded_ids_by_product[ep.product_id].add(ep.naver_product_id)
-            if ep.mall_name:
-                excluded_malls_by_product[ep.product_id].add(ep.mall_name.strip().lower())
 
         # 상품 객체 캐시 (배치 쿼리)
         prod_result = await db.execute(
@@ -344,12 +337,10 @@ class CrawlManager:
             for kw in unique_map[(kw_str, sort_type)]:
                 product = products_cache.get(kw.product_id)
                 excluded_ids = excluded_ids_by_product.get(kw.product_id, set())
-                excluded_malls = excluded_malls_by_product.get(kw.product_id, set())
                 try:
                     await self._save_keyword_result(
                         db, kw, crawl_result, naver_store_name, duration_ms,
                         product=product, excluded_ids=excluded_ids,
-                        excluded_malls=excluded_malls,
                         my_product_ids=my_product_ids,
                     )
                 except Exception as e:

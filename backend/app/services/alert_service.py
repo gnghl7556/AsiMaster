@@ -61,7 +61,6 @@ async def check_price_undercut(
     )
     excluded_rows = ex_result.scalars().all()
     excluded_ids = {ep.naver_product_id for ep in excluded_rows}
-    excluded_malls = {ep.mall_name.strip().lower() for ep in excluded_rows if ep.mall_name}
 
     # 각 키워드의 최신 rankings에서 최저가 찾기 (배치 쿼리)
     keyword_ids = [kw.id for kw in keywords]
@@ -89,8 +88,6 @@ async def check_price_undercut(
             if r.crawled_at != latest_time:
                 break
             if r.naver_product_id and r.naver_product_id in excluded_ids:
-                continue
-            if r.mall_name and r.mall_name.strip().lower() in excluded_malls:
                 continue
             all_latest.append(r)
 
