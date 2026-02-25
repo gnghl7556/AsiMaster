@@ -13,18 +13,34 @@ interface Props {
   keywords: KeywordDetail[];
   myPrice: number;
   productId: number;
+  productModelCode?: string | null;
+  productSpecKeywords?: string[] | null;
+  priceFilterMinPct?: number | null;
+  priceFilterMaxPct?: number | null;
 }
 
 const MOBILE_ACTION_SLOT_WIDTH = 64;
 type RankingSortMode = "exposure" | "price";
+type RankingVisibilityMode = "all" | "relevant" | "filtered";
 
-export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
+export function KeywordRankingList({
+  keywords,
+  myPrice,
+  productId,
+  productModelCode = null,
+  productSpecKeywords = null,
+  priceFilterMinPct = null,
+  priceFilterMaxPct = null,
+}: Props) {
   const queryClient = useQueryClient();
   const [openItemKey, setOpenItemKey] = useState<string | null>(null);
   const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({});
   const [openKeywordId, setOpenKeywordId] = useState<number | null>(null);
   const [showTopTenByKeyword, setShowTopTenByKeyword] = useState<Record<number, boolean>>({});
   const [sortModeByKeyword, setSortModeByKeyword] = useState<Record<number, RankingSortMode>>({});
+  const [visibilityModeByKeyword, setVisibilityModeByKeyword] = useState<
+    Record<number, RankingVisibilityMode>
+  >({});
   const [excludeTarget, setExcludeTarget] = useState<{
     naver_product_id: string;
     product_name: string;
@@ -145,6 +161,35 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
     );
   };
 
+  const inferFilterReasons = (item: KeywordDetail["rankings"][number]) => {
+    if (item.is_my_store || item.is_relevant) return [] as string[];
+    const reasons: string[] = [];
+    const totalPrice = item.price + (item.shipping_fee || 0);
+
+    if (priceFilterMinPct != null && myPrice > 0) {
+      const minPrice = (myPrice * priceFilterMinPct) / 100;
+      if (totalPrice < minPrice) reasons.push("가격범위(최소)");
+    }
+    if (priceFilterMaxPct != null && myPrice > 0) {
+      const maxPrice = (myPrice * priceFilterMaxPct) / 100;
+      if (totalPrice > maxPrice) reasons.push("가격범위(최대)");
+    }
+
+    const titleLower = item.product_name.toLowerCase();
+    if (productModelCode?.trim()) {
+      if (!titleLower.includes(productModelCode.trim().toLowerCase())) {
+        reasons.push("모델코드");
+      } else if ((productSpecKeywords ?? []).length > 0) {
+        const missingSpec = (productSpecKeywords ?? []).some(
+          (spec) => spec.trim() && !titleLower.includes(spec.trim().toLowerCase())
+        );
+        if (missingSpec) reasons.push("규격키워드");
+      }
+    }
+
+    return reasons.length ? reasons : ["자동필터/제외"];
+  };
+
   const getShippingBreakdownText = (shippingFee: number, shippingFeeType?: string) => {
     if (shippingFee > 0) return ` + 배송비 ${formatPrice(shippingFee)}원`;
     if (shippingFeeType === "free") return " · 무료배송";
@@ -193,6 +238,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
             const isExpanded = openKeywordId === kw.id;
             const showTopTen = showTopTenByKeyword[kw.id] ?? false;
             const sortMode = sortModeByKeyword[kw.id] ?? "exposure";
+            const visibilityMode = visibilityModeByKeyword[kw.id] ?? "all";
             const sortedRankings = [...kw.rankings].sort((a, b) => {
               if (sortMode === "price") {
                 const aTotal = a.price + (a.shipping_fee || 0);
@@ -203,9 +249,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
               }
               return a.rank - b.rank;
             });
+            const visibilityFilteredRankings = sortedRankings.filter((item) => {
+              if (visibilityMode === "all") return true;
+              if (visibilityMode === "relevant") return item.is_relevant;
+              return !item.is_relevant;
+            });
             const visibleRankings = showTopTen
-              ? sortedRankings.slice(0, 10)
-              : sortedRankings.slice(0, 3);
+              ? visibilityFilteredRankings.slice(0, 10)
+              : visibilityFilteredRankings.slice(0, 3);
 
             return (
               <>
@@ -260,37 +311,71 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 {isExpanded && (
                   <div className="divide-y divide-[var(--border)]">
                     <div className="px-4 py-2">
-                      <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "exposure" }))
-                          }
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
-                            sortMode === "exposure"
-                              ? "bg-[var(--card)] text-blue-500 shadow-sm"
-                              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                          )}
-                        >
-                          <TrendingUp className="h-3.5 w-3.5" />
-                          노출
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "price" }))
-                          }
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
-                            sortMode === "price"
-                              ? "bg-[var(--card)] text-amber-500 shadow-sm"
-                              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                          )}
-                        >
-                          <DollarSign className="h-3.5 w-3.5" />
-                          총액
-                        </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "exposure" }))
+                            }
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                              sortMode === "exposure"
+                                ? "bg-[var(--card)] text-blue-500 shadow-sm"
+                                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            )}
+                          >
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            노출
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSortModeByKeyword((prev) => ({ ...prev, [kw.id]: "price" }))
+                            }
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                              sortMode === "price"
+                                ? "bg-[var(--card)] text-amber-500 shadow-sm"
+                                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            )}
+                          >
+                            <DollarSign className="h-3.5 w-3.5" />
+                            총액
+                          </button>
+                        </div>
+                        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+                          {(
+                            [
+                              { key: "all", label: "전체" },
+                              { key: "relevant", label: "관련만" },
+                              { key: "filtered", label: "제외됨만" },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() =>
+                                setVisibilityModeByKeyword((prev) => ({
+                                  ...prev,
+                                  [kw.id]: opt.key,
+                                }))
+                              }
+                              className={cn(
+                                "rounded-md px-2 py-1 text-xs transition-colors",
+                                visibilityMode === opt.key
+                                  ? "bg-[var(--card)] text-blue-500 shadow-sm"
+                                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                        전체 {kw.rankings.length}개 · 관련 {kw.rankings.filter((r) => r.is_relevant).length}개 ·
+                        제외/필터 {kw.rankings.filter((r) => !r.is_relevant).length}개
                       </div>
                       {sortMode === "price" && (
                         <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
@@ -301,6 +386,10 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                     {kw.rankings.length === 0 ? (
                       <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
                         검색 결과가 없습니다. &quot;가격 새로고침&quot;을 눌러 검색하세요.
+                      </div>
+                    ) : visibilityFilteredRankings.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
+                        선택한 필터 조건에 맞는 항목이 없습니다.
                       </div>
                     ) : (
                       visibleRankings.map((item, index) => {
@@ -316,6 +405,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 const currentOffset = hasActions
                   ? swipeOffsets[itemKey] ?? (openItemKey === itemKey ? actionWidth : 0)
                   : 0;
+                const inferredFilterReasons = inferFilterReasons(item);
 
                 return (
                   <div key={item.id}>
@@ -406,6 +496,19 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                             {item.product_name}
                           </div>
                           {renderBrandMaker(item.brand, item.maker)}
+                          {!item.is_relevant && !item.is_my_store && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {inferredFilterReasons.map((reason) => (
+                                <span
+                                  key={`${item.id}-${reason}`}
+                                  className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                  title="검색 정확도 설정 기준 추정 사유"
+                                >
+                                  {reason}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-base font-bold tabular-nums">
@@ -477,6 +580,19 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           {item.product_name}
                         </div>
                         {renderBrandMaker(item.brand, item.maker)}
+                        {!item.is_relevant && !item.is_my_store && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {inferredFilterReasons.map((reason) => (
+                              <span
+                                key={`${item.id}-${reason}`}
+                                className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                title="검색 정확도 설정 기준 추정 사유"
+                              >
+                                {reason}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm font-bold tabular-nums">
@@ -542,7 +658,7 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                 );
               })
             )}
-                    {kw.rankings.length > 3 && (
+                    {visibilityFilteredRankings.length > 3 && (
                       <div className="px-4 py-2 flex items-center justify-center">
                         {!showTopTen ? (
                           <button

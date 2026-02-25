@@ -904,11 +904,12 @@ export default function ProductDetailPage({
       </div>
 
       {/* 액션 바 */}
-      <div className="flex flex-wrap gap-2">
+      <div className="sticky top-14 z-20 -mx-1 rounded-xl border border-[var(--border)] bg-[var(--background)]/85 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--background)]/70">
+        <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => crawlMutation.mutate(productId)}
           disabled={crawlMutation.isPending}
-          className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--muted)] transition-colors"
+          className="flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-sm text-blue-500 hover:bg-blue-500/10 transition-colors"
         >
           {crawlMutation.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -946,6 +947,7 @@ export default function ProductDetailPage({
             {timeAgo(product.last_crawled_at)}
           </span>
         )}
+        </div>
       </div>
 
       {/* 삭제 확인 모달 */}
@@ -1077,6 +1079,10 @@ export default function ProductDetailPage({
           keywords={product.keywords}
           myPrice={product.selling_price}
           productId={productId}
+          productModelCode={product.model_code}
+          productSpecKeywords={product.spec_keywords}
+          priceFilterMinPct={product.price_filter_min_pct}
+          priceFilterMaxPct={product.price_filter_max_pct}
         />
       </div>
 
