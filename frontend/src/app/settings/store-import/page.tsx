@@ -99,6 +99,7 @@ export default function StoreImportPage() {
   const [keywordMetaByProduct, setKeywordMetaByProduct] = useState<Record<string, KeywordSuggestion>>({});
   const [loadingKeywordMetaIds, setLoadingKeywordMetaIds] = useState<Set<string>>(new Set());
   const [failedKeywordMetaIds, setFailedKeywordMetaIds] = useState<Set<string>>(new Set());
+  const [showAiIncompleteOnly, setShowAiIncompleteOnly] = useState(false);
 
   const suggestQueueRef = useRef<StoreProduct[]>([]);
   const queuedSuggestIdsRef = useRef<Set<string>>(new Set());
@@ -107,9 +108,34 @@ export default function StoreImportPage() {
 
   const parsedStoreInput = useMemo(() => parseStoreInput(storeUrl), [storeUrl]);
 
+  const getIsAiMetaIncomplete = (p: StoreProduct) => {
+    if (!p.suggested_keywords.length) return false;
+    const pid = p.naver_product_id;
+    return (
+      !keywordMetaByProduct[pid] ||
+      loadingKeywordMetaIds.has(pid) ||
+      failedKeywordMetaIds.has(pid)
+    );
+  };
+
+  const visibleStoreProducts = useMemo(
+    () =>
+      showAiIncompleteOnly
+        ? storeProducts.filter((p) => getIsAiMetaIncomplete(p))
+        : storeProducts,
+    [
+      storeProducts,
+      showAiIncompleteOnly,
+      keywordMetaByProduct,
+      loadingKeywordMetaIds,
+      failedKeywordMetaIds,
+    ]
+  );
+
   const selectedCount = selectedIds.size;
   const allSelected =
-    storeProducts.length > 0 && selectedCount === storeProducts.length;
+    visibleStoreProducts.length > 0 &&
+    visibleStoreProducts.every((p) => selectedIds.has(p.naver_product_id));
 
   const selectedProducts = useMemo(
     () => storeProducts.filter((p) => selectedIds.has(p.naver_product_id)),
@@ -307,6 +333,7 @@ export default function StoreImportPage() {
       setStoreProducts([]);
       setSelectedIds(new Set());
       setSelectedKeywords(new Map());
+      setShowAiIncompleteOnly(false);
       suggestRunIdRef.current += 1;
       setKeywordMetaByProduct({});
       setLoadingKeywordMetaIds(new Set());
@@ -331,11 +358,29 @@ export default function StoreImportPage() {
   };
 
   const toggleAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(storeProducts.map((p) => p.naver_product_id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        visibleStoreProducts.forEach((p) => next.delete(p.naver_product_id));
+      } else {
+        visibleStoreProducts.forEach((p) => next.add(p.naver_product_id));
+      }
+      return next;
+    });
+  };
+
+  const selectAiIncompleteProducts = () => {
+    const targets = storeProducts.filter((p) => getIsAiMetaIncomplete(p));
+    if (targets.length === 0) {
+      toast.info("AI 분류 미완료 상품이 없습니다");
+      return;
     }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      targets.forEach((p) => next.add(p.naver_product_id));
+      return next;
+    });
+    toast.success(`AI 분류 미완료 상품 ${targets.length}개를 선택했습니다`);
   };
 
   const toggleKeyword = (productId: string, keyword: string) => {
@@ -551,19 +596,51 @@ export default function StoreImportPage() {
       {storeProducts.length > 0 && (
         <div className="glass-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div className="text-sm font-medium">{storeProducts.length}개 상품 발견</div>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-            >
-              {allSelected ? (
-                <CheckSquare className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <Square className="h-4 w-4" />
-              )}
-              전체 선택
-            </button>
+            <div className="text-sm font-medium">
+              {visibleStoreProducts.length}
+              {showAiIncompleteOnly && visibleStoreProducts.length !== storeProducts.length && (
+                <span className="text-[var(--muted-foreground)]"> / {storeProducts.length}</span>
+              )}개 상품 발견
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAiIncompleteOnly((prev) => !prev)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors",
+                  showAiIncompleteOnly
+                    ? "border-blue-500/25 bg-blue-500/10 text-blue-500"
+                    : "border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                )}
+              >
+                {showAiIncompleteOnly ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                AI 미완료만
+              </button>
+              <button
+                type="button"
+                onClick={selectAiIncompleteProducts}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-blue-500 transition-colors"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                미완료 선택
+              </button>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              >
+                {allSelected ? (
+                  <CheckSquare className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+                {showAiIncompleteOnly ? "표시목록 선택" : "전체 선택"}
+              </button>
+            </div>
           </div>
           <div className="border-b border-[var(--border)] px-4 py-2">
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]">
@@ -624,7 +701,14 @@ export default function StoreImportPage() {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto divide-y divide-[var(--border)]">
-            {storeProducts.map((p) => {
+            {visibleStoreProducts.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
+                {showAiIncompleteOnly
+                  ? "AI 분류 미완료 상품이 없습니다"
+                  : "표시할 상품이 없습니다"}
+              </div>
+            )}
+            {visibleStoreProducts.map((p) => {
               const checked = selectedIds.has(p.naver_product_id);
               const selectedKeywordCount =
                 selectedKeywords.get(p.naver_product_id)?.size ?? 0;
