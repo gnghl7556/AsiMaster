@@ -22,11 +22,14 @@ type QueueItem = ProductListItem & {
 type QueueSeverity = "critical" | "high" | "medium" | "watch";
 
 const ACTION_QUEUE_MODE_KEY = "asimaster:dashboard-action-queue-mode";
+const ACTION_QUEUE_SORT_KEY = "asimaster:dashboard-action-queue-sort";
 const DASHBOARD_SCAN_LIMIT = 500;
+
+type QueueSortMode = "gap" | "stale";
 
 function buildQueue(
   products: ProductListItem[],
-  options: { includeSameTotal: boolean }
+  options: { includeSameTotal: boolean; sortMode: QueueSortMode }
 ): QueueItem[] {
   const active = products.filter((p) => !p.is_price_locked);
   const queue = active
@@ -44,6 +47,12 @@ function buildQueue(
     const aPriority = a.issueType === "losing" ? 0 : 1;
     const bPriority = b.issueType === "losing" ? 0 : 1;
     if (aPriority !== bPriority) return aPriority - bPriority;
+    if (options.sortMode === "stale") {
+      const aFreshness = getCrawlFreshness(a.last_crawled_at);
+      const bFreshness = getCrawlFreshness(b.last_crawled_at);
+      const rank = { old: 0, stale: 1, fresh: 2 } as const;
+      if (rank[aFreshness] !== rank[bFreshness]) return rank[aFreshness] - rank[bFreshness];
+    }
     const aGap = Math.abs(a.price_gap ?? 0);
     const bGap = Math.abs(b.price_gap ?? 0);
     if (aGap !== bGap) return bGap - aGap;
@@ -81,6 +90,7 @@ export function ActionQueue() {
     ignoreStoreFilters: true,
   });
   const [includeSameTotal, setIncludeSameTotal] = useState(true);
+  const [queueSortMode, setQueueSortMode] = useState<QueueSortMode>("gap");
   const [pendingCrawlProductId, setPendingCrawlProductId] = useState<number | null>(null);
   const [pendingLockProductId, setPendingLockProductId] = useState<number | null>(null);
   const crawlProductMutation = useCrawlProduct();
@@ -102,6 +112,8 @@ export function ActionQueue() {
     const saved = window.localStorage.getItem(ACTION_QUEUE_MODE_KEY);
     if (saved === "losing_only") setIncludeSameTotal(false);
     if (saved === "including_same_total") setIncludeSameTotal(true);
+    const savedSort = window.localStorage.getItem(ACTION_QUEUE_SORT_KEY);
+    if (savedSort === "gap" || savedSort === "stale") setQueueSortMode(savedSort);
   }, []);
 
   const handleSetMode = (nextIncludeSameTotal: boolean) => {
@@ -111,6 +123,13 @@ export function ActionQueue() {
         ACTION_QUEUE_MODE_KEY,
         nextIncludeSameTotal ? "including_same_total" : "losing_only"
       );
+    }
+  };
+
+  const handleSetSortMode = (nextSortMode: QueueSortMode) => {
+    setQueueSortMode(nextSortMode);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACTION_QUEUE_SORT_KEY, nextSortMode);
     }
   };
 
@@ -133,7 +152,7 @@ export function ActionQueue() {
     );
   }
 
-  const queue = buildQueue(products, { includeSameTotal });
+  const queue = buildQueue(products, { includeSameTotal, sortMode: queueSortMode });
   const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
   const queueLosingCount = queue.filter((p) => p.issueType === "losing").length;
   const queueSameTotalCount = queue.length - queueLosingCount;
@@ -185,6 +204,32 @@ export function ActionQueue() {
           )}
         >
           동일총액 포함
+        </button>
+      </div>
+      <div className="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+        <button
+          type="button"
+          onClick={() => handleSetSortMode("gap")}
+          className={cn(
+            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+            queueSortMode === "gap"
+              ? "bg-[var(--card)] text-blue-500 shadow-sm"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          )}
+        >
+          가격차 우선
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSetSortMode("stale")}
+          className={cn(
+            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+            queueSortMode === "stale"
+              ? "bg-[var(--card)] text-amber-500 shadow-sm"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          )}
+        >
+          수집 오래됨 우선
         </button>
       </div>
       {mayBeTruncated && (
