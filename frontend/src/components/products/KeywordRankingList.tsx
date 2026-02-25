@@ -187,6 +187,9 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
             const sortMode = sortModeByKeyword[kw.id] ?? "exposure";
             const sortedRankings = [...kw.rankings].sort((a, b) => {
               if (sortMode === "price") {
+                const aTotal = a.price + (a.shipping_fee || 0);
+                const bTotal = b.price + (b.shipping_fee || 0);
+                if (aTotal !== bTotal) return aTotal - bTotal;
                 if (a.price !== b.price) return a.price - b.price;
                 return a.rank - b.rank;
               }
@@ -278,9 +281,14 @@ export function KeywordRankingList({ keywords, myPrice, productId }: Props) {
                           )}
                         >
                           <DollarSign className="h-3.5 w-3.5" />
-                          가격 순위
+                          총액 순위
                         </button>
                       </div>
+                      {sortMode === "price" && (
+                        <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                          배송비 포함 총액 기준으로 정렬합니다.
+                        </div>
+                      )}
                     </div>
                     {kw.rankings.length === 0 ? (
                       <div className="py-6 text-center text-sm text-[var(--muted-foreground)]">
