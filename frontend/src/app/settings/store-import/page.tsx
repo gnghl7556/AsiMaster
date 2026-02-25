@@ -122,6 +122,26 @@ export default function StoreImportPage() {
       ).length,
     [selectedProducts, selectedKeywords]
   );
+  const selectedKeywordSummary = useMemo(() => {
+    let totalKeywords = 0;
+    let zeroKeywordProducts = 0;
+    let maxKeywordsOnSingleProduct = 0;
+
+    for (const p of selectedProducts) {
+      const count = selectedKeywords.get(p.naver_product_id)?.size ?? 0;
+      totalKeywords += count;
+      if (count === 0) zeroKeywordProducts += 1;
+      if (count > maxKeywordsOnSingleProduct) maxKeywordsOnSingleProduct = count;
+    }
+
+    return {
+      totalKeywords,
+      zeroKeywordProducts,
+      maxKeywordsOnSingleProduct,
+      avgKeywordsPerProduct:
+        selectedProducts.length > 0 ? totalKeywords / selectedProducts.length : 0,
+    };
+  }, [selectedProducts, selectedKeywords]);
   const selectedAiMetaSummary = useMemo(() => {
     const targetProducts = selectedProducts.filter((p) => p.suggested_keywords.length > 0);
     let loaded = 0;
@@ -819,6 +839,52 @@ export default function StoreImportPage() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+            {selectedCount > 0 && (
+              <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2">
+                  <div className="text-[10px] text-[var(--muted-foreground)]">선택 상품</div>
+                  <div className="text-sm font-semibold tabular-nums">{selectedCount}개</div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2">
+                  <div className="text-[10px] text-[var(--muted-foreground)]">선택 키워드</div>
+                  <div className="text-sm font-semibold tabular-nums">
+                    {selectedKeywordSummary.totalKeywords}개
+                  </div>
+                  <div className="text-[10px] text-[var(--muted-foreground)]">
+                    평균 {selectedKeywordSummary.avgKeywordsPerProduct.toFixed(1)}개/상품
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2">
+                  <div className="text-[10px] text-[var(--muted-foreground)]">기본 키워드 등록</div>
+                  <div
+                    className={cn(
+                      "text-sm font-semibold tabular-nums",
+                      selectedKeywordSummary.zeroKeywordProducts > 0
+                        ? "text-amber-500"
+                        : "text-[var(--foreground)]"
+                    )}
+                  >
+                    {selectedKeywordSummary.zeroKeywordProducts}개
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/60 px-3 py-2">
+                  <div className="text-[10px] text-[var(--muted-foreground)]">AI 미완료</div>
+                  <div
+                    className={cn(
+                      "text-sm font-semibold tabular-nums",
+                      selectedAiMetaSummary.incomplete > 0
+                        ? "text-rose-500"
+                        : "text-emerald-500"
+                    )}
+                  >
+                    {selectedAiMetaSummary.incomplete}개
+                  </div>
+                  <div className="text-[10px] text-[var(--muted-foreground)]">
+                    대상 {selectedAiMetaSummary.targetCount}개
+                  </div>
+                </div>
               </div>
             )}
             {selectedCount > 0 && selectedProductsUsingDefaultKeyword > 0 && (
