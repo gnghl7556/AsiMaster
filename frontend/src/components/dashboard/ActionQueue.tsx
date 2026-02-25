@@ -159,14 +159,14 @@ export function ActionQueue() {
 
   return (
     <section className="glass-card p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-bold">지금 조치가 필요한 상품</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
             {includeSameTotal ? "밀림/동일 총액 상품 우선 표시" : "밀림 상품만 표시"}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-500">
             밀림 {queueLosingCount}
           </span>
@@ -180,7 +180,7 @@ export function ActionQueue() {
           </span>
         </div>
       </div>
-      <div className="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+      <div className="mb-3 inline-flex max-w-full flex-wrap rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
         <button
           type="button"
           onClick={() => handleSetMode(false)}
@@ -206,7 +206,7 @@ export function ActionQueue() {
           동일총액 포함
         </button>
       </div>
-      <div className="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
+      <div className="mb-3 inline-flex max-w-full flex-wrap rounded-lg border border-[var(--border)] bg-[var(--muted)] p-0.5">
         <button
           type="button"
           onClick={() => handleSetSortMode("gap")}
@@ -263,7 +263,7 @@ export function ActionQueue() {
                   : "border-[var(--border)]"
               )}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div
                   className={cn(
                     "mt-0.5 h-12 w-1 shrink-0 rounded-full",
@@ -361,7 +361,7 @@ export function ActionQueue() {
                       )}
                     </div>
                   )}
-                  <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
+                  <div className="mt-1 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                     <div>
                       <div className="text-[var(--muted-foreground)]">내 가격</div>
                       <div className="tabular-nums font-semibold">
@@ -374,7 +374,7 @@ export function ActionQueue() {
                         {formatPrice(product.lowest_price)}원
                       </div>
                     </div>
-                    <div className="flex items-end justify-end">
+                    <div className="col-span-2 flex items-end justify-end sm:col-span-1">
                       <PriceGap
                         gap={product.price_gap}
                         gapPercent={product.price_gap_percent}
@@ -445,11 +445,17 @@ export function ActionQueue() {
                     </button>
                   </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end justify-between gap-2">
-                  <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-[11px] text-[var(--muted-foreground)]">
-                      {timeAgo(product.last_crawled_at)}
+                <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-2 sm:hidden">
+                    <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
+                    <span className="truncate text-[11px] text-[var(--muted-foreground)]">
+                      {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
+                    </span>
+                  </div>
+                  <ArrowRight className="hidden h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5 sm:block" />
+                  <div className="ml-auto flex flex-col items-end gap-1 sm:ml-0">
+                    <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:block">
+                      {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
                     </span>
                     {getCrawlFreshness(product.last_crawled_at) !== "fresh" && (
                       <span
