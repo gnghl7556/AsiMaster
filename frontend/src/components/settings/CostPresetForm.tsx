@@ -1,33 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { costsApi, type CostItemInput } from "@/lib/api/costs";
+import { costsApi, type CostItemInput, type CostPreset } from "@/lib/api/costs";
 import { useUserStore } from "@/stores/useUserStore";
 import { CostItemEditor } from "./CostItemEditor";
 
 interface Props {
   onClose: () => void;
+  initialPreset?: CostPreset | null;
 }
 
-export function CostPresetForm({ onClose }: Props) {
+export function CostPresetForm({ onClose, initialPreset = null }: Props) {
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [items, setItems] = useState<CostItemInput[]>([
     { name: "", type: "percent", value: 0 },
   ]);
+  const isEditMode = !!initialPreset;
 
-  const createMutation = useMutation({
-    mutationFn: () => costsApi.createPreset(userId!, { name, items: items.filter((i) => i.name) }),
+  useEffect(() => {
+    if (!initialPreset) return;
+    setName(initialPreset.name);
+    setItems(
+      initialPreset.items?.length
+        ? initialPreset.items.map((item) => ({
+            name: item.name,
+            type: item.type,
+            value: Number(item.value),
+          }))
+        : [{ name: "", type: "percent", value: 0 }]
+    );
+  }, [initialPreset]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        name: name.trim(),
+        items: items
+          .filter((i) => i.name.trim())
+          .map((item) => ({ ...item, name: item.name.trim() })),
+      };
+      if (!isEditMode) {
+        return costsApi.createPreset(userId!, payload);
+      }
+      // 백엔드 update API 부재: 새로 생성 후 기존 프리셋 삭제로 대체
+      const created = await costsApi.createPreset(userId!, payload);
+      try {
+        await costsApi.deletePreset(userId!, initialPreset!.id);
+      } catch {
+        toast.error("기존 프리셋 삭제에 실패했습니다. 수정본이 새 프리셋으로 추가되었습니다.");
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cost-presets"] });
-      toast.success("프리셋이 생성되었습니다");
+      toast.success(isEditMode ? "프리셋이 수정되었습니다" : "프리셋이 생성되었습니다");
       onClose();
     },
-    onError: () => toast.error("프리셋 생성 실패"),
+    onError: () => toast.error(isEditMode ? "프리셋 수정 실패" : "프리셋 생성 실패"),
   });
 
   const addItem = () => setItems([...items, { name: "", type: "percent", value: 0 }]);
@@ -42,7 +76,7 @@ export function CostPresetForm({ onClose }: Props) {
 
   return (
     <div className="glass-card p-4 space-y-4">
-      <h3 className="font-medium">새 프리셋 만들기</h3>
+      <h3 className="font-medium">{isEditMode ? "프리셋 수정" : "새 프리셋 만들기"}</h3>
 
       <input
         type="text"
@@ -81,14 +115,14 @@ export function CostPresetForm({ onClose }: Props) {
 
       <div className="flex gap-2 pt-2">
         <button
-          onClick={() => createMutation.mutate()}
-          disabled={!name.trim() || createMutation.isPending}
+          onClick={() => saveMutation.mutate()}
+          disabled={!name.trim() || saveMutation.isPending}
           className="flex-1 rounded-lg bg-blue-500 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
-          {createMutation.isPending ? (
+          {saveMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin mx-auto" />
           ) : (
-            "저장"
+            isEditMode ? "수정 저장" : "저장"
           )}
         </button>
         <button

@@ -34,6 +34,7 @@ import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { parseSpecKeywordsInput } from "@/lib/utils/productMatching";
+import type { CostItemInput } from "@/lib/api/costs";
 import type { ProductDetail, MarginDetail as MarginDetailType, SearchKeyword, ExcludedProduct } from "@/types";
 
 export default function ProductDetailPage({
@@ -58,6 +59,10 @@ export default function ProductDetailPage({
   const [editableSpecKeywords, setEditableSpecKeywords] = useState("");
   const [editablePriceFilterMinPct, setEditablePriceFilterMinPct] = useState("");
   const [editablePriceFilterMaxPct, setEditablePriceFilterMaxPct] = useState("");
+  const [editableCostItems, setEditableCostItems] = useState<CostItemInput[]>([
+    { name: "", type: "percent", value: 0 },
+  ]);
+  const [selectedCostPresetId, setSelectedCostPresetId] = useState<number | null>(null);
   const [pendingRestoreGroupName, setPendingRestoreGroupName] = useState<string | null>(null);
   const [excludedGroupQuery, setExcludedGroupQuery] = useState("");
   const [excludedGroupSort, setExcludedGroupSort] = useState<"recent" | "name" | "count">(
@@ -87,6 +92,18 @@ export default function ProductDetailPage({
     queryKey: ["excluded-products", productId],
     queryFn: () => productsApi.getExcluded(productId),
     enabled: !!productId,
+  });
+
+  const { data: costPresets = [] } = useQuery({
+    queryKey: ["cost-presets", userId],
+    queryFn: () => costsApi.getPresets(userId!),
+    enabled: !!userId,
+  });
+
+  const { data: costItems = [] } = useQuery({
+    queryKey: ["product-cost-items", productId],
+    queryFn: () => costsApi.getItems(userId!, productId),
+    enabled: !!userId && !!productId,
   });
 
   // 제외 복원
@@ -188,6 +205,16 @@ export default function ProductDetailPage({
     onError: () => toast.error("매입비용 수정에 실패했습니다"),
   });
 
+  const saveCostItemsMutation = useMutation({
+    mutationFn: (items: CostItemInput[]) => costsApi.saveItems(userId!, productId, items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-cost-items", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      toast.success("비용 항목이 저장되었습니다");
+    },
+    onError: () => toast.error("비용 항목 저장에 실패했습니다"),
+  });
+
   // 마진 시뮬레이션
   const [simPrice, setSimPrice] = useState("");
   const [simulatedMargin, setSimulatedMargin] = useState<MarginDetailType | null>(null);
@@ -265,6 +292,15 @@ export default function ProductDetailPage({
       product.price_filter_max_pct == null ? "" : String(product.price_filter_max_pct)
     );
   }, [product]);
+
+  useEffect(() => {
+    const mapped: CostItemInput[] = costItems.map((item) => ({
+      name: item.name ?? "",
+      type: (item.type === "fixed" ? "fixed" : "percent") as "fixed" | "percent",
+      value: Number(item.value ?? 0),
+    }));
+    setEditableCostItems(mapped.length > 0 ? mapped : [{ name: "", type: "percent", value: 0 }]);
+  }, [costItems]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -348,6 +384,20 @@ export default function ProductDetailPage({
     editableName.trim() !== product.name ||
     isCategoryChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
+  const normalizedFetchedCostItems = costItems.map((item) => ({
+    name: item.name.trim(),
+    type: item.type === "fixed" ? "fixed" : "percent",
+    value: Number(item.value ?? 0),
+  }));
+  const normalizedEditableCostItems = editableCostItems
+    .map((item) => ({
+      name: item.name.trim(),
+      type: item.type,
+      value: Number(item.value ?? 0),
+    }))
+    .filter((item) => item.name.length > 0);
+  const costItemsDirty =
+    JSON.stringify(normalizedEditableCostItems) !== JSON.stringify(normalizedFetchedCostItems);
   const excludedGroupBase = Object.values(
     excludedProducts.reduce<Record<string, { mallName: string; items: ExcludedProduct[] }>>(
       (acc, ep) => {
@@ -449,6 +499,27 @@ export default function ProductDetailPage({
     priceFilterRangePreview.maxPct == null
       ? null
       : Math.round((product.selling_price * priceFilterRangePreview.maxPct) / 100);
+
+  const handleApplyCostPreset = () => {
+    if (!selectedCostPresetId) return;
+    const preset = costPresets.find((p) => p.id === selectedCostPresetId);
+    if (!preset) return;
+    const nextItems: CostItemInput[] = (preset.items ?? []).map((item) => ({
+      name: item.name ?? "",
+      type: (item.type === "fixed" ? "fixed" : "percent") as "fixed" | "percent",
+      value: Number(item.value ?? 0),
+    }));
+    setEditableCostItems(nextItems.length > 0 ? nextItems : [{ name: "", type: "percent", value: 0 }]);
+    toast.success(`"${preset.name}" 프리셋을 적용했습니다. 저장하면 반영됩니다.`);
+  };
+
+  const handleSaveCostItems = () => {
+    if (!normalizedEditableCostItems.length) {
+      toast.error("최소 1개 이상의 비용 항목을 입력해주세요");
+      return;
+    }
+    saveCostItemsMutation.mutate(normalizedEditableCostItems);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -950,6 +1021,26 @@ export default function ProductDetailPage({
             currentSellingPrice={product.selling_price}
             isSimulating={simMutation.isPending}
             onSimulate={handleSimulate}
+            costItemsEditor={editableCostItems}
+            onChangeCostItem={(index, updated) =>
+              setEditableCostItems((prev) => prev.map((item, i) => (i === index ? updated : item)))
+            }
+            onAddCostItem={() =>
+              setEditableCostItems((prev) => [...prev, { name: "", type: "percent", value: 0 }])
+            }
+            onRemoveCostItem={(index) =>
+              setEditableCostItems((prev) =>
+                prev.length > 1 ? prev.filter((_, i) => i !== index) : prev
+              )
+            }
+            onSaveCostItems={handleSaveCostItems}
+            isSavingCostItems={saveCostItemsMutation.isPending}
+            costItemsDirty={costItemsDirty}
+            costPresets={costPresets}
+            selectedCostPresetId={selectedCostPresetId}
+            setSelectedCostPresetId={setSelectedCostPresetId}
+            onApplyCostPreset={handleApplyCostPreset}
+            isApplyingCostPreset={false}
           />
         </div>
       )}

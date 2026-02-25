@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MarginDetail as MarginDetailType } from "@/types";
 import { formatPrice, formatPercent } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import type { CostItemInput, CostPreset } from "@/lib/api/costs";
+import { CostItemEditor } from "@/components/settings/CostItemEditor";
 
 interface Props {
   margin: MarginDetailType;
@@ -20,6 +22,18 @@ interface Props {
   currentSellingPrice: number;
   isSimulating: boolean;
   onSimulate: () => void;
+  costItemsEditor: CostItemInput[];
+  onChangeCostItem: (index: number, item: CostItemInput) => void;
+  onAddCostItem: () => void;
+  onRemoveCostItem: (index: number) => void;
+  onSaveCostItems: () => void;
+  isSavingCostItems: boolean;
+  costItemsDirty: boolean;
+  costPresets: CostPreset[];
+  selectedCostPresetId: number | null;
+  setSelectedCostPresetId: (value: number | null) => void;
+  onApplyCostPreset: () => void;
+  isApplyingCostPreset: boolean;
 }
 
 export function MarginDetail({
@@ -35,6 +49,18 @@ export function MarginDetail({
   currentSellingPrice,
   isSimulating,
   onSimulate,
+  costItemsEditor,
+  onChangeCostItem,
+  onAddCostItem,
+  onRemoveCostItem,
+  onSaveCostItems,
+  isSavingCostItems,
+  costItemsDirty,
+  costPresets,
+  selectedCostPresetId,
+  setSelectedCostPresetId,
+  onApplyCostPreset,
+  isApplyingCostPreset,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -127,6 +153,92 @@ export function MarginDetail({
                 <span className="rounded bg-[var(--muted)] px-2 py-0.5">비용</span>
                 <span>=</span>
                 <span className={cn("font-semibold", marginColor)}>순마진</span>
+              </div>
+
+              {/* 비용 프리셋 / 비용 항목 편집 */}
+              <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-medium">비용 프리셋 / 비용 항목</h4>
+                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                      설정에서 만든 프리셋을 적용하거나, 상품별 비용 항목을 직접 수정할 수 있습니다
+                    </p>
+                  </div>
+                  {costItemsDirty && (
+                    <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                      저장 필요
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <select
+                    value={selectedCostPresetId ?? ""}
+                    onChange={(e) =>
+                      setSelectedCostPresetId(e.target.value ? Number(e.target.value) : null)
+                    }
+                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="">비용 프리셋 선택</option>
+                    {costPresets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={onApplyCostPreset}
+                    disabled={!selectedCostPresetId || isApplyingCostPreset}
+                    className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-500 hover:bg-blue-500/15 transition-colors disabled:opacity-50"
+                  >
+                    {isApplyingCostPreset ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "프리셋 적용"
+                    )}
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {costItemsEditor.map((item, i) => (
+                    <div key={`${item.name}-${i}`} className="flex items-center gap-2">
+                      <CostItemEditor item={item} onChange={(updated) => onChangeCostItem(i, updated)} />
+                      {costItemsEditor.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveCostItem(i)}
+                          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500"
+                          title="항목 삭제"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={onAddCostItem}
+                      className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      비용 항목 추가
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onSaveCostItems}
+                      disabled={isSavingCostItems || !costItemsDirty}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                    >
+                      {isSavingCostItems ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "비용 항목 저장"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* 항목 테이블 */}

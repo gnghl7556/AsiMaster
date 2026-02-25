@@ -1,4 +1,4 @@
-import type { MarginDetail, CostItemCalculated } from "@/types";
+import type { MarginDetail } from "@/types";
 import apiClient from "./client";
 
 export interface CostItemInput {
@@ -9,20 +9,31 @@ export interface CostItemInput {
 
 export interface CostPreset {
   id: number;
+  user_id?: number;
   name: string;
   items: CostItemInput[];
+  created_at: string;
+}
+
+export interface ProductCostItem {
+  id: number;
+  product_id: number;
+  name: string;
+  type: "percent" | "fixed";
+  value: number;
+  sort_order: number;
   created_at: string;
 }
 
 export const costsApi = {
   getItems: (userId: number, productId: number) =>
     apiClient
-      .get<CostItemCalculated[]>(`/users/${userId}/products/${productId}/costs`)
+      .get<ProductCostItem[]>(`/products/${productId}/costs`)
       .then((r) => r.data),
 
   saveItems: (userId: number, productId: number, items: CostItemInput[]) =>
     apiClient
-      .put(`/users/${userId}/products/${productId}/costs`, { items })
+      .put(`/products/${productId}/costs`, items.map((item, index) => ({ ...item, sort_order: index })))
       .then((r) => r.data),
 
   getMargin: (productId: number) =>
@@ -46,5 +57,5 @@ export const costsApi = {
       .then((r) => r.data),
 
   deletePreset: (userId: number, presetId: number) =>
-    apiClient.delete(`/users/${userId}/cost-presets/${presetId}`),
+    apiClient.delete(`/cost-presets/${presetId}`),
 };
