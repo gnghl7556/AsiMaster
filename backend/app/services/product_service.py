@@ -527,12 +527,10 @@ async def get_product_detail(
         db, kw_ids, seven_days_ago, excluded_ids,
     )
 
-    # 경쟁사 요약 (블랙리스트 제외)
+    # 경쟁사 요약 (is_relevant + 블랙리스트 제외 = relevant_rankings 기반)
     competitors = []
     seen_malls = set()
-    for r in sorted(latest_rankings, key=lambda r: r.rank):
-        if r.naver_product_id and r.naver_product_id in excluded_ids:
-            continue
+    for r in sorted(relevant_rankings, key=lambda r: r.rank):
         if r.mall_name in seen_malls:
             continue
         seen_malls.add(r.mall_name)
