@@ -15,6 +15,7 @@ from app.schemas.cost import (
     CostPresetResponse,
     CostPresetUpdate,
 )
+from app.services.cost_service import apply_preset_to_products
 
 router = APIRouter(tags=["costs"])
 
@@ -98,45 +99,10 @@ async def apply_cost_preset(
     if not preset:
         raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
 
-    # 대상 상품 조회 (프리셋 소유자의 상품만)
-    result = await db.execute(
-        select(Product).where(
-            Product.id.in_(data.product_ids),
-            Product.user_id == preset.user_id,
-        )
-    )
-    products = result.scalars().all()
-
-    if not products:
+    result = await apply_preset_to_products(db, preset, data.product_ids)
+    if result["applied"] == 0:
         raise HTTPException(400, "적용 가능한 상품이 없습니다.")
-
-    found_ids = {p.id for p in products}
-
-    # 기존 cost_items 일괄 삭제
-    await db.execute(
-        delete(CostItem).where(CostItem.product_id.in_(found_ids))
-    )
-
-    # 프리셋 items로 새 CostItem 생성 + cost_preset_id 갱신
-    for product in products:
-        for item_data in preset.items:
-            db.add(CostItem(
-                product_id=product.id,
-                name=item_data["name"],
-                type=item_data["type"],
-                value=item_data["value"],
-                sort_order=item_data.get("sort_order", 0),
-            ))
-        product.cost_preset_id = preset_id
-
-    await db.flush()
-
-    skipped_ids = [pid for pid in data.product_ids if pid not in found_ids]
-    return CostPresetApplyResponse(
-        applied=len(products),
-        skipped=len(skipped_ids),
-        skipped_ids=skipped_ids,
-    )
+    return result
 
 
 @router.delete("/cost-presets/{preset_id}", status_code=204)

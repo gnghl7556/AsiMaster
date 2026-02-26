@@ -37,7 +37,7 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
     ]
 
 
-@router.post("/user/{user_id}")
+@router.post("/user/{user_id}", response_model=CrawlBatchResult)
 async def crawl_user(user_id: int, db: AsyncSession = Depends(get_db)):
     try:
         result = await manager.crawl_user_all(db, user_id)

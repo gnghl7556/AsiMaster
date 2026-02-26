@@ -5,12 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.deps import get_db
 from app.models.push_subscription import PushSubscription
-from app.schemas.push import PushSubscriptionCreate, PushSubscriptionResponse
+from app.schemas.push import PushSubscriptionCreate, PushSubscriptionResponse, VapidPublicKeyResponse
 
 router = APIRouter(tags=["push"])
 
 
-@router.get("/push/vapid-public-key")
+@router.get("/push/vapid-public-key", response_model=VapidPublicKeyResponse)
 async def get_vapid_public_key():
     return {"public_key": settings.VAPID_PUBLIC_KEY}
 

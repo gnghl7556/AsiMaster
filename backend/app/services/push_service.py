@@ -1,5 +1,6 @@
 """웹 푸시 알림 전송 서비스"""
 
+import asyncio
 import json
 import logging
 
@@ -15,6 +16,16 @@ logger = logging.getLogger(__name__)
 
 def _get_vapid_claims() -> dict:
     return {"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"}
+
+
+def _send_push_sync(subscription_info: dict, payload: str) -> None:
+    """동기 webpush 호출 (asyncio.to_thread에서 실행)."""
+    webpush(
+        subscription_info=subscription_info,
+        data=payload,
+        vapid_private_key=settings.VAPID_PRIVATE_KEY,
+        vapid_claims=_get_vapid_claims(),
+    )
 
 
 async def send_push_to_user(db: AsyncSession, user_id: int, title: str, body: str, data: dict | None = None):
@@ -39,17 +50,11 @@ async def send_push_to_user(db: AsyncSession, user_id: int, title: str, body: st
             "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
         }
         try:
-            webpush(
-                subscription_info=subscription_info,
-                data=payload,
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims=_get_vapid_claims(),
-            )
+            await asyncio.to_thread(_send_push_sync, subscription_info, payload)
             logger.info(f"푸시 전송 성공: user_id={user_id}")
         except WebPushException as e:
             logger.warning(f"푸시 전송 실패: user_id={user_id} - {e}")
             if e.response and e.response.status_code in (404, 410):
-                # 구독 만료/해제 - 삭제
                 await db.delete(sub)
                 logger.info(f"만료된 푸시 구독 삭제: {sub.endpoint[:50]}...")
         except Exception as e:

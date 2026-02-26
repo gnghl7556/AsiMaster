@@ -144,25 +144,3 @@ async def unexclude_product(
     product_id: int, naver_product_id: str, db: AsyncSession = Depends(get_db)
 ):
     await remove_excluded(db, product_id, naver_product_id)
-
-
-# --- 이전 경로 호환 (프론트엔드 마이그레이션 전까지 유지) ---
-
-@router.get("/users/{user_id}/products/{product_id}", response_model=ProductDetail, include_in_schema=False)
-async def get_product_compat(user_id: int, product_id: int, db: AsyncSession = Depends(get_db)):
-    return await get_product(product_id, db)
-
-
-@router.put("/users/{user_id}/products/{product_id}", response_model=ProductResponse, include_in_schema=False)
-async def update_product_compat(user_id: int, product_id: int, data: ProductUpdate, db: AsyncSession = Depends(get_db)):
-    return await update_product(product_id, data, db)
-
-
-@router.delete("/users/{user_id}/products/{product_id}", status_code=204, include_in_schema=False)
-async def delete_product_compat(user_id: int, product_id: int, db: AsyncSession = Depends(get_db)):
-    return await delete_product(product_id, db)
-
-
-@router.patch("/users/{user_id}/products/{product_id}/price-lock", response_model=ProductResponse, include_in_schema=False)
-async def toggle_price_lock_compat(user_id: int, product_id: int, data: PriceLockUpdate, db: AsyncSession = Depends(get_db)):
-    return await toggle_price_lock(product_id, data, db)

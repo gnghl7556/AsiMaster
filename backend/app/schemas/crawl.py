@@ -17,14 +17,6 @@ class CrawlBatchResult(BaseModel):
     failed: int
 
 
-class CrawlStatus(BaseModel):
-    is_running: bool
-    last_run_at: datetime | None
-    next_run_at: datetime | None
-    total_keywords: int
-    last_success_rate: float | None
-
-
 class CrawlStatusResponse(BaseModel):
     total_keywords: int
     last_24h_success: int

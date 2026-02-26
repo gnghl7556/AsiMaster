@@ -10,6 +10,7 @@ class KeywordRanking(Base):
     __tablename__ = "keyword_rankings"
     __table_args__ = (
         Index("ix_keyword_rankings_keyword_crawled", "keyword_id", "crawled_at"),
+        Index("ix_keyword_rankings_keyword_relevant_crawled", "keyword_id", "is_relevant", "crawled_at"),
         Index("ix_keyword_rankings_is_my_store", "is_my_store"),
         Index("ix_keyword_rankings_naver_product_id", "naver_product_id"),
         Index("ix_keyword_rankings_crawled_at", "crawled_at"),

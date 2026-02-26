@@ -1,10 +1,9 @@
 """알림 자동 생성 서비스 (크롤링 후 호출)"""
 
 import logging
-from collections import defaultdict
 from datetime import timedelta
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.alert import Alert, AlertSetting
@@ -12,6 +11,7 @@ from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
+from app.services.product_service import _fetch_latest_rankings
 from app.services.push_service import send_push_to_user
 from app.core.utils import utcnow
 
@@ -55,38 +55,24 @@ async def check_price_undercut(
     if not enabled:
         return
 
+    keyword_ids = [kw.id for kw in keywords]
+    if not keyword_ids:
+        return
+
     # 블랙리스트 조회
     ex_result = await db.execute(
         select(ExcludedProduct).where(ExcludedProduct.product_id == product.id)
     )
-    excluded_rows = ex_result.scalars().all()
-    excluded_ids = {ep.naver_product_id for ep in excluded_rows}
+    excluded_ids = {ep.naver_product_id for ep in ex_result.scalars().all()}
 
-    # 각 키워드의 최신 rankings에서 최저가 찾기 (배치 쿼리)
-    keyword_ids = [kw.id for kw in keywords]
-    result = await db.execute(
-        select(KeywordRanking)
-        .where(
-            KeywordRanking.keyword_id.in_(keyword_ids),
-            KeywordRanking.is_relevant == True,
-        )
-        .order_by(KeywordRanking.crawled_at.desc())
-    )
-    all_rankings = result.scalars().all()
+    # 최신 크롤링 rankings만 조회 (product_service 배치 함수 재사용)
+    latest_by_kw = await _fetch_latest_rankings(db, keyword_ids)
 
-    # 키워드별 그룹핑 → 최신 크롤링 시각만 필터
-    by_keyword: dict[int, list] = defaultdict(list)
-    for r in all_rankings:
-        by_keyword[r.keyword_id].append(r)
-
-    all_latest = []
-    for kw_id, rankings in by_keyword.items():
-        if not rankings:
-            continue
-        latest_time = rankings[0].crawled_at  # already desc sorted
-        for r in rankings:
-            if r.crawled_at != latest_time:
-                break
+    all_latest: list[KeywordRanking] = []
+    for kw_id in keyword_ids:
+        for r in latest_by_kw.get(kw_id, []):
+            if not r.is_relevant:
+                continue
             if r.naver_product_id and r.naver_product_id in excluded_ids:
                 continue
             all_latest.append(r)
@@ -102,7 +88,6 @@ async def check_price_undercut(
     gap = product.selling_price - lowest_total
     gap_percent = (gap / product.selling_price) * 100 if product.selling_price > 0 else 0
 
-    # 중복 알림 방지: 24시간 내 동일 상품의 읽지 않은 price_undercut 알림이 있으면 스킵
     if await _has_recent_unread(db, product.user_id, product.id, "price_undercut"):
         return
 
@@ -138,22 +123,27 @@ async def check_rank_drop(
     if not enabled:
         return
 
-    # 배치 쿼리: 내 스토어 rankings 전체 조회
     keyword_ids = [kw.id for kw in keywords]
+    if not keyword_ids:
+        return
+
+    # 최근 7일 내 내 스토어 rankings만 조회
+    since = utcnow() - timedelta(days=7)
     result = await db.execute(
         select(KeywordRanking)
         .where(
             KeywordRanking.keyword_id.in_(keyword_ids),
             KeywordRanking.is_my_store == True,
+            KeywordRanking.crawled_at >= since,
         )
         .order_by(KeywordRanking.crawled_at.desc())
     )
     all_my_rankings = result.scalars().all()
 
     # 키워드별 그룹핑
-    by_keyword: dict[int, list] = defaultdict(list)
+    by_keyword: dict[int, list[KeywordRanking]] = {}
     for r in all_my_rankings:
-        by_keyword[r.keyword_id].append(r)
+        by_keyword.setdefault(r.keyword_id, []).append(r)
 
     kw_map = {kw.id: kw for kw in keywords}
 
@@ -179,7 +169,6 @@ async def check_rank_drop(
         prev_rank = min(prev_ranks)
 
         if current_rank > prev_rank:
-            # 중복 알림 방지
             if await _has_recent_unread(db, product.user_id, product.id, "rank_drop"):
                 continue
 
@@ -204,16 +193,6 @@ async def check_rank_drop(
             await send_push_to_user(db, product.user_id, title, message, {"type": "rank_drop", "product_id": product.id})
 
 
-async def check_new_competitor(
-    db: AsyncSession, product: Product, keywords: list[SearchKeyword]
-):
-    """키워드 결과에 새 판매자 등장."""
-    enabled, _ = await _is_alert_enabled(db, product.user_id, "new_competitor")
-    if not enabled:
-        return
-    # 새 판매자 감지는 복잡하므로 일단 skip (향후 구현)
-
-
 async def check_and_create_alerts(
     db: AsyncSession,
     product: Product,
@@ -223,4 +202,3 @@ async def check_and_create_alerts(
     """크롤링 완료 후 호출 - 모든 알림 조건 체크."""
     await check_price_undercut(db, product, keywords)
     await check_rank_drop(db, product, keywords, naver_store_name)
-    await check_new_competitor(db, product, keywords)

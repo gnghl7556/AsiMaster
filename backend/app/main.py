@@ -52,6 +52,7 @@ _ALTER_STATEMENTS = [
 _INDEX_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_naver_product_id ON keyword_rankings (naver_product_id)",
     "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_crawled_at ON keyword_rankings (crawled_at)",
+    "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_keyword_relevant_crawled ON keyword_rankings (keyword_id, is_relevant, crawled_at)",
 ]
 
 _FK_STATEMENTS = [

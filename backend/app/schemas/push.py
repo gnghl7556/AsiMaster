@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 
 
+class VapidPublicKeyResponse(BaseModel):
+    public_key: str
+
+
 class PushSubscriptionCreate(BaseModel):
     user_id: int
     endpoint: str
