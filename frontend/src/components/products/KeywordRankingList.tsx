@@ -75,6 +75,33 @@ export function KeywordRankingList({
     },
     onError: () => toast.error("제외에 실패했습니다"),
   });
+  const addIncludedOverrideMutation = useMutation({
+    mutationFn: (item: { naver_product_id: string; product_name: string; mall_name: string }) =>
+      productsApi.addIncludedOverride(productId, {
+        naver_product_id: item.naver_product_id,
+        naver_product_name: item.product_name,
+        mall_name: item.mall_name,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["included-overrides", productId] });
+      toast.success("자동필터 예외로 다시 포함했습니다");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || "다시 포함 처리에 실패했습니다");
+    },
+  });
+  const removeIncludedOverrideMutation = useMutation({
+    mutationFn: (naverProductId: string) => productsApi.removeIncludedOverride(productId, naverProductId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["included-overrides", productId] });
+      toast.success("수동 포함 예외를 해제했습니다");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || "예외 해제에 실패했습니다");
+    },
+  });
   if (keywords.length === 0) {
     return (
       <div className="glass-card p-8 text-center text-sm text-[var(--muted-foreground)]">
@@ -190,6 +217,24 @@ export function KeywordRankingList({
     return reasons.length ? reasons : ["자동필터/제외"];
   };
 
+  const getRelevanceReasonLabels = (item: KeywordDetail["rankings"][number]) => {
+    if (item.is_my_store) return [] as string[];
+    if (item.is_included_override) return ["수동 포함 예외"];
+    if (item.is_relevant) return [] as string[];
+    const reasonMap: Record<string, string> = {
+      price_filter_min: "가격범위(최소)",
+      price_filter_max: "가격범위(최대)",
+      model_code: "모델코드",
+      spec_keywords: "규격키워드",
+      manual_blacklist: "수동 제외",
+      included_override: "수동 포함 예외",
+    };
+    if (item.relevance_reason && reasonMap[item.relevance_reason]) {
+      return [reasonMap[item.relevance_reason]];
+    }
+    return inferFilterReasons(item);
+  };
+
   const getShippingBreakdownText = (shippingFee: number, shippingFeeType?: string) => {
     if (shippingFee > 0) return ` + 배송비 ${formatPrice(shippingFee)}원`;
     if (shippingFeeType === "free") return " · 무료배송";
@@ -197,13 +242,20 @@ export function KeywordRankingList({
     return " · 무료배송";
   };
 
-  const handleRequestIncludeOverride = (item: {
+  const handleAddIncludedOverride = (item: {
     naver_product_id: string | null;
     product_name: string;
+    mall_name: string;
   }) => {
-    toast.info(
-      `자동필터 예외 복원 API 준비 후 활성화됩니다: ${item.product_name}`
-    );
+    if (!item.naver_product_id) {
+      toast.error("상품 식별자가 없어 다시 포함할 수 없습니다");
+      return;
+    }
+    addIncludedOverrideMutation.mutate({
+      naver_product_id: item.naver_product_id,
+      product_name: item.product_name,
+      mall_name: item.mall_name,
+    });
   };
 
   const requestExclude = (item: {
@@ -419,7 +471,13 @@ export function KeywordRankingList({
                 const currentOffset = hasActions
                   ? swipeOffsets[itemKey] ?? (openItemKey === itemKey ? actionWidth : 0)
                   : 0;
-                const inferredFilterReasons = inferFilterReasons(item);
+                const relevanceReasonLabels = getRelevanceReasonLabels(item);
+                const showIncludeControls =
+                  !item.is_my_store &&
+                  Boolean(item.naver_product_id) &&
+                  (!item.is_relevant || item.is_included_override);
+                const includeActionPending =
+                  addIncludedOverrideMutation.isPending || removeIncludedOverrideMutation.isPending;
 
                 return (
                   <div key={item.id}>
@@ -502,6 +560,11 @@ export function KeywordRankingList({
                                 내 스토어
                               </span>
                             )}
+                            {item.is_included_override && (
+                              <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                                수동 포함 예외
+                              </span>
+                            )}
                             {displayRank === 1 && (
                               <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                             )}
@@ -510,19 +573,21 @@ export function KeywordRankingList({
                             {item.product_name}
                           </div>
                           {renderBrandMaker(item.brand, item.maker)}
-                          {!item.is_relevant && !item.is_my_store && (
+                          {showIncludeControls && (
                             <div className="mt-1 space-y-1">
-                              <div className="flex flex-wrap gap-1">
-                                {inferredFilterReasons.map((reason) => (
-                                  <span
-                                    key={`${item.id}-${reason}`}
-                                    className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                                    title="검색 정확도 설정 기준 추정 사유"
-                                  >
-                                    {reason}
-                                  </span>
-                                ))}
-                              </div>
+                              {!item.is_relevant && relevanceReasonLabels.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {relevanceReasonLabels.map((reason) => (
+                                    <span
+                                      key={`${item.id}-${reason}`}
+                                      className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                      title="자동필터/제외 사유"
+                                    >
+                                      {reason}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                               <div className="flex flex-wrap gap-1.5">
                                 <a
                                   href="#basic-info"
@@ -532,16 +597,22 @@ export function KeywordRankingList({
                                 </a>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    handleRequestIncludeOverride({
+                                  onClick={() => {
+                                    if (item.is_included_override && item.naver_product_id) {
+                                      removeIncludedOverrideMutation.mutate(item.naver_product_id);
+                                      return;
+                                    }
+                                    handleAddIncludedOverride({
                                       naver_product_id: item.naver_product_id,
                                       product_name: item.product_name,
-                                    })
-                                  }
+                                      mall_name: item.mall_name,
+                                    });
+                                  }}
+                                  disabled={includeActionPending}
                                   className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-500 hover:bg-blue-500/15"
-                                  title="백엔드 예외복원 API 준비 후 활성화 예정"
+                                  title={item.is_included_override ? "수동 포함 예외 해제" : "자동필터 예외로 다시 포함"}
                                 >
-                                  다시 포함(준비중)
+                                  {includeActionPending ? "처리 중..." : item.is_included_override ? "예외 해제" : "다시 포함"}
                                 </button>
                               </div>
                             </div>
@@ -609,6 +680,11 @@ export function KeywordRankingList({
                               내 스토어
                             </span>
                           )}
+                          {item.is_included_override && (
+                            <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                              수동 포함 예외
+                            </span>
+                          )}
                           {displayRank === 1 && (
                             <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                           )}
@@ -617,19 +693,21 @@ export function KeywordRankingList({
                           {item.product_name}
                         </div>
                         {renderBrandMaker(item.brand, item.maker)}
-                        {!item.is_relevant && !item.is_my_store && (
+                        {showIncludeControls && (
                           <div className="mt-1 space-y-1">
-                            <div className="flex flex-wrap gap-1">
-                              {inferredFilterReasons.map((reason) => (
-                                <span
-                                  key={`${item.id}-${reason}`}
-                                  className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                                  title="검색 정확도 설정 기준 추정 사유"
-                                >
-                                  {reason}
-                                </span>
-                              ))}
-                            </div>
+                            {!item.is_relevant && relevanceReasonLabels.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {relevanceReasonLabels.map((reason) => (
+                                  <span
+                                    key={`${item.id}-${reason}`}
+                                    className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                    title="자동필터/제외 사유"
+                                  >
+                                    {reason}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex flex-wrap gap-1.5">
                               <a
                                 href="#basic-info"
@@ -639,16 +717,22 @@ export function KeywordRankingList({
                               </a>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleRequestIncludeOverride({
+                                onClick={() => {
+                                  if (item.is_included_override && item.naver_product_id) {
+                                    removeIncludedOverrideMutation.mutate(item.naver_product_id);
+                                    return;
+                                  }
+                                  handleAddIncludedOverride({
                                     naver_product_id: item.naver_product_id,
                                     product_name: item.product_name,
-                                  })
-                                }
+                                    mall_name: item.mall_name,
+                                  });
+                                }}
+                                disabled={includeActionPending}
                                 className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-500 hover:bg-blue-500/15"
-                                title="백엔드 예외복원 API 준비 후 활성화 예정"
+                                title={item.is_included_override ? "수동 포함 예외 해제" : "자동필터 예외로 다시 포함"}
                               >
-                                다시 포함(준비중)
+                                {includeActionPending ? "처리 중..." : item.is_included_override ? "예외 해제" : "다시 포함"}
                               </button>
                             </div>
                           </div>

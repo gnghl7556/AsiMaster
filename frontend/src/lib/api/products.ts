@@ -4,6 +4,7 @@ import type {
   ProductDetail,
   SortOption,
   ExcludedProduct,
+  IncludedOverride,
   StoreProduct,
   StoreImportResult,
   NaverCategoryTree,
@@ -75,6 +76,11 @@ export const productsApi = {
       .get<ExcludedProduct[]>(`/products/${productId}/excluded`)
       .then((r) => r.data),
 
+  getIncludedOverrides: (productId: number) =>
+    apiClient
+      .get<IncludedOverride[]>(`/products/${productId}/included`)
+      .then((r) => r.data),
+
   excludeProduct: (productId: number, data: { naver_product_id: string; naver_product_name?: string; mall_name?: string }) =>
     apiClient
       .post<ExcludedProduct>(`/products/${productId}/excluded`, data)
@@ -82,6 +88,17 @@ export const productsApi = {
 
   unexcludeProduct: (productId: number, naverProductId: string) =>
     apiClient.delete(`/products/${productId}/excluded/${naverProductId}`),
+
+  addIncludedOverride: (
+    productId: number,
+    data: { naver_product_id: string; naver_product_name?: string; mall_name?: string }
+  ) =>
+    apiClient
+      .post<IncludedOverride>(`/products/${productId}/included`, data)
+      .then((r) => r.data),
+
+  removeIncludedOverride: (productId: number, naverProductId: string) =>
+    apiClient.delete(`/products/${productId}/included/${naverProductId}`),
 
   previewStoreProducts: (userId: number, storeUrl: string) =>
     apiClient

@@ -74,6 +74,8 @@ export interface RankingItem {
   naver_product_id: string | null;
   is_my_store: boolean;
   is_relevant: boolean;
+  is_included_override: boolean;
+  relevance_reason: string | null;
   hprice: number;
   brand: string | null;
   maker: string | null;
@@ -88,6 +90,14 @@ export interface RankingItem {
 }
 
 export interface ExcludedProduct {
+  id: number;
+  naver_product_id: string;
+  naver_product_name: string | null;
+  mall_name: string | null;
+  created_at: string;
+}
+
+export interface IncludedOverride {
   id: number;
   naver_product_id: string;
   naver_product_name: string | null;
