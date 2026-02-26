@@ -25,6 +25,13 @@ class CrawlStatus(BaseModel):
     last_success_rate: float | None
 
 
+class CrawlStatusResponse(BaseModel):
+    total_keywords: int
+    last_24h_success: int
+    last_24h_failed: int
+    avg_duration_ms: int | None
+
+
 class CrawlLogResponse(BaseModel):
     id: int
     keyword_id: int | None

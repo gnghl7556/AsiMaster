@@ -10,12 +10,12 @@ from app.crawlers.manager import shared_manager as manager, CrawlAlreadyRunningE
 from app.models.crawl_log import CrawlLog
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
-from app.schemas.crawl import CrawlBatchResult, CrawlKeywordResult, CrawlLogResponse
+from app.schemas.crawl import CrawlBatchResult, CrawlKeywordResult, CrawlLogResponse, CrawlStatusResponse
 
 router = APIRouter(prefix="/crawl", tags=["crawl"])
 
 
-@router.post("/product/{product_id}")
+@router.post("/product/{product_id}", response_model=list[CrawlKeywordResult])
 async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
     product = await db.get(Product, product_id)
     if not product:
@@ -50,7 +50,7 @@ async def crawl_user(user_id: int, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.get("/status/{user_id}")
+@router.get("/status/{user_id}", response_model=CrawlStatusResponse)
 async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
     # 전체 키워드 수
     total_q = await db.execute(

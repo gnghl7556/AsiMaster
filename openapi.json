@@ -1269,7 +1269,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MarginResult"
+                }
               }
             }
           },
@@ -1309,7 +1311,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SimulateRequest"
+                "$ref": "#/components/schemas/MarginSimulateRequest"
               }
             }
           }
@@ -1319,7 +1321,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MarginResult"
+                }
               }
             }
           },
@@ -1636,7 +1640,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PriceHistoryItem"
+                  },
+                  "title": "Response Get Price History Api V1 Products  Product Id  Price History Get"
+                }
               }
             }
           },
@@ -1676,7 +1686,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PriceSnapshotItem"
+                  },
+                  "title": "Response Get Price Snapshot Api V1 Products  Product Id  Price Snapshot Get"
+                }
               }
             }
           },
@@ -1798,7 +1814,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CrawlKeywordResult"
+                  },
+                  "title": "Response Crawl Product Api V1 Crawl Product  Product Id  Post"
+                }
               }
             }
           },
@@ -1878,7 +1900,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CrawlStatusResponse"
+                }
               }
             }
           },
@@ -2182,7 +2206,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NaverCategoryTree"
+                }
               }
             }
           }
@@ -2872,6 +2898,46 @@
         "type": "object",
         "title": "CostPresetUpdate"
       },
+      "CrawlKeywordResult": {
+        "properties": {
+          "keyword_id": {
+            "type": "integer",
+            "title": "Keyword Id"
+          },
+          "keyword": {
+            "type": "string",
+            "title": "Keyword"
+          },
+          "items_count": {
+            "type": "integer",
+            "title": "Items Count"
+          },
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword_id",
+          "keyword",
+          "items_count",
+          "success",
+          "error"
+        ],
+        "title": "CrawlKeywordResult"
+      },
       "CrawlLogResponse": {
         "properties": {
           "id": {
@@ -2931,6 +2997,41 @@
           "created_at"
         ],
         "title": "CrawlLogResponse"
+      },
+      "CrawlStatusResponse": {
+        "properties": {
+          "total_keywords": {
+            "type": "integer",
+            "title": "Total Keywords"
+          },
+          "last_24h_success": {
+            "type": "integer",
+            "title": "Last 24H Success"
+          },
+          "last_24h_failed": {
+            "type": "integer",
+            "title": "Last 24H Failed"
+          },
+          "avg_duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_keywords",
+          "last_24h_success",
+          "last_24h_failed",
+          "avg_duration_ms"
+        ],
+        "title": "CrawlStatusResponse"
       },
       "CreatedProductMapping": {
         "properties": {
@@ -3458,6 +3559,152 @@
         ],
         "title": "MarginDetail"
       },
+      "MarginResult": {
+        "properties": {
+          "selling_price": {
+            "type": "integer",
+            "title": "Selling Price"
+          },
+          "cost_price": {
+            "type": "integer",
+            "title": "Cost Price"
+          },
+          "total_costs": {
+            "type": "integer",
+            "title": "Total Costs"
+          },
+          "cost_items": {
+            "items": {
+              "$ref": "#/components/schemas/CostItemCalculated"
+            },
+            "type": "array",
+            "title": "Cost Items"
+          },
+          "net_margin": {
+            "type": "integer",
+            "title": "Net Margin"
+          },
+          "margin_percent": {
+            "type": "number",
+            "title": "Margin Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "selling_price",
+          "cost_price",
+          "total_costs",
+          "cost_items",
+          "net_margin",
+          "margin_percent"
+        ],
+        "title": "MarginResult"
+      },
+      "MarginSimulateRequest": {
+        "properties": {
+          "selling_price": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Selling Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "selling_price"
+        ],
+        "title": "MarginSimulateRequest"
+      },
+      "NaverCategory": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "product_count": {
+            "type": "integer",
+            "title": "Product Count"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/NaverCategory"
+            },
+            "type": "array",
+            "title": "Children"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "product_count",
+          "children"
+        ],
+        "title": "NaverCategory"
+      },
+      "NaverCategoryTree": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/NaverCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "total_paths": {
+            "type": "integer",
+            "title": "Total Paths"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "total_paths"
+        ],
+        "title": "NaverCategoryTree"
+      },
+      "PriceHistoryItem": {
+        "properties": {
+          "keyword_id": {
+            "type": "integer",
+            "title": "Keyword Id"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "price": {
+            "type": "integer",
+            "title": "Price"
+          },
+          "mall_name": {
+            "type": "string",
+            "title": "Mall Name"
+          },
+          "is_my_store": {
+            "type": "boolean",
+            "title": "Is My Store"
+          },
+          "crawled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Crawled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword_id",
+          "rank",
+          "product_name",
+          "price",
+          "mall_name",
+          "is_my_store",
+          "crawled_at"
+        ],
+        "title": "PriceHistoryItem"
+      },
       "PriceLockUpdate": {
         "properties": {
           "is_locked": {
@@ -3481,6 +3728,55 @@
           "is_locked"
         ],
         "title": "PriceLockUpdate"
+      },
+      "PriceSnapshotItem": {
+        "properties": {
+          "keyword_id": {
+            "type": "integer",
+            "title": "Keyword Id"
+          },
+          "keyword": {
+            "type": "string",
+            "title": "Keyword"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "price": {
+            "type": "integer",
+            "title": "Price"
+          },
+          "mall_name": {
+            "type": "string",
+            "title": "Mall Name"
+          },
+          "is_my_store": {
+            "type": "boolean",
+            "title": "Is My Store"
+          },
+          "crawled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Crawled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword_id",
+          "keyword",
+          "rank",
+          "product_name",
+          "price",
+          "mall_name",
+          "is_my_store",
+          "crawled_at"
+        ],
+        "title": "PriceSnapshotItem"
       },
       "ProductCreate": {
         "properties": {
@@ -4961,19 +5257,6 @@
           "crawled_at"
         ],
         "title": "RankingItemResponse"
-      },
-      "SimulateRequest": {
-        "properties": {
-          "selling_price": {
-            "type": "integer",
-            "title": "Selling Price"
-          }
-        },
-        "type": "object",
-        "required": [
-          "selling_price"
-        ],
-        "title": "SimulateRequest"
       },
       "StatusCounts": {
         "properties": {

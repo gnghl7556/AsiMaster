@@ -8,6 +8,7 @@ from app.core.deps import get_db
 from app.core.utils import utcnow
 from app.models.keyword_ranking import KeywordRanking
 from app.models.search_keyword import SearchKeyword
+from app.schemas.price import PriceHistoryItem, PriceSnapshotItem
 from app.services.product_service import _fetch_latest_rankings
 
 router = APIRouter(tags=["prices"])
@@ -15,7 +16,7 @@ router = APIRouter(tags=["prices"])
 PERIOD_DAYS = {"1d": 1, "7d": 7, "30d": 30}
 
 
-@router.get("/products/{product_id}/price-history")
+@router.get("/products/{product_id}/price-history", response_model=list[PriceHistoryItem])
 async def get_price_history(
     product_id: int,
     period: str = Query("7d", pattern="^(1d|7d|30d)$"),
@@ -55,7 +56,7 @@ async def get_price_history(
     ]
 
 
-@router.get("/products/{product_id}/price-snapshot")
+@router.get("/products/{product_id}/price-snapshot", response_model=list[PriceSnapshotItem])
 async def get_price_snapshot(product_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SearchKeyword).where(

@@ -94,11 +94,12 @@ async def check_price_undercut(
     if not all_latest:
         return
 
-    lowest = min(all_latest, key=lambda r: r.price)
-    if lowest.price >= product.selling_price:
+    lowest = min(all_latest, key=lambda r: r.price + (r.shipping_fee or 0))
+    lowest_total = lowest.price + (lowest.shipping_fee or 0)
+    if lowest_total >= product.selling_price:
         return
 
-    gap = product.selling_price - lowest.price
+    gap = product.selling_price - lowest_total
     gap_percent = (gap / product.selling_price) * 100 if product.selling_price > 0 else 0
 
     # 중복 알림 방지: 24시간 내 동일 상품의 읽지 않은 price_undercut 알림이 있으면 스킵
@@ -106,7 +107,7 @@ async def check_price_undercut(
         return
 
     title = f"{product.name} - 최저가 이탈"
-    message = f"{lowest.mall_name} {lowest.price:,}원 (내 가격 대비 -{gap:,}원, -{gap_percent:.1f}%)"
+    message = f"{lowest.mall_name} {lowest_total:,}원 (내 가격 대비 -{gap:,}원, -{gap_percent:.1f}%)"
     alert = Alert(
         user_id=product.user_id,
         product_id=product.id,
@@ -116,7 +117,7 @@ async def check_price_undercut(
         data={
             "keyword": lowest.keyword.keyword if hasattr(lowest, 'keyword') and lowest.keyword else "",
             "my_price": product.selling_price,
-            "competitor_price": lowest.price,
+            "competitor_price": lowest_total,
             "competitor_name": lowest.mall_name,
             "gap": gap,
             "gap_percent": round(gap_percent, 1),

@@ -73,6 +73,7 @@ async def add_included_override(
             )
             .values(is_relevant=True, relevance_reason="included_override")
         )
+        await db.flush()
 
     return override
 
