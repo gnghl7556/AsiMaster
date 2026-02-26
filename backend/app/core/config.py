@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     SPARKLINE_DAYS: int = 7
     MAX_KEYWORDS_PER_PRODUCT: int = 5
 
+    LOG_FORMAT: str = "json"  # "json" | "text"
+    LOG_LEVEL: str = "INFO"
+
     PORT: int = 8000
 
     model_config = {"env_file": ".env", "extra": "ignore"}
