@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,13 +30,22 @@ async def get_cost_items(product_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.put("/products/{product_id}/costs", response_model=list[CostItemResponse])
 async def save_cost_items(
-    product_id: int, items: list[CostItemCreate], db: AsyncSession = Depends(get_db)
+    product_id: int,
+    items: list[CostItemCreate],
+    preset_id: int | None = Query(None, description="프리셋 기반 저장 시 프리셋 ID"),
+    db: AsyncSession = Depends(get_db),
 ):
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    # 수동 수정 시 프리셋 연결 해제
-    product.cost_preset_id = None
+    # preset_id 전달 시 프리셋 연결 유지, 미전달 시 해제
+    if preset_id is not None:
+        preset = await db.get(CostPreset, preset_id)
+        if not preset:
+            raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
+        product.cost_preset_id = preset_id
+    else:
+        product.cost_preset_id = None
     await db.execute(delete(CostItem).where(CostItem.product_id == product_id))
     new_items = []
     for item in items:
@@ -101,7 +110,14 @@ async def apply_cost_preset(
 
     result = await apply_preset_to_products(db, preset, data.product_ids)
     if result["applied"] == 0:
-        raise HTTPException(400, "적용 가능한 상품이 없습니다.")
+        raise HTTPException(
+            400,
+            detail={
+                "message": "적용 가능한 상품이 없습니다.",
+                "skipped_ids": result["skipped_ids"],
+                "reason": result.get("skipped_reason", "요청한 상품이 존재하지 않거나 다른 사업체 소속입니다."),
+            },
+        )
     return result
 
 

@@ -969,6 +969,24 @@
               "type": "integer",
               "title": "Product Id"
             }
+          },
+          {
+            "name": "preset_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "프리셋 기반 저장 시 프리셋 ID",
+              "title": "Preset Id"
+            },
+            "description": "프리셋 기반 저장 시 프리셋 ID"
           }
         ],
         "requestBody": {
@@ -2788,6 +2806,17 @@
             "type": "array",
             "title": "Skipped Ids",
             "default": []
+          },
+          "skipped_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Reason"
           }
         },
         "type": "object",

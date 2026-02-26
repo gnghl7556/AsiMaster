@@ -24,7 +24,7 @@ from app.main import app  # noqa: E402
 
 spec = app.openapi()
 output_path = Path(__file__).resolve().parent.parent.parent / "openapi.json"
-output_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False))
+output_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
 
 paths_count = len(spec.get("paths", {}))
 schemas_count = len(spec.get("components", {}).get("schemas", {}))

@@ -40,6 +40,7 @@ class CostPresetApplyResponse(BaseModel):
     applied: int
     skipped: int
     skipped_ids: list[int] = []
+    skipped_reason: str | None = None
 
 
 class CostItemCalculated(BaseModel):
