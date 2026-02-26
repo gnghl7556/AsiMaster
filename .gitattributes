@@ -1,0 +1,21 @@
+# Cross-platform line ending normalization (Mac ↔ Windows)
+# All text files: LF in repo, auto-convert on checkout
+* text=auto eol=lf
+
+# Explicitly mark binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Ensure shell scripts always LF (even on Windows Git Bash)
+*.sh text eol=lf
+
+# Windows batch files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
