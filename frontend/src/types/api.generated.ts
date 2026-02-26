@@ -832,6 +832,8 @@ export interface components {
              * @default []
              */
             skipped_ids: number[];
+            /** Skipped Reason */
+            skipped_reason?: string | null;
         };
         /** CostPresetCreate */
         CostPresetCreate: {
@@ -2345,7 +2347,10 @@ export interface operations {
     };
     save_cost_items_api_v1_products__product_id__costs_put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 프리셋 기반 저장 시 프리셋 ID */
+                preset_id?: number | null;
+            };
             header?: never;
             path: {
                 product_id: number;
