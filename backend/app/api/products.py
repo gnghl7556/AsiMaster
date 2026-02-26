@@ -31,7 +31,7 @@ async def get_products(
     search: str | None = None,
     sort: str | None = Query(None, description="urgency|margin|rank_drop|category"),
     page: int = Query(1, ge=1, description="페이지 번호"),
-    limit: int = Query(50, ge=1, le=200, description="페이지당 항목 수"),
+    limit: int = Query(50, ge=1, le=500, description="페이지당 항목 수"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_product_list_items(

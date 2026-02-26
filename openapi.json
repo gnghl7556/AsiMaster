@@ -280,7 +280,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 200,
+              "maximum": 500,
               "minimum": 1,
               "description": "페이지당 항목 수",
               "default": 50,
