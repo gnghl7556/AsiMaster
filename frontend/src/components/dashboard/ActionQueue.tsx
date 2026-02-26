@@ -33,7 +33,7 @@ function buildQueue(
 ): QueueItem[] {
   const active = products.filter((p) => !p.is_price_locked);
   const isPriceLosing = (p: ProductListItem) =>
-    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
+    p.price_gap != null ? p.price_gap > 0 : p.status === "losing";
   const queue = active
     .filter(
       (p) =>

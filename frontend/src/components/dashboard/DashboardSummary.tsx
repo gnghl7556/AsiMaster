@@ -48,13 +48,13 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
   const isPriceLosing = (p: (typeof activeProducts)[number]) =>
-    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
+    p.price_gap != null ? p.price_gap > 0 : p.status === "losing";
   const normalProductsCount = activeProducts.filter((p) => !isPriceLosing(p)).length;
   const samePriceCount = products.filter(
     (p) => !p.is_price_locked && p.price_gap === 0
   ).length;
   const losingProducts = products.filter(
-    (p) => !p.is_price_locked && (p.price_gap != null ? p.price_gap < 0 : p.status === "losing")
+    (p) => !p.is_price_locked && (p.price_gap != null ? p.price_gap > 0 : p.status === "losing")
   );
   const samePriceProducts = activeProducts.filter((p) => p.price_gap === 0);
 

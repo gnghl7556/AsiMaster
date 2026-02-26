@@ -32,7 +32,7 @@ export function getDisplayStatus(
   priceGap?: number | null
 ): ProductStatus {
   // 사용자 행동 기준: 1원이라도 비싸면 사실상 '밀림'으로 간주
-  if (status === "close" && priceGap != null && priceGap < 0) {
+  if (status === "close" && priceGap != null && priceGap > 0) {
     return "losing";
   }
   return status;

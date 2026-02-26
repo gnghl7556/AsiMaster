@@ -11,7 +11,7 @@ export function SummaryBar({ products, scopeLabel = "관리 중" }: SummaryBarPr
   const active = products.filter((p) => !p.is_price_locked);
   const locked = products.filter((p) => p.is_price_locked);
   const isPriceLosing = (p: ProductListItem) =>
-    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
+    p.price_gap != null ? p.price_gap > 0 : p.status === "losing";
   const winning = active.filter((p) => !isPriceLosing(p) && p.status === "winning").length;
   const close = active.filter((p) => !isPriceLosing(p) && p.status === "close").length;
   const losing = active.filter((p) => isPriceLosing(p)).length;
