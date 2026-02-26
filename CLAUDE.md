@@ -167,6 +167,13 @@ cd frontend && npm run generate-types
 - `openapi.json` (프로젝트 루트) — 공유 API 명세 (git 커밋)
 - `frontend/src/types/api.generated.ts` — 자동 생성 타입 (openapi-typescript)
 - `frontend/src/types/index.ts` — re-export 레이어 (안정 타입명 유지)
+- `.github/workflows/sync-types.yml` — GitHub Action (openapi.json 변경 시 자동 PR 생성)
+
+**자동화 흐름:**
+1. Claude Code가 `openapi.json` 포함하여 push
+2. GitHub Action이 `npm run generate-types` 실행
+3. 타입 변경이 있으면 자동 PR 생성 (branch: `auto/sync-types-*`)
+4. Codex는 해당 PR을 기반으로 프론트엔드 수정
 
 ## API 변경 이력
 

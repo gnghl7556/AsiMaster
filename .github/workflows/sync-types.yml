@@ -1,0 +1,64 @@
+name: Sync OpenAPI Types
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'openapi.json'
+
+jobs:
+  generate-types:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate TypeScript types from OpenAPI
+        working-directory: frontend
+        run: npm run generate-types
+
+      - name: Check for type changes
+        id: diff
+        run: |
+          git diff --exit-code frontend/src/types/api.generated.ts && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create PR with type updates
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="auto/sync-types-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git add frontend/src/types/api.generated.ts
+          git commit -m "chore(frontend): auto-generate TypeScript types from OpenAPI spec"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: sync frontend types from OpenAPI spec" \
+            --body "$(cat <<'EOF'
+          ## Auto-generated TypeScript types
+
+          Backend API schema (`openapi.json`) has changed. This PR updates the auto-generated TypeScript types.
+
+          **Next steps for Codex:**
+          1. Review type changes in `frontend/src/types/api.generated.ts`
+          2. Update `frontend/src/types/index.ts` re-exports if new schemas were added
+          3. Fix any TypeScript compilation errors caused by type changes
+          EOF
+          )" \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
