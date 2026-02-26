@@ -8,8 +8,11 @@
 - **Backend**: FastAPI + SQLAlchemy (async) + PostgreSQL (asyncpg)
 - **Frontend**: Next.js 15 (App Router) + React 19 + TailwindCSS 4 + Tanstack Query
 - **DB**: Railway PostgreSQL
+- **마이그레이션**: Alembic (async)
 - **배포**: Railway (backend: Docker), Vercel (frontend)
 - **크롤링**: 네이버 쇼핑 검색 API (openapi.naver.com)
+- **모니터링**: Sentry (에러 추적), 구조화 JSON 로깅 (python-json-logger)
+- **테스트**: pytest + pytest-asyncio + SQLite in-memory
 
 ## 디렉토리 구조
 ```
@@ -17,12 +20,15 @@ asimaster/
   backend/          # FastAPI (Python 3.11)
     app/
       api/          # 라우터 (users, products, keywords, crawl, costs, alerts, etc)
-      core/         # config.py, database.py, deps.py
+      core/         # config.py, database.py, deps.py, logging.py
       crawlers/     # naver.py (네이버 API 크롤러), manager.py
       models/       # SQLAlchemy 모델
       schemas/      # Pydantic 스키마
-      services/     # 비즈니스 로직 (product_service, alert_service, margin_service)
+      services/     # 비즈니스 로직 (product_service, alert_service, cost_service, etc)
       scheduler/    # APScheduler 크롤링 스케줄러
+    migrations/     # Alembic 마이그레이션
+    scripts/        # export_openapi.py (OpenAPI spec 내보내기)
+    tests/          # pytest 통합 테스트
     Dockerfile
     railway.toml
     requirements.txt
@@ -42,6 +48,12 @@ DATABASE_URL=postgresql+asyncpg://...@crossover.proxy.rlwy.net:38339/railway
 NAVER_CLIENT_ID=<네이버 개발자센터 Client ID>
 NAVER_CLIENT_SECRET=<네이버 개발자센터 Client Secret>
 CORS_ORIGINS=["http://localhost:3000","https://<vercel-domain>"]
+
+# 선택적 설정 (기본값 있음)
+SENTRY_DSN=                          # 비어있으면 Sentry 비활성화
+SENTRY_TRACES_SAMPLE_RATE=0.1        # 트레이스 샘플링 비율
+LOG_FORMAT=json                      # "json" (프로덕션) | "text" (로컬 개발)
+LOG_LEVEL=INFO
 ```
 
 ### frontend/.env.local
@@ -55,6 +67,15 @@ NEXT_PUBLIC_API_URL=https://<railway-backend-domain>/api/v1
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --port 8000
+
+# 테스트
+cd backend
+python -m pytest tests/ -v
+
+# 마이그레이션
+cd backend
+alembic revision --autogenerate -m "description"   # 마이그레이션 파일 생성
+alembic upgrade head                                # 적용
 
 # Frontend
 cd frontend
@@ -121,6 +142,13 @@ Product → CostItems
 18. 상품 DB화 (모델명 기반 제품 속성 구조화: brand, maker, series, capacity, color, material, product_attributes)
 19. 비용 프리셋 복수 적용 (프리셋 수정 + 복수 상품 일괄 적용 + cost_preset_id 추적)
 20. 수동 포함 예외 (자동 필터 우회: included_overrides 테이블 + relevance_reason 추적)
+21. OpenAPI → TypeScript 타입 자동 동기화 (openapi.json + GitHub Action + openapi-typescript)
+22. Alembic 마이그레이션 (수동 ALTER TABLE 130줄 → Alembic async 프레임워크)
+23. Sentry 에러 추적 (SENTRY_DSN 설정 시 자동 활성화)
+24. 구조화 JSON 로깅 (LOG_FORMAT=json/text 전환 가능)
+25. pytest 통합 테스트 (14개: 비즈니스 로직 9 + API 5, SQLite in-memory)
+26. 크롤링 메트릭스 (/health에 24시간 크롤링 통계 포함)
+27. 서비스 레이어 분리 (category_service, cost_service, price_service — thin controller 패턴)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -131,9 +159,30 @@ Product → CostItems
 
 ## 주의사항
 - Railway DB public URL 사용 (internal URL은 로컬에서 접근 불가)
-- crawl_logs 테이블은 수동 마이그레이션 완료 (keyword_id 컬럼)
-- create_all로 테이블 자동 생성, ALTER TABLE은 main.py lifespan에서 처리
+- DB 스키마 변경은 **Alembic 마이그레이션**으로 관리 (main.py의 수동 ALTER TABLE 제거됨)
+- `Base.metadata.create_all`은 새 테이블 초기 생성용 fallback으로만 유지
 - `.env` 파일은 gitignore됨 - 새 환경에서 직접 설정 필요
+- `SENTRY_DSN` 미설정 시 Sentry 비활성화 (프로덕션 전용)
+- `LOG_FORMAT=text`로 로컬 개발 시 가독성 좋은 텍스트 로그 출력
+
+## config.py 설정 일람
+모든 매직넘버가 `config.py`의 `Settings` 클래스로 통합됨 (환경변수로 오버라이드 가능):
+
+| 설정 | 기본값 | 설명 |
+|------|--------|------|
+| `CRAWL_DEFAULT_INTERVAL_MIN` | 60 | 기본 크롤링 주기 (분) |
+| `CRAWL_MAX_RETRIES` | 3 | 크롤링 재시도 횟수 |
+| `CRAWL_REQUEST_DELAY_MIN/MAX` | 2/5 | 키워드 간 크롤링 딜레이 (초) |
+| `CRAWL_CONCURRENCY` | 5 | 병렬 크롤링 동시 실행 수 |
+| `CRAWL_SHIPPING_CONCURRENCY` | 3 | 배송비 스크래핑 동시 실행 수 |
+| `CRAWL_SHIPPING_TIMEOUT` | 8 | 배송비 스크래핑 타임아웃 (초) |
+| `CRAWL_API_TIMEOUT` | 10 | 네이버 API 클라이언트 타임아웃 (초) |
+| `SCHEDULER_CHECK_INTERVAL_MIN` | 10 | 스케줄러 체크 주기 (분) |
+| `DATA_RETENTION_DAYS` | 30 | 오래된 데이터 보존 기간 (일) |
+| `CLEANUP_BATCH_SIZE` | 10000 | 데이터 정리 배치 크기 |
+| `ALERT_DEDUP_HOURS` | 24 | 알림 중복 방지 기간 (시간) |
+| `SPARKLINE_DAYS` | 7 | 스파크라인/순위변동 조회 기간 (일) |
+| `MAX_KEYWORDS_PER_PRODUCT` | 5 | 상품당 최대 키워드 수 |
 
 ## AI 에이전트 협업 가이드
 
@@ -456,3 +505,48 @@ cd frontend && npm run generate-types
 **즉시 반영 정책:**
 - override 추가 시: 해당 naver_product_id의 기존 rankings → is_relevant=True 즉시 UPDATE
 - override 삭제 시: 다음 크롤링에서 _check_relevance() 재판정 (즉시 반영 없음)
+
+### 2026-02-26: 백엔드 아키텍처 개선 + 유지보수 인프라 구축
+
+**Alembic 마이그레이션 도입:**
+- `alembic init -t async migrations` → async 마이그레이션 프레임워크
+- `migrations/env.py`: app의 config/models 동적 임포트
+- baseline migration `fa420faac16c` 생성 + 기존 DB stamp
+- main.py에서 수동 ALTER TABLE 130줄 제거 (31개 컬럼 + 3개 인덱스 + 1개 FK)
+
+**매직넘버 → config.py 통합 (10개):**
+- `CRAWL_SHIPPING_CONCURRENCY`, `CRAWL_SHIPPING_TIMEOUT`, `CRAWL_API_TIMEOUT`
+- `SCHEDULER_CHECK_INTERVAL_MIN`, `DATA_RETENTION_DAYS`, `CLEANUP_BATCH_SIZE`
+- `ALERT_DEDUP_HOURS`, `SPARKLINE_DAYS`, `MAX_KEYWORDS_PER_PRODUCT`
+
+**Sentry 에러 추적:**
+- `sentry-sdk[fastapi]` 추가, `SENTRY_DSN` 설정 시 자동 초기화
+- `SENTRY_TRACES_SAMPLE_RATE` (기본 0.1) 환경변수 조절 가능
+
+**구조화 JSON 로깅:**
+- `python-json-logger` 추가, `app/core/logging.py` 모듈
+- `LOG_FORMAT=json` (프로덕션) / `LOG_FORMAT=text` (로컬) 전환
+- `LOG_LEVEL` 환경변수로 레벨 조절
+
+**pytest 통합 테스트 (14개):**
+- `tests/conftest.py`: SQLite in-memory + FastAPI TestClient 픽스처
+- `tests/test_business_logic.py`: 가격 상태 판정 6개 + 마진 계산 3개
+- `tests/test_users.py`: User CRUD API 4개
+- `tests/test_health.py`: 헬스체크 1개
+- `app/core/database.py`: SQLite 호환 엔진 설정 (pool_size 조건부 적용)
+
+**크롤링 메트릭스 (/health 확장):**
+- `crawl_metrics_24h`: 최근 24시간 크롤링 통계
+  - `total`, `success`, `failed`, `success_rate` (%), `avg_duration_ms`
+
+**서비스 레이어 분리 (thin controller 패턴):**
+- `category_service.py`: 카테고리 트리 빌드 로직 (categories.py에서 추출)
+- `cost_service.py`: 프리셋 적용 로직 (costs.py에서 추출)
+- `price_service.py`: 가격 히스토리/스냅샷 로직 (prices.py에서 추출)
+
+**기타 품질 개선:**
+- alert_service: 무한정 쿼리 → `_fetch_latest_rankings()` 재사용 (bounded query)
+- push_service: `webpush()` 동기 호출 → `asyncio.to_thread()` 비동기 래핑
+- 복합 인덱스 추가: `(keyword_id, is_relevant, crawled_at)`
+- 사용하지 않는 compat 라우트 4개 제거, dead code 삭제
+- 모든 엔드포인트에 `response_model` 명시 (OpenAPI spec 완전성)
