@@ -525,7 +525,10 @@ export function KeywordRankingList({
                         className={cn(
                           "flex items-center gap-3 px-4 py-3 transition-transform duration-200 ease-out bg-[var(--card)]",
                           item.is_my_store && "ring-1 ring-inset ring-blue-500/20",
-                          !item.is_relevant && "opacity-50"
+                          !item.is_relevant &&
+                            (showIncludeControls
+                              ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/10"
+                              : "opacity-50")
                         )}
                         style={{
                           transform: hasActions
@@ -654,7 +657,10 @@ export function KeywordRankingList({
                       className={cn(
                         "hidden md:flex items-center gap-3 px-4 py-3",
                         item.is_my_store && "bg-blue-500/5",
-                        !item.is_relevant && "opacity-50"
+                        !item.is_relevant &&
+                          (showIncludeControls
+                            ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/10"
+                            : "opacity-50")
                       )}
                     >
                       <div

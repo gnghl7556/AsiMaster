@@ -23,11 +23,20 @@ export default function CostPresetsPage() {
     queryFn: () => costsApi.getPresets(userId!),
     enabled: !!userId,
   });
-  const { data: products = [] } = useQuery({
+  const {
+    data: productsData,
+    isLoading: isProductsLoading,
+    isError: isProductsError,
+    error: productsError,
+    refetch: refetchProductsForApply,
+  } = useQuery({
     queryKey: ["products", userId, "preset-apply-picker"],
-    queryFn: () => productsApi.getList(userId!, { limit: 500 }),
+    queryFn: () => productsApi.getList(userId!, { page: 1, limit: 500 }),
     enabled: !!userId && !!applyTarget,
   });
+  const products = Array.isArray(productsData)
+    ? productsData
+    : ((productsData as { items?: any[] } | undefined)?.items ?? []);
 
   const deleteMutation = useMutation({
     mutationFn: (presetId: number) => costsApi.deletePreset(presetId),
@@ -217,7 +226,37 @@ export default function CostPresetsPage() {
             </div>
 
             <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] p-2">
-              {products.map((product) => {
+              {isProductsLoading ? (
+                <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+                  <div className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    상품 목록 불러오는 중...
+                  </div>
+                </div>
+              ) : isProductsError ? (
+                <div className="space-y-2 py-4 text-center">
+                  <div className="text-sm text-red-500">
+                    상품 목록을 불러오지 못했습니다
+                  </div>
+                  <div className="text-xs text-[var(--muted-foreground)] break-all px-2">
+                    {(productsError as any)?.response?.data?.detail ||
+                      (productsError as Error)?.message ||
+                      "알 수 없는 오류"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => refetchProductsForApply()}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+                  적용 가능한 상품이 없습니다
+                </div>
+              ) : (
+                products.map((product) => {
                 const checked = selectedProductIds.has(product.id);
                 return (
                   <button
@@ -247,7 +286,8 @@ export default function CostPresetsPage() {
                     </div>
                   </button>
                 );
-              })}
+                })
+              )}
             </div>
 
             <div className="flex gap-3 pt-1">
