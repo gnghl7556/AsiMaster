@@ -41,6 +41,13 @@ export const productsApi = {
       naver_product_id?: string;
       model_code?: string;
       spec_keywords?: string[];
+      brand?: string | null;
+      maker?: string | null;
+      series?: string | null;
+      capacity?: string | null;
+      color?: string | null;
+      material?: string | null;
+      product_attributes?: Record<string, string> | null;
       price_filter_min_pct?: number | null;
       price_filter_max_pct?: number | null;
     }
@@ -97,6 +104,13 @@ export const productsApi = {
       keywords?: string[];
       model_code?: string;
       spec_keywords?: string[];
+      brand?: string | null;
+      maker?: string | null;
+      series?: string | null;
+      capacity?: string | null;
+      color?: string | null;
+      material?: string | null;
+      product_attributes?: Record<string, string> | null;
       price_filter_min_pct?: number | null;
       price_filter_max_pct?: number | null;
     }[]

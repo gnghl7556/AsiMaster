@@ -47,14 +47,7 @@ export function CostPresetForm({ onClose, initialPreset = null }: Props) {
       if (!isEditMode) {
         return costsApi.createPreset(userId!, payload);
       }
-      // 백엔드 update API 부재: 새로 생성 후 기존 프리셋 삭제로 대체
-      const created = await costsApi.createPreset(userId!, payload);
-      try {
-        await costsApi.deletePreset(userId!, initialPreset!.id);
-      } catch {
-        toast.error("기존 프리셋 삭제에 실패했습니다. 수정본이 새 프리셋으로 추가되었습니다.");
-      }
-      return created;
+      return costsApi.updatePreset(initialPreset!.id, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cost-presets"] });

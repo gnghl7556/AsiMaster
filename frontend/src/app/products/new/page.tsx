@@ -15,6 +15,9 @@ import {
   TrendingUp,
   Loader2,
   Hash,
+  ChevronDown,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { productsApi } from "@/lib/api/products";
@@ -36,10 +39,20 @@ export default function NewProductPage() {
     image_url: "",
     naver_product_id: "",
     model_code: "",
+    brand: "",
+    maker: "",
+    series: "",
+    capacity: "",
+    color: "",
+    material: "",
     spec_keywords: "",
     price_filter_min_pct: "",
     price_filter_max_pct: "",
   });
+  const [productAttributeRows, setProductAttributeRows] = useState<Array<{ key: string; value: string }>>([
+    { key: "", value: "" },
+  ]);
+  const [isProductAttributesOpen, setIsProductAttributesOpen] = useState(false);
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const mutation = useMutation({
@@ -52,6 +65,13 @@ export default function NewProductPage() {
         image_url: form.image_url || undefined,
         naver_product_id: form.naver_product_id.trim() || undefined,
         model_code: form.model_code.trim() || undefined,
+        brand: form.brand.trim() || null,
+        maker: form.maker.trim() || null,
+        series: form.series.trim() || null,
+        capacity: form.capacity.trim() || null,
+        color: form.color.trim() || null,
+        material: form.material.trim() || null,
+        product_attributes: normalizedProductAttributes,
         spec_keywords: parsedSpecKeywords.length > 0 ? parsedSpecKeywords : undefined,
         price_filter_min_pct: normalizedPriceFilterMinPct,
         price_filter_max_pct: normalizedPriceFilterMaxPct,
@@ -113,6 +133,13 @@ export default function NewProductPage() {
     form.price_filter_min_pct.trim() === "" ? null : Number(form.price_filter_min_pct);
   const normalizedPriceFilterMaxPct =
     form.price_filter_max_pct.trim() === "" ? null : Number(form.price_filter_max_pct);
+  const normalizedProductAttributesEntries = productAttributeRows
+    .map((row) => ({ key: row.key.trim(), value: row.value.trim() }))
+    .filter((row) => row.key && row.value);
+  const normalizedProductAttributes =
+    normalizedProductAttributesEntries.length > 0
+      ? Object.fromEntries(normalizedProductAttributesEntries.map((row) => [row.key, row.value]))
+      : null;
   const minPriceFilterPreview =
     normalizedPriceFilterMinPct == null
       ? null
@@ -351,6 +378,110 @@ export default function NewProductPage() {
               className={inputClass("")}
               placeholder="카테고리 직접 입력 (예: 생활/건강/생활용품)"
             />
+          </div>
+
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70">
+            <button
+              type="button"
+              onClick={() => setIsProductAttributesOpen((prev) => !prev)}
+              className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium">제품 속성 (선택)</div>
+                <div className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                  브랜드/제조사/시리즈/규격 등 구조화 속성을 저장합니다
+                </div>
+              </div>
+              <ChevronDown
+                className={`mt-0.5 h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform ${
+                  isProductAttributesOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isProductAttributesOpen && (
+              <div className="border-t border-[var(--border)] px-3 pb-3 pt-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      ["brand", "브랜드", "예: 유한킴벌리"],
+                      ["maker", "제조사", "예: 유한킴벌리"],
+                      ["series", "시리즈", "예: 크리넥스"],
+                      ["capacity", "용량/규격", "예: 41117 / 200매"],
+                      ["color", "색상", "예: 화이트"],
+                      ["material", "소재", "예: 펄프"],
+                    ] as const
+                  ).map(([field, label, placeholder]) => (
+                    <div key={field}>
+                      <label className="mb-1 block text-xs text-[var(--muted-foreground)]">{label}</label>
+                      <input
+                        value={form[field]}
+                        onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                        className={inputClass("")}
+                        placeholder={placeholder}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-medium">추가 속성 (Key / Value)</div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductAttributeRows((prev) => [...prev, { key: "", value: "" }])
+                      }
+                      className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      속성 추가
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {productAttributeRows.map((row, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          value={row.key}
+                          onChange={(e) =>
+                            setProductAttributeRows((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, key: e.target.value } : item
+                              )
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-sm outline-none focus:border-blue-500"
+                          placeholder="속성명 (예: 폭)"
+                        />
+                        <input
+                          value={row.value}
+                          onChange={(e) =>
+                            setProductAttributeRows((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, value: e.target.value } : item
+                              )
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-sm outline-none focus:border-blue-500"
+                          placeholder="값 (예: 220mm)"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProductAttributeRows((prev) =>
+                              prev.length > 1 ? prev.filter((_, i) => i !== index) : prev
+                            )
+                          }
+                          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

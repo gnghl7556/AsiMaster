@@ -34,6 +34,7 @@ interface Props {
   setSelectedCostPresetId: (value: number | null) => void;
   onApplyCostPreset: () => void;
   isApplyingCostPreset: boolean;
+  currentCostPresetName?: string | null;
 }
 
 export function MarginDetail({
@@ -61,6 +62,7 @@ export function MarginDetail({
   setSelectedCostPresetId,
   onApplyCostPreset,
   isApplyingCostPreset,
+  currentCostPresetName = null,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -199,6 +201,13 @@ export function MarginDetail({
                     )}
                   </button>
                 </div>
+                {currentCostPresetName && (
+                  <div className="mt-2">
+                    <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-500">
+                      프리셋: {currentCostPresetName}
+                    </span>
+                  </div>
+                )}
 
                 <div className="mt-3 space-y-2">
                   {costItemsEditor.map((item, i) => (

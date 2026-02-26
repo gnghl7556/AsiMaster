@@ -13,6 +13,7 @@ export interface CostPreset {
   name: string;
   items: CostItemInput[];
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface ProductCostItem {
@@ -56,6 +57,19 @@ export const costsApi = {
       .post<CostPreset>(`/users/${userId}/cost-presets`, data)
       .then((r) => r.data),
 
-  deletePreset: (userId: number, presetId: number) =>
+  updatePreset: (presetId: number, data: { name?: string; items?: CostItemInput[] }) =>
+    apiClient
+      .put<CostPreset>(`/cost-presets/${presetId}`, data)
+      .then((r) => r.data),
+
+  applyPreset: (presetId: number, productIds: number[]) =>
+    apiClient
+      .post<{ applied: number; skipped: number; skipped_ids: number[] }>(
+        `/cost-presets/${presetId}/apply`,
+        { product_ids: productIds }
+      )
+      .then((r) => r.data),
+
+  deletePreset: (presetId: number) =>
     apiClient.delete(`/cost-presets/${presetId}`),
 };

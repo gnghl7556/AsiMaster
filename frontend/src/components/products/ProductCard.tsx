@@ -70,6 +70,13 @@ export function ProductCard({ product }: ProductCardProps) {
             <StatusBadge status={product.status} />
             <div className="min-w-0">
               <h3 className="font-medium truncate">{product.name}</h3>
+              {product.brand && (
+                <div className="mt-0.5">
+                  <span className="inline-flex items-center rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                    {product.brand}
+                  </span>
+                </div>
+              )}
               {product.category && (
                 <span className="text-xs text-[var(--muted-foreground)]">{product.category}</span>
               )}
@@ -97,6 +104,13 @@ export function ProductCard({ product }: ProductCardProps) {
             <StatusBadge status={product.status} />
             <div className="min-w-0">
               <h3 className="font-medium truncate">{product.name}</h3>
+              {product.brand && (
+                <div className="mt-0.5">
+                  <span className="inline-flex items-center rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                    {product.brand}
+                  </span>
+                </div>
+              )}
               {product.category && (
                 <span className="text-xs text-[var(--muted-foreground)]">{product.category}</span>
               )}

@@ -10,11 +10,12 @@ import {
   RefreshCw,
   Loader2,
   Trash2,
-  RotateCcw,
-  Ban,
-  ChevronDown,
-  Hash,
-  Tag,
+    RotateCcw,
+    Ban,
+    ChevronDown,
+    Plus,
+    Hash,
+    Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -50,9 +51,19 @@ export default function ProductDetailPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isExcludedOpen, setIsExcludedOpen] = useState(false);
   const [isBasicInfoOpen, setIsBasicInfoOpen] = useState(false);
+  const [isProductAttributesOpen, setIsProductAttributesOpen] = useState(false);
   const [isTrackingSettingsOpen, setIsTrackingSettingsOpen] = useState(false);
   const [editableName, setEditableName] = useState("");
   const [editableCategory, setEditableCategory] = useState("");
+  const [editableBrand, setEditableBrand] = useState("");
+  const [editableMaker, setEditableMaker] = useState("");
+  const [editableSeries, setEditableSeries] = useState("");
+  const [editableCapacity, setEditableCapacity] = useState("");
+  const [editableColor, setEditableColor] = useState("");
+  const [editableMaterial, setEditableMaterial] = useState("");
+  const [editableProductAttributes, setEditableProductAttributes] = useState<
+    Array<{ key: string; value: string }>
+  >([{ key: "", value: "" }]);
   const [editableCostPrice, setEditableCostPrice] = useState("");
   const [editableNaverProductId, setEditableNaverProductId] = useState("");
   const [editableModelCode, setEditableModelCode] = useState("");
@@ -168,7 +179,17 @@ export default function ProductDetailPage({
   });
 
   const updateBasicInfoMutation = useMutation({
-    mutationFn: (data: { name: string; category: string | null }) =>
+    mutationFn: (data: {
+      name: string;
+      category: string | null;
+      brand: string | null;
+      maker: string | null;
+      series: string | null;
+      capacity: string | null;
+      color: string | null;
+      material: string | null;
+      product_attributes: Record<string, string> | null;
+    }) =>
       productsApi.update(userId!, productId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
@@ -281,6 +302,17 @@ export default function ProductDetailPage({
     if (!product) return;
     setEditableName(product.name ?? "");
     setEditableCategory(product.category ?? "");
+    setEditableBrand(product.brand ?? "");
+    setEditableMaker(product.maker ?? "");
+    setEditableSeries(product.series ?? "");
+    setEditableCapacity(product.capacity ?? "");
+    setEditableColor(product.color ?? "");
+    setEditableMaterial(product.material ?? "");
+    const nextAttrs = Object.entries(product.product_attributes ?? {}).map(([key, value]) => ({
+      key,
+      value,
+    }));
+    setEditableProductAttributes(nextAttrs.length > 0 ? nextAttrs : [{ key: "", value: "" }]);
     setEditableCostPrice(String(product.cost_price ?? ""));
     setEditableNaverProductId(product.naver_product_id ?? "");
     setEditableModelCode(product.model_code ?? "");
@@ -369,6 +401,14 @@ export default function ProductDetailPage({
   const currentSpecKeywordsString = (product.spec_keywords ?? []).join(", ");
   const parsedEditedSpecKeywords = parseSpecKeywordsInput(editableSpecKeywords);
   const normalizedEditedSpecKeywordsString = parsedEditedSpecKeywords.join(", ");
+  const normalizedEditedProductAttributesEntries = editableProductAttributes
+    .map((row) => ({ key: row.key.trim(), value: row.value.trim() }))
+    .filter((row) => row.key && row.value);
+  const normalizedEditedProductAttributes =
+    normalizedEditedProductAttributesEntries.length > 0
+      ? Object.fromEntries(normalizedEditedProductAttributesEntries.map((row) => [row.key, row.value]))
+      : null;
+  const normalizedCurrentProductAttributes = product.product_attributes ?? null;
   const normalizedEditedMinPct =
     editablePriceFilterMinPct.trim() === "" ? null : Number(editablePriceFilterMinPct);
   const normalizedEditedMaxPct =
@@ -380,9 +420,19 @@ export default function ProductDetailPage({
     normalizedEditedMinPct !== (product.price_filter_min_pct ?? null) ||
     normalizedEditedMaxPct !== (product.price_filter_max_pct ?? null);
   const isCategoryChanged = editableCategory.trim() !== (product.category ?? "");
+  const isProductAttributesChanged =
+    editableBrand.trim() !== (product.brand ?? "") ||
+    editableMaker.trim() !== (product.maker ?? "") ||
+    editableSeries.trim() !== (product.series ?? "") ||
+    editableCapacity.trim() !== (product.capacity ?? "") ||
+    editableColor.trim() !== (product.color ?? "") ||
+    editableMaterial.trim() !== (product.material ?? "") ||
+    JSON.stringify(normalizedEditedProductAttributes) !==
+      JSON.stringify(normalizedCurrentProductAttributes);
   const isBasicInfoChanged =
     editableName.trim() !== product.name ||
-    isCategoryChanged;
+    isCategoryChanged ||
+    isProductAttributesChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
   const normalizedFetchedCostItems = costItems.map((item) => ({
     name: item.name.trim(),
@@ -499,6 +549,16 @@ export default function ProductDetailPage({
     priceFilterRangePreview.maxPct == null
       ? null
       : Math.round((product.selling_price * priceFilterRangePreview.maxPct) / 100);
+  const basicInfoAttributeSummary = [
+    product.brand && `브랜드 ${product.brand}`,
+    product.model_code && `모델 ${product.model_code}`,
+    product.series && `시리즈 ${product.series}`,
+    product.capacity && `규격 ${product.capacity}`,
+  ].filter(Boolean) as string[];
+  const currentCostPresetName =
+    product.cost_preset_id != null
+      ? costPresets.find((preset) => preset.id === product.cost_preset_id)?.name ?? null
+      : null;
 
   const handleApplyCostPreset = () => {
     if (!selectedCostPresetId) return;
@@ -593,6 +653,18 @@ export default function ProductDetailPage({
               <div className="truncate text-xs text-[var(--muted-foreground)]">
                 {product.category || "카테고리 미설정"} · 상세 편집/검색 정확도 설정
               </div>
+              {basicInfoAttributeSummary.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {basicInfoAttributeSummary.slice(0, 4).map((label) => (
+                    <span
+                      key={label}
+                      className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <ChevronDown
@@ -614,6 +686,13 @@ export default function ProductDetailPage({
             updateBasicInfoMutation.mutate({
               name: nextName,
               category: editableCategory.trim() || null,
+              brand: editableBrand.trim() || null,
+              maker: editableMaker.trim() || null,
+              series: editableSeries.trim() || null,
+              capacity: editableCapacity.trim() || null,
+              color: editableColor.trim() || null,
+              material: editableMaterial.trim() || null,
+              product_attributes: normalizedEditedProductAttributes,
             });
           }}
           className="space-y-2"
@@ -648,6 +727,118 @@ export default function ProductDetailPage({
               변경된 카테고리는 아직 저장되지 않았습니다. `기본 정보 저장`을 눌러 반영하세요.
             </div>
           )}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70">
+            <button
+              type="button"
+              onClick={() => setIsProductAttributesOpen((prev) => !prev)}
+              className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-medium">제품 속성</div>
+                  {isProductAttributesChanged && (
+                    <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                      변경됨
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                  브랜드/제조사/시리즈/규격/색상/소재 및 추가 속성
+                </div>
+              </div>
+              <ChevronDown
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform",
+                  isProductAttributesOpen && "rotate-180"
+                )}
+              />
+            </button>
+
+            {isProductAttributesOpen && (
+              <div className="border-t border-[var(--border)] px-3 pb-3 pt-3 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      ["brand", "브랜드", editableBrand, setEditableBrand],
+                      ["maker", "제조사", editableMaker, setEditableMaker],
+                      ["series", "시리즈", editableSeries, setEditableSeries],
+                      ["capacity", "용량/규격", editableCapacity, setEditableCapacity],
+                      ["color", "색상", editableColor, setEditableColor],
+                      ["material", "소재", editableMaterial, setEditableMaterial],
+                    ] as const
+                  ).map(([key, label, value, setter]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[var(--muted-foreground)]">{label}</label>
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+                        placeholder={`${label} 입력`}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-medium">추가 속성 (Key / Value)</div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditableProductAttributes((prev) => [...prev, { key: "", value: "" }])
+                      }
+                      className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      속성 추가
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {editableProductAttributes.map((row, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          value={row.key}
+                          onChange={(e) =>
+                            setEditableProductAttributes((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, key: e.target.value } : item
+                              )
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-sm outline-none focus:border-blue-500"
+                          placeholder="속성명"
+                        />
+                        <input
+                          value={row.value}
+                          onChange={(e) =>
+                            setEditableProductAttributes((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, value: e.target.value } : item
+                              )
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1.5 text-sm outline-none focus:border-blue-500"
+                          placeholder="값"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditableProductAttributes((prev) =>
+                              prev.length > 1 ? prev.filter((_, i) => i !== index) : prev
+                            )
+                          }
+                          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex justify-end">
             <button
               type="submit"
@@ -1043,6 +1234,7 @@ export default function ProductDetailPage({
             setSelectedCostPresetId={setSelectedCostPresetId}
             onApplyCostPreset={handleApplyCostPreset}
             isApplyingCostPreset={false}
+            currentCostPresetName={currentCostPresetName}
           />
         </div>
       )}

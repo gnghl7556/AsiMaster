@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, Square, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useProductList } from "@/lib/hooks/useProducts";
 import { productsApi } from "@/lib/api/products";
+import { costsApi } from "@/lib/api/costs";
 import { useUserStore } from "@/stores/useUserStore";
 import { useProductStore } from "@/stores/useProductStore";
 import { SortDropdown } from "./SortDropdown";
@@ -35,6 +36,13 @@ export function ProductList({ hideMeta = false }: Props) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPresetApplyModal, setShowPresetApplyModal] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
+  const { data: costPresets = [] } = useQuery({
+    queryKey: ["cost-presets", userId],
+    queryFn: () => costsApi.getPresets(userId!),
+    enabled: !!userId,
+  });
 
   useEffect(() => {
     if (hideMeta) return;
@@ -78,6 +86,22 @@ export function ProductList({ hideMeta = false }: Props) {
       const msg = err?.response?.data?.detail || "삭제에 실패했습니다";
       toast.error(msg);
     },
+  });
+  const applyPresetMutation = useMutation({
+    mutationFn: (params: { presetId: number; productIds: number[] }) =>
+      costsApi.applyPreset(params.presetId, params.productIds),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      toast.success(
+        `${result.applied}개 상품에 프리셋 적용 완료${
+          result.skipped > 0 ? ` (${result.skipped}개 스킵)` : ""
+        }`
+      );
+      setShowPresetApplyModal(false);
+      setSelectedPresetId(null);
+    },
+    onError: () => toast.error("비용 프리셋 적용에 실패했습니다"),
   });
 
   if (isLoading) {
@@ -132,7 +156,12 @@ export function ProductList({ hideMeta = false }: Props) {
   const handleToggleMode = () => {
     setIsSelectMode((prev) => {
       const next = !prev;
-      if (!next) setSelectedIds(new Set());
+      if (!next) {
+        setSelectedIds(new Set());
+        setShowDeleteConfirm(false);
+        setShowPresetApplyModal(false);
+        setSelectedPresetId(null);
+      }
       return next;
     });
   };
@@ -184,6 +213,14 @@ export function ProductList({ hideMeta = false }: Props) {
                 <span className="text-xs text-[var(--muted-foreground)]">
                   {selectedIds.size}개 선택됨
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPresetApplyModal(true)}
+                  disabled={selectedIds.size === 0}
+                  className="inline-flex items-center gap-1 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1.5 text-xs font-medium text-blue-500 hover:bg-blue-500/15 transition-colors disabled:opacity-50"
+                >
+                  비용 프리셋 적용
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
@@ -311,6 +348,60 @@ export function ProductList({ hideMeta = false }: Props) {
                   <Trash2 className="h-4 w-4" />
                 )}
                 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPresetApplyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold">비용 프리셋 적용</h3>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                선택한 <strong>{selectedIds.size}개</strong> 상품에 적용할 프리셋을 선택하세요.
+              </p>
+            </div>
+            <select
+              value={selectedPresetId ?? ""}
+              onChange={(e) => setSelectedPresetId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm outline-none"
+            >
+              <option value="">프리셋 선택</option>
+              {costPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.name}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPresetApplyModal(false);
+                  setSelectedPresetId(null);
+                }}
+                disabled={applyPresetMutation.isPending}
+                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  applyPresetMutation.mutate({
+                    presetId: selectedPresetId!,
+                    productIds: Array.from(selectedIds),
+                  })
+                }
+                disabled={applyPresetMutation.isPending || !selectedPresetId || selectedIds.size === 0}
+                className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {applyPresetMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                적용
               </button>
             </div>
           </div>

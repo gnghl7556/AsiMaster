@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useUserStore } from "@/stores/useUserStore";
 import { CostPresetForm } from "@/components/settings/CostPresetForm";
 import { costsApi, type CostPreset } from "@/lib/api/costs";
+import { productsApi } from "@/lib/api/products";
 
 export default function CostPresetsPage() {
   const userId = useUserStore((s) => s.currentUserId);
@@ -14,21 +15,44 @@ export default function CostPresetsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingPreset, setEditingPreset] = useState<CostPreset | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CostPreset | null>(null);
+  const [applyTarget, setApplyTarget] = useState<CostPreset | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set());
 
   const { data: presets = [], isLoading } = useQuery({
     queryKey: ["cost-presets", userId],
     queryFn: () => costsApi.getPresets(userId!),
     enabled: !!userId,
   });
+  const { data: products = [] } = useQuery({
+    queryKey: ["products", userId, "preset-apply-picker"],
+    queryFn: () => productsApi.getList(userId!, { limit: 500 }),
+    enabled: !!userId && !!applyTarget,
+  });
 
   const deleteMutation = useMutation({
-    mutationFn: (presetId: number) => costsApi.deletePreset(userId!, presetId),
+    mutationFn: (presetId: number) => costsApi.deletePreset(presetId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cost-presets"] });
       toast.success("프리셋이 삭제되었습니다");
       setDeleteTarget(null);
     },
     onError: () => toast.error("프리셋 삭제에 실패했습니다"),
+  });
+  const applyPresetMutation = useMutation({
+    mutationFn: (params: { presetId: number; productIds: number[] }) =>
+      costsApi.applyPreset(params.presetId, params.productIds),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      toast.success(
+        `${result.applied}개 상품에 프리셋 적용 완료${
+          result.skipped > 0 ? ` (${result.skipped}개 스킵)` : ""
+        }`
+      );
+      setApplyTarget(null);
+      setSelectedProductIds(new Set());
+    },
+    onError: () => toast.error("프리셋 적용에 실패했습니다"),
   });
 
   if (!userId) return <div className="py-20 text-center text-[var(--muted-foreground)]">사업체를 선택해주세요</div>;
@@ -76,6 +100,16 @@ export default function CostPresetsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-medium">{preset.name}</h3>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApplyTarget(preset);
+                        setSelectedProductIds(new Set());
+                      }}
+                      className="rounded px-2 py-1 text-xs text-blue-500 hover:bg-blue-500/10 transition-colors"
+                    >
+                      상품에 적용
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -142,6 +176,107 @@ export default function CostPresetsPage() {
                   <Trash2 className="h-4 w-4" />
                 )}
                 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {applyTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card mx-4 w-full max-w-lg p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold">프리셋 상품 적용</h3>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                <strong>{applyTarget.name}</strong> 프리셋을 적용할 상품을 선택하세요.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedProductIds.size === products.length) {
+                    setSelectedProductIds(new Set());
+                  } else {
+                    setSelectedProductIds(new Set(products.map((p) => p.id)));
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              >
+                {selectedProductIds.size > 0 && selectedProductIds.size === products.length ? (
+                  <CheckSquare className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+                전체 선택
+              </button>
+              <span className="text-xs text-[var(--muted-foreground)]">
+                {selectedProductIds.size}개 선택됨
+              </span>
+            </div>
+
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] p-2">
+              {products.map((product) => {
+                const checked = selectedProductIds.has(product.id);
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedProductIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(product.id)) next.delete(product.id);
+                        else next.add(product.id);
+                        return next;
+                      })
+                    }
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--muted)]/50"
+                  >
+                    {checked ? (
+                      <CheckSquare className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <Square className="h-4 w-4 text-[var(--muted-foreground)]" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{product.name}</div>
+                      <div className="truncate text-xs text-[var(--muted-foreground)]">
+                        {product.category || "카테고리 미설정"}
+                        {product.cost_preset_id != null && ` · 프리셋 적용됨(#${product.cost_preset_id})`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setApplyTarget(null);
+                  setSelectedProductIds(new Set());
+                }}
+                disabled={applyPresetMutation.isPending}
+                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  applyPresetMutation.mutate({
+                    presetId: applyTarget.id,
+                    productIds: Array.from(selectedProductIds),
+                  })
+                }
+                disabled={applyPresetMutation.isPending || selectedProductIds.size === 0}
+                className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {applyPresetMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                적용
               </button>
             </div>
           </div>
