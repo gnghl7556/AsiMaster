@@ -32,7 +32,7 @@ async def _fetch_shipping_fee_once(
         resp = await client.get(product_url, headers={
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)",
             "Accept": "text/html",
-        }, follow_redirects=True, timeout=8)
+        }, follow_redirects=True, timeout=settings.CRAWL_SHIPPING_TIMEOUT)
 
         if resp.status_code != 200:
             logger.warning(
@@ -132,7 +132,7 @@ class NaverCrawler(BaseCrawler):
 
     def __init__(self):
         self._client = httpx.AsyncClient(
-            timeout=10,
+            timeout=settings.CRAWL_API_TIMEOUT,
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
         self._shipping_cache: dict[str, tuple[int, str]] = {}
@@ -189,7 +189,7 @@ class NaverCrawler(BaseCrawler):
                 ))
 
             # 스마트스토어 상품의 배송비 병렬 스크래핑 (캐시 적용)
-            sem = asyncio.Semaphore(3)
+            sem = asyncio.Semaphore(settings.CRAWL_SHIPPING_CONCURRENCY)
             cache = self._shipping_cache
 
             async def _enrich_shipping(item: RankingItem) -> None:

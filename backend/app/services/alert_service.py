@@ -6,6 +6,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.alert import Alert, AlertSetting
 from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
@@ -32,9 +33,11 @@ async def _is_alert_enabled(db: AsyncSession, user_id: int, alert_type: str) -> 
 
 
 async def _has_recent_unread(
-    db: AsyncSession, user_id: int, product_id: int, alert_type: str, hours: int = 24,
+    db: AsyncSession, user_id: int, product_id: int, alert_type: str, hours: int | None = None,
 ) -> bool:
     """최근 N시간 내 동일 조건의 읽지 않은 알림이 있는지 확인."""
+    if hours is None:
+        hours = settings.ALERT_DEDUP_HOURS
     result = await db.execute(
         select(Alert.id).where(
             Alert.user_id == user_id,
@@ -128,7 +131,7 @@ async def check_rank_drop(
         return
 
     # 최근 7일 내 내 스토어 rankings만 조회
-    since = utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=settings.SPARKLINE_DAYS)
     result = await db.execute(
         select(KeywordRanking)
         .where(

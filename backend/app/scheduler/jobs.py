@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import async_session
 from app.core.utils import utcnow
 from app.crawlers.manager import shared_manager
@@ -69,9 +70,9 @@ async def crawl_all_users():
 
 
 async def cleanup_old_rankings():
-    """30일 이전 keyword_rankings + crawl_logs 배치 삭제."""
-    cutoff = utcnow() - timedelta(days=30)
-    batch_size = 10000
+    """오래된 keyword_rankings + crawl_logs 배치 삭제."""
+    cutoff = utcnow() - timedelta(days=settings.DATA_RETENTION_DAYS)
+    batch_size = settings.CLEANUP_BATCH_SIZE
     async with async_session() as db:
         try:
             # keyword_rankings 삭제

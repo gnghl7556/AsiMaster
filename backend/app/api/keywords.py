@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_db
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -19,8 +20,6 @@ from app.services.keyword_engine.dictionary import build_brand_dict, build_type_
 from app.services.keyword_engine.generator import generate_keywords
 
 router = APIRouter(tags=["keywords"])
-
-MAX_KEYWORDS_PER_PRODUCT = 5
 
 
 @router.get("/products/{product_id}/keywords", response_model=list[KeywordResponse])
@@ -49,8 +48,8 @@ async def create_keyword(
         )
     )
     count = count_result.scalar_one()
-    if count >= MAX_KEYWORDS_PER_PRODUCT:
-        raise HTTPException(400, f"키워드는 최대 {MAX_KEYWORDS_PER_PRODUCT}개까지 등록 가능합니다.")
+    if count >= settings.MAX_KEYWORDS_PER_PRODUCT:
+        raise HTTPException(400, f"키워드는 최대 {settings.MAX_KEYWORDS_PER_PRODUCT}개까지 등록 가능합니다.")
 
     # 중복 확인
     dup_result = await db.execute(

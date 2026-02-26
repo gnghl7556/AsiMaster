@@ -4,6 +4,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
@@ -401,7 +402,7 @@ async def get_product_list_items(
     all_latest = await _fetch_latest_rankings(db, all_keyword_ids)
 
     now = utcnow()
-    seven_days_ago = now - timedelta(days=7)
+    seven_days_ago = now - timedelta(days=settings.SPARKLINE_DAYS)
 
     # 배치 쿼리: sparkline 원시 데이터 + rank_change 원시 데이터 (각 1회)
     sparkline_raw = await _fetch_sparkline_data_batch(db, all_keyword_ids, seven_days_ago)
@@ -528,7 +529,7 @@ async def get_product_detail(
     price_gap, price_gap_pct = _calc_price_gap(product.selling_price, lowest_price)
     status = calculate_status(product.selling_price, lowest_price)
 
-    seven_days_ago = utcnow() - timedelta(days=7)
+    seven_days_ago = utcnow() - timedelta(days=settings.SPARKLINE_DAYS)
     rank_change = await _fetch_rank_change(db, kw_ids, product_naver_id, since=seven_days_ago)
     last_crawled = _calc_last_crawled(active_keywords)
     sparkline = await _fetch_sparkline_data(
