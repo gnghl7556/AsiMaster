@@ -34,9 +34,34 @@ export default function CostPresetsPage() {
     queryFn: () => productsApi.getList(userId!, { page: 1, limit: 500 }),
     enabled: !!userId && !!applyTarget,
   });
-  const products = Array.isArray(productsData)
-    ? productsData
-    : ((productsData as { items?: any[] } | undefined)?.items ?? []);
+  const products = (() => {
+    if (Array.isArray(productsData)) return productsData;
+    const maybeItems = (productsData as { items?: unknown } | undefined)?.items;
+    return Array.isArray(maybeItems) ? maybeItems : [];
+  })();
+  const productPickerErrorText = (() => {
+    const detail = (productsError as any)?.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) =>
+          typeof item === "string"
+            ? item
+            : [item?.loc?.join?.("."), item?.msg].filter(Boolean).join(": ")
+        )
+        .filter(Boolean)
+        .join(" / ");
+    }
+    if (detail && typeof detail === "object") {
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        return "요청 오류";
+      }
+    }
+    if ((productsError as Error)?.message) return (productsError as Error).message;
+    return "알 수 없는 오류";
+  })();
 
   const deleteMutation = useMutation({
     mutationFn: (presetId: number) => costsApi.deletePreset(presetId),
@@ -239,9 +264,7 @@ export default function CostPresetsPage() {
                     상품 목록을 불러오지 못했습니다
                   </div>
                   <div className="text-xs text-[var(--muted-foreground)] break-all px-2">
-                    {(productsError as any)?.response?.data?.detail ||
-                      (productsError as Error)?.message ||
-                      "알 수 없는 오류"}
+                    {productPickerErrorText}
                   </div>
                   <button
                     type="button"
