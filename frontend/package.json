@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "npm run generate-types",
     "build": "next build",
     "start": "next start",
+    "pretypecheck": "npm run generate-types",
+    "typecheck": "tsc --noEmit --incremental false",
     "lint": "next lint",
     "generate-types": "openapi-typescript ../openapi.json -o src/types/api.generated.ts"
   },
