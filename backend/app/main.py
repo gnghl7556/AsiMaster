@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text
@@ -12,6 +13,13 @@ from app.models import *  # noqa: F401, F403 - ensure all models are registered
 from app.scheduler.setup import init_scheduler, shutdown_scheduler
 
 logger = logging.getLogger(__name__)
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        environment="production",
+    )
 
 
 @asynccontextmanager

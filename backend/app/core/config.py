@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_CLAIM_EMAIL: str = "admin@asimaster.com"
 
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+
     CRAWL_DEFAULT_INTERVAL_MIN: int = 60
     CRAWL_MAX_RETRIES: int = 3
     CRAWL_REQUEST_DELAY_MIN: int = 2
