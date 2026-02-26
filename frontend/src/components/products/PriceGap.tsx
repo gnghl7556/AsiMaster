@@ -26,10 +26,15 @@ export function PriceGap({ gap, gapPercent, status, size = "lg" }: PriceGapProps
   if (gap === 0) {
     return (
       <div className="flex flex-col items-end">
-        <span className={cn("font-bold tabular-nums", config.color, size === "lg" ? "text-xl" : "text-base")}>
+        <span
+          className={cn(
+            "font-bold tabular-nums text-amber-500 dark:text-amber-400",
+            size === "lg" ? "text-xl" : "text-base"
+          )}
+        >
           0원
         </span>
-        <span className="text-[11px] text-[var(--muted-foreground)]">동일총액</span>
+        <span className="text-[11px] text-amber-500/90 dark:text-amber-400/90">동일총액</span>
       </div>
     );
   }
