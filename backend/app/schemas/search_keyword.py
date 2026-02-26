@@ -34,6 +34,8 @@ class RankingItemResponse(BaseModel):
     naver_product_id: str | None
     is_my_store: bool
     is_relevant: bool
+    is_included_override: bool = False
+    relevance_reason: str | None = None
     hprice: int = 0
     brand: str | None = None
     maker: str | None = None

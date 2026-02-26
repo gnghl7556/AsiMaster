@@ -87,11 +87,15 @@ npm run dev
 - `GET /api/v1/naver-categories` - 크롤링 데이터 기반 네이버 카테고리 트리
 - `PUT /api/v1/cost-presets/{id}` - 비용 프리셋 수정
 - `POST /api/v1/cost-presets/{id}/apply` - 복수 상품에 프리셋 적용
+- `GET /api/v1/products/{id}/included` - 수동 포함 예외 조회
+- `POST /api/v1/products/{id}/included` - 수동 포함 예외 추가
+- `DELETE /api/v1/products/{id}/included/{naver_product_id}` - 수동 포함 예외 해제
 
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings
                                   → CrawlLogs
                → ExcludedProducts (블랙리스트)
+               → IncludedOverrides (수동 포함 예외)
 User → Alerts, AlertSettings
 User → CostPresets → Product.cost_preset_id (참조)
 Product → CostItems
@@ -116,6 +120,7 @@ Product → CostItems
 17. 배송비 포함 가격 비교 (스마트스토어 배송비 스크래핑 + 총액 기준 최저가)
 18. 상품 DB화 (모델명 기반 제품 속성 구조화: brand, maker, series, capacity, color, material, product_attributes)
 19. 비용 프리셋 복수 적용 (프리셋 수정 + 복수 상품 일괄 적용 + cost_preset_id 추적)
+20. 수동 포함 예외 (자동 필터 우회: included_overrides 테이블 + relevance_reason 추적)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -385,3 +390,39 @@ Product → CostItems
 **스키마 변경:**
 - `CostPresetResponse`에 `updated_at` 필드 추가
 - `ProductResponse`, `ProductDetail`, `ProductListItem`에 `cost_preset_id` 필드 추가
+
+### 2026-02-26: 수동 포함 예외 (Include Override)
+
+**새 테이블: `included_overrides`**
+- `id` (PK), `product_id` (FK → products.id, CASCADE), `naver_product_id` (VARCHAR(50))
+- `naver_product_name` (VARCHAR(500), nullable), `mall_name` (VARCHAR(200), nullable), `created_at`
+- Unique constraint: `(product_id, naver_product_id)`
+
+**새 API:**
+- `GET /api/v1/products/{product_id}/included` — 수동 포함 예외 목록 조회
+  - Response: `[{id, naver_product_id, naver_product_name, mall_name, created_at}]`
+
+- `POST /api/v1/products/{product_id}/included` — 수동 포함 예외 추가
+  - Request: `{ naver_product_id: str, naver_product_name?: str, mall_name?: str }`
+  - Response: `{id, naver_product_id, naver_product_name, mall_name, created_at}` (201)
+  - 중복 시 409, 즉시 반영: 해당 naver_product_id의 기존 rankings → is_relevant=True
+
+- `DELETE /api/v1/products/{product_id}/included/{naver_product_id}` — 수동 포함 예외 해제
+  - 204, 기존 rankings는 다음 크롤링에서 재판정
+
+**KeywordRanking 모델 확장:**
+- `relevance_reason` (VARCHAR(30), nullable): 관련성 판정 사유
+
+**is_relevant 판정 우선순위 (크롤링 시):**
+1. 수동 블랙리스트(ExcludedProduct) → `is_relevant=False`, reason=`manual_blacklist`
+2. 내 상품(my_product_ids) → `is_relevant=False`, reason=`my_product`
+3. 수동 포함 예외(IncludedOverride) → `is_relevant=True`, reason=`included_override`
+4. 자동 필터(_check_relevance) → True/False, reason=`price_filter_min`|`price_filter_max`|`model_code`|`spec_keywords`|null
+
+**스키마 변경:**
+- `RankingItemResponse`에 `is_included_override: bool`, `relevance_reason: str | null` 필드 추가
+- 상품 상세 API keywords[].rankings[]에 두 필드 포함
+
+**즉시 반영 정책:**
+- override 추가 시: 해당 naver_product_id의 기존 rankings → is_relevant=True 즉시 UPDATE
+- override 삭제 시: 다음 크롤링에서 _check_relevance() 재판정 (즉시 반영 없음)

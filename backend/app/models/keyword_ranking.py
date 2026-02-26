@@ -36,6 +36,7 @@ class KeywordRanking(Base):
     category4: Mapped[str | None] = mapped_column(String(100))
     shipping_fee: Mapped[int] = mapped_column(Integer, default=0)
     shipping_fee_type: Mapped[str] = mapped_column(String(20), default="unknown")
+    relevance_reason: Mapped[str | None] = mapped_column(String(30))
     crawled_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     keyword: Mapped["SearchKeyword"] = relationship(back_populates="rankings")

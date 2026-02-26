@@ -581,6 +581,8 @@ async def get_product_detail(
                     "naver_product_id": r.naver_product_id,
                     "is_my_store": r.is_my_store,
                     "is_relevant": r.is_relevant,
+                    "is_included_override": (r.relevance_reason == "included_override"),
+                    "relevance_reason": r.relevance_reason,
                     "hprice": r.hprice or 0,
                     "brand": r.brand,
                     "maker": r.maker,

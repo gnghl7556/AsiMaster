@@ -55,6 +55,8 @@ async def apply_schema_changes(session):
         # 비용 프리셋 복수 적용
         ("products", "cost_preset_id", "INTEGER", None),
         ("cost_presets", "updated_at", "TIMESTAMP", "NOW()"),
+        # 수동 포함 예외 + relevance_reason
+        ("keyword_rankings", "relevance_reason", "VARCHAR(30)", None),
     ]
     try:
         if is_sqlite:
