@@ -13,6 +13,7 @@ class CostItemCreate(BaseModel):
 class CostItemResponse(BaseModel):
     id: int
     product_id: int
+    source_preset_id: int | None = None
     name: str
     type: str
     value: float
@@ -41,6 +42,15 @@ class CostPresetApplyResponse(BaseModel):
     skipped: int
     skipped_ids: list[int] = []
     skipped_reason: str | None = None
+
+
+class CostPresetDetachRequest(BaseModel):
+    product_ids: list[int] = Field(..., min_length=1, max_length=100)
+
+
+class CostPresetDetachResponse(BaseModel):
+    detached: int
+    skipped: int
 
 
 class CostItemCalculated(BaseModel):

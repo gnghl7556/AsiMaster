@@ -959,6 +959,7 @@
           "costs"
         ],
         "summary": "Save Cost Items",
+        "description": "수동 비용 항목 저장. 프리셋에서 온 항목은 유지하고, 수동 항목만 교체.",
         "operationId": "save_cost_items_api_v1_products__product_id__costs_put",
         "parameters": [
           {
@@ -969,24 +970,6 @@
               "type": "integer",
               "title": "Product Id"
             }
-          },
-          {
-            "name": "preset_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "프리셋 기반 저장 시 프리셋 ID",
-              "title": "Preset Id"
-            },
-            "description": "프리셋 기반 저장 시 프리셋 ID"
           }
         ],
         "requestBody": {
@@ -1218,6 +1201,7 @@
           "costs"
         ],
         "summary": "Apply Cost Preset",
+        "description": "프리셋을 상품에 중첩 적용. 동일 프리셋 중복 적용은 스킵.",
         "operationId": "apply_cost_preset_api_v1_cost_presets__preset_id__apply_post",
         "parameters": [
           {
@@ -1247,6 +1231,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CostPresetApplyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cost-presets/{preset_id}/detach": {
+      "post": {
+        "tags": [
+          "costs"
+        ],
+        "summary": "Detach Cost Preset",
+        "description": "프리셋 해제. 해당 프리셋에서 온 비용 항목만 제거.",
+        "operationId": "detach_cost_preset_api_v1_cost_presets__preset_id__detach_post",
+        "parameters": [
+          {
+            "name": "preset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Preset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostPresetDetachRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostPresetDetachResponse"
                 }
               }
             }
@@ -2737,6 +2774,17 @@
             "type": "integer",
             "title": "Product Id"
           },
+          "source_preset_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Preset Id"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -2848,6 +2896,42 @@
           "items"
         ],
         "title": "CostPresetCreate"
+      },
+      "CostPresetDetachRequest": {
+        "properties": {
+          "product_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Product Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_ids"
+        ],
+        "title": "CostPresetDetachRequest"
+      },
+      "CostPresetDetachResponse": {
+        "properties": {
+          "detached": {
+            "type": "integer",
+            "title": "Detached"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detached",
+          "skipped"
+        ],
+        "title": "CostPresetDetachResponse"
       },
       "CostPresetResponse": {
         "properties": {
@@ -4210,16 +4294,13 @@
             ],
             "title": "Product Attributes"
           },
-          "cost_preset_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cost Preset Id"
+          "cost_preset_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Cost Preset Ids",
+            "default": []
           },
           "is_price_locked": {
             "type": "boolean",
@@ -4463,16 +4544,13 @@
             ],
             "title": "Brand"
           },
-          "cost_preset_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cost Preset Id"
+          "cost_preset_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Cost Preset Ids",
+            "default": []
           },
           "status": {
             "type": "string",
@@ -4795,16 +4873,13 @@
             ],
             "title": "Product Attributes"
           },
-          "cost_preset_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cost Preset Id"
+          "cost_preset_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Cost Preset Ids",
+            "default": []
           },
           "is_price_locked": {
             "type": "boolean",

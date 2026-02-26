@@ -73,7 +73,7 @@ class ProductResponse(BaseModel):
     color: str | None = None
     material: str | None = None
     product_attributes: dict | None = None
-    cost_preset_id: int | None = None
+    cost_preset_ids: list[int] = []
     is_price_locked: bool
     price_lock_reason: str | None
     is_active: bool
@@ -94,7 +94,7 @@ class ProductListItem(BaseModel):
     price_lock_reason: str | None
     model_code: str | None = None
     brand: str | None = None
-    cost_preset_id: int | None = None
+    cost_preset_ids: list[int] = []
     status: str  # winning | close | losing
     lowest_price: int | None
     lowest_seller: str | None
@@ -177,7 +177,7 @@ class ProductDetail(BaseModel):
     color: str | None = None
     material: str | None = None
     product_attributes: dict | None = None
-    cost_preset_id: int | None = None
+    cost_preset_ids: list[int] = []
     is_price_locked: bool
     price_lock_reason: str | None
     status: str

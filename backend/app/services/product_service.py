@@ -10,6 +10,7 @@ from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.core.utils import utcnow
+from app.services.cost_service import get_applied_preset_ids, get_applied_preset_ids_batch
 
 
 def calculate_status(selling_price: int, lowest_price: int | None) -> str:
@@ -408,6 +409,9 @@ async def get_product_list_items(
     sparkline_raw = await _fetch_sparkline_data_batch(db, all_keyword_ids, seven_days_ago)
     rank_change_raw = await _fetch_rank_change_batch(db, all_keyword_ids, since=seven_days_ago)
 
+    # 배치 쿼리: 적용된 프리셋 ID 목록
+    preset_ids_map = await get_applied_preset_ids_batch(db, product_ids)
+
     items = []
     for product in products:
         active_keywords = product_active_keywords[product.id]
@@ -452,7 +456,7 @@ async def get_product_list_items(
             "price_lock_reason": product.price_lock_reason,
             "model_code": product.model_code,
             "brand": product.brand,
-            "cost_preset_id": product.cost_preset_id,
+            "cost_preset_ids": preset_ids_map.get(product.id, []),
             "status": status,
             "lowest_price": lowest_price,
             "lowest_seller": lowest_seller,
@@ -632,7 +636,7 @@ async def get_product_detail(
         "color": product.color,
         "material": product.material,
         "product_attributes": product.product_attributes,
-        "cost_preset_id": product.cost_preset_id,
+        "cost_preset_ids": await get_applied_preset_ids(db, product.id),
         "is_price_locked": product.is_price_locked,
         "price_lock_reason": product.price_lock_reason,
         "status": status,

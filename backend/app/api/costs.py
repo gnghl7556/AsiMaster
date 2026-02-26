@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, select, update
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
@@ -12,10 +12,12 @@ from app.schemas.cost import (
     CostPresetApplyRequest,
     CostPresetApplyResponse,
     CostPresetCreate,
+    CostPresetDetachRequest,
+    CostPresetDetachResponse,
     CostPresetResponse,
     CostPresetUpdate,
 )
-from app.services.cost_service import apply_preset_to_products
+from app.services.cost_service import apply_preset_to_products, detach_preset_from_products
 
 router = APIRouter(tags=["costs"])
 
@@ -32,30 +34,27 @@ async def get_cost_items(product_id: int, db: AsyncSession = Depends(get_db)):
 async def save_cost_items(
     product_id: int,
     items: list[CostItemCreate],
-    preset_id: int | None = Query(None, description="프리셋 기반 저장 시 프리셋 ID"),
     db: AsyncSession = Depends(get_db),
 ):
+    """수동 비용 항목 저장. 프리셋에서 온 항목은 유지하고, 수동 항목만 교체."""
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
-    # preset_id 전달 시 프리셋 연결 유지, 미전달 시 해제
-    if preset_id is not None:
-        preset = await db.get(CostPreset, preset_id)
-        if not preset:
-            raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
-        product.cost_preset_id = preset_id
-    else:
-        product.cost_preset_id = None
-    await db.execute(delete(CostItem).where(CostItem.product_id == product_id))
-    new_items = []
+    # 수동 항목(source_preset_id=NULL)만 삭제
+    await db.execute(
+        delete(CostItem).where(
+            CostItem.product_id == product_id,
+            CostItem.source_preset_id.is_(None),
+        )
+    )
     for item in items:
-        cost_item = CostItem(product_id=product_id, **item.model_dump())
-        db.add(cost_item)
-        new_items.append(cost_item)
+        db.add(CostItem(product_id=product_id, source_preset_id=None, **item.model_dump()))
     await db.flush()
-    for item in new_items:
-        await db.refresh(item)
-    return new_items
+    # 수동 + 프리셋 전체 반환
+    result = await db.execute(
+        select(CostItem).where(CostItem.product_id == product_id).order_by(CostItem.sort_order)
+    )
+    return result.scalars().all()
 
 
 @router.get("/users/{user_id}/cost-presets", response_model=list[CostPresetResponse])
@@ -104,6 +103,7 @@ async def update_cost_preset(
 async def apply_cost_preset(
     preset_id: int, data: CostPresetApplyRequest, db: AsyncSession = Depends(get_db)
 ):
+    """프리셋을 상품에 중첩 적용. 동일 프리셋 중복 적용은 스킵."""
     preset = await db.get(CostPreset, preset_id)
     if not preset:
         raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
@@ -115,10 +115,21 @@ async def apply_cost_preset(
             detail={
                 "message": "적용 가능한 상품이 없습니다.",
                 "skipped_ids": result["skipped_ids"],
-                "reason": result.get("skipped_reason", "요청한 상품이 존재하지 않거나 다른 사업체 소속입니다."),
+                "reason": result.get("skipped_reason", "요청한 상품이 존재하지 않거나 이미 적용된 프리셋입니다."),
             },
         )
     return result
+
+
+@router.post("/cost-presets/{preset_id}/detach", response_model=CostPresetDetachResponse)
+async def detach_cost_preset(
+    preset_id: int, data: CostPresetDetachRequest, db: AsyncSession = Depends(get_db)
+):
+    """프리셋 해제. 해당 프리셋에서 온 비용 항목만 제거."""
+    preset = await db.get(CostPreset, preset_id)
+    if not preset:
+        raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
+    return await detach_preset_from_products(db, preset_id, data.product_ids)
 
 
 @router.delete("/cost-presets/{preset_id}", status_code=204)
@@ -126,10 +137,5 @@ async def delete_cost_preset(preset_id: int, db: AsyncSession = Depends(get_db))
     preset = await db.get(CostPreset, preset_id)
     if not preset:
         raise HTTPException(404, "프리셋을 찾을 수 없습니다.")
-    # 참조 상품의 cost_preset_id를 NULL로 설정
-    await db.execute(
-        update(Product)
-        .where(Product.cost_preset_id == preset_id)
-        .values(cost_preset_id=None)
-    )
+    # source_preset_id FK의 SET NULL로 CostItem 자동 처리 (수동 항목으로 전환)
     await db.delete(preset)

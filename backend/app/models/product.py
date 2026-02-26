@@ -36,11 +36,6 @@ class Product(Base):
     color: Mapped[str | None] = mapped_column(String(50))
     material: Mapped[str | None] = mapped_column(String(50))
     product_attributes: Mapped[dict | None] = mapped_column(JSON)
-    # 비용 프리셋 참조
-    cost_preset_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("cost_presets.id", ondelete="SET NULL"),
-    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

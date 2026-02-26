@@ -107,7 +107,8 @@ npm run dev
 - `POST /api/v1/users/{user_id}/store/import` - 선택한 상품 일괄 등록
 - `GET /api/v1/naver-categories` - 크롤링 데이터 기반 네이버 카테고리 트리
 - `PUT /api/v1/cost-presets/{id}` - 비용 프리셋 수정
-- `POST /api/v1/cost-presets/{id}/apply` - 복수 상품에 프리셋 적용
+- `POST /api/v1/cost-presets/{id}/apply` - 복수 상품에 프리셋 중첩 적용
+- `POST /api/v1/cost-presets/{id}/detach` - 프리셋 해제 (해당 항목만 삭제)
 - `GET /api/v1/products/{id}/included` - 수동 포함 예외 조회
 - `POST /api/v1/products/{id}/included` - 수동 포함 예외 추가
 - `DELETE /api/v1/products/{id}/included/{naver_product_id}` - 수동 포함 예외 해제
@@ -118,8 +119,8 @@ User → Products → SearchKeywords → KeywordRankings
                → ExcludedProducts (블랙리스트)
                → IncludedOverrides (수동 포함 예외)
 User → Alerts, AlertSettings
-User → CostPresets → Product.cost_preset_id (참조)
-Product → CostItems
+User → CostPresets
+Product → CostItems → CostItem.source_preset_id (프리셋 출처, 중첩 적용)
 
 ## 현재 완료된 기능
 1. 사업체(User) CRUD + 네이버 스토어명 설정
@@ -140,7 +141,7 @@ Product → CostItems
 16. SEO 키워드 엔진 (토큰 분류 + 가중치 기반 키워드 추천 API)
 17. 배송비 포함 가격 비교 (스마트스토어 배송비 스크래핑 + 총액 기준 최저가)
 18. 상품 DB화 (모델명 기반 제품 속성 구조화: brand, maker, series, capacity, color, material, product_attributes)
-19. 비용 프리셋 복수 적용 (프리셋 수정 + 복수 상품 일괄 적용 + cost_preset_id 추적)
+19. 비용 프리셋 중첩 적용 (CostItem.source_preset_id로 출처 추적, 서로 다른 프리셋 동시 적용, 동일 프리셋 중복 방지)
 20. 수동 포함 예외 (자동 필터 우회: included_overrides 테이블 + relevance_reason 추적)
 21. OpenAPI → TypeScript 타입 자동 동기화 (openapi.json + GitHub Action + openapi-typescript)
 22. Alembic 마이그레이션 (수동 ALTER TABLE 130줄 → Alembic async 프레임워크)
@@ -442,33 +443,46 @@ cd frontend && npm run generate-types
 **하위호환:**
 - 모든 필드 nullable, 기본값 NULL → 기존 상품 데이터 영향 없음
 
-### 2026-02-26: 비용 프리셋 복수 적용
+### 2026-02-26: 비용 프리셋 중첩 적용 (아키텍처 재설계)
 
-**Product 모델 확장:**
-- `cost_preset_id` (INTEGER, FK → cost_presets.id, ON DELETE SET NULL, nullable): 적용된 프리셋 참조
+**설계 변경 (Breaking Change):**
+- `Product.cost_preset_id` (단일 FK) **삭제** → `CostItem.source_preset_id` (출처 추적) **추가**
+- 상품 1개에 서로 다른 프리셋 여러 개 동시 적용 가능, 동일 프리셋 중복 적용은 방지
+- `cost_preset_id: int | None` → `cost_preset_ids: list[int] = []` (ProductResponse, ProductListItem, ProductDetail)
 
-**CostPreset 모델 확장:**
-- `updated_at` (TIMESTAMP, server_default NOW(), onupdate): 수정 시각
+**CostItem 모델 확장:**
+- `source_preset_id` (INTEGER, FK → cost_presets.id, ON DELETE SET NULL, nullable): 프리셋 출처
+  - NULL = 수동 입력 항목, N = 프리셋 N에서 온 항목
+- 복합 인덱스 `(product_id, source_preset_id)` 추가
+
+**Product 모델 변경:**
+- `cost_preset_id` 컬럼 + FK **제거** (CostItem에서 DISTINCT 조회로 대체)
 
 **새 API:**
-- `PUT /api/v1/cost-presets/{preset_id}` — 프리셋 수정
-  - Request: `{ name?: str, items?: [{name, type, value, sort_order}] }`
-  - Response: `CostPresetResponse` (updated_at 포함)
-  - 부분 수정 지원 (name만 또는 items만)
-
-- `POST /api/v1/cost-presets/{preset_id}/apply` — 복수 상품에 프리셋 적용
+- `POST /api/v1/cost-presets/{preset_id}/detach` — 프리셋 해제 (해당 프리셋 항목만 삭제)
   - Request: `{ product_ids: [1, 2, 3] }` (최소 1개, 최대 100개)
-  - Response: `{ applied: 3, skipped: 0, skipped_ids: [] }`
-  - 각 상품의 cost_items를 프리셋 items로 전체 교체 + cost_preset_id 갱신
-  - 프리셋 소유자(user_id)의 상품만 적용, 타 유저 상품은 스킵
+  - Response: `{ detached: 2, skipped: 1 }`
+  - 수동 항목 + 다른 프리셋 항목은 유지
 
 **기존 API 변경:**
-- `PUT /products/{product_id}/costs`: 수동 수정 시 `cost_preset_id`를 NULL로 리셋
-- `DELETE /cost-presets/{preset_id}`: 참조 상품의 `cost_preset_id`를 NULL로 처리
+- `POST /cost-presets/{id}/apply`: 전체 교체 → **중첩 추가** (동일 프리셋 이미 적용 시 skip)
+  - Response에 `skipped_reason: str | null` 필드 추가
+- `PUT /products/{id}/costs`: 수동 항목(source_preset_id=NULL)만 삭제/재생성 (프리셋 항목 유지)
+- `DELETE /cost-presets/{id}`: FK SET NULL로 CostItem 자동 수동 항목 전환
 
 **스키마 변경:**
-- `CostPresetResponse`에 `updated_at` 필드 추가
-- `ProductResponse`, `ProductDetail`, `ProductListItem`에 `cost_preset_id` 필드 추가
+- `CostItemResponse`에 `source_preset_id: int | None` 필드 추가
+- `CostPresetApplyResponse`에 `skipped_reason: str | None` 필드 추가
+- `CostPresetDetachRequest`, `CostPresetDetachResponse` 신규 추가
+
+**서비스 변경 (cost_service.py):**
+- `apply_preset_to_products`: additive (기존 항목 유지, 새 프리셋 항목 추가)
+- `detach_preset_from_products`: 특정 프리셋 항목만 삭제
+- `get_applied_preset_ids`, `get_applied_preset_ids_batch`: DISTINCT source_preset_id 조회
+
+**product_service.py 변경:**
+- `get_product_list_items()`: 배치 쿼리로 `cost_preset_ids` 배열 조회
+- `get_product_detail()`: `get_applied_preset_ids()` 호출
 
 ### 2026-02-26: 수동 포함 예외 (Include Override)
 

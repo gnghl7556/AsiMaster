@@ -9,10 +9,16 @@ from app.core.database import Base
 
 class CostItem(Base):
     __tablename__ = "cost_items"
-    __table_args__ = (Index("ix_cost_items_product_id", "product_id"),)
+    __table_args__ = (
+        Index("ix_cost_items_product_id", "product_id"),
+        Index("ix_cost_items_source_preset", "product_id", "source_preset_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    source_preset_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("cost_presets.id", ondelete="SET NULL"),
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'percent' | 'fixed'
     value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
