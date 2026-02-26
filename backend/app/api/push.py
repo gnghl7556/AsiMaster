@@ -1,28 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_db
 from app.models.push_subscription import PushSubscription
+from app.schemas.push import PushSubscriptionCreate, PushSubscriptionResponse
 
 router = APIRouter(tags=["push"])
-
-
-class PushSubscriptionCreate(BaseModel):
-    user_id: int
-    endpoint: str
-    p256dh: str
-    auth: str
-
-
-class PushSubscriptionResponse(BaseModel):
-    id: int
-    user_id: int
-    endpoint: str
-
-    model_config = {"from_attributes": True}
 
 
 @router.get("/push/vapid-public-key")

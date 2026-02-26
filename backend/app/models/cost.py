@@ -28,7 +28,7 @@ class CostPreset(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    items: Mapped[dict] = mapped_column(JSON, nullable=False)
+    items: Mapped[list] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

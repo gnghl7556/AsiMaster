@@ -24,7 +24,7 @@ def calculate_status(selling_price: int, lowest_price: int | None) -> str:
     return "losing"
 
 
-def calculate_margin(selling_price: int, cost_price: int, cost_items: list) -> dict:
+def calculate_margin(selling_price: int, cost_price: int, cost_items: list[dict]) -> dict:
     total_costs = 0
     calculated_items = []
     for item in cost_items:
@@ -51,7 +51,7 @@ def calculate_margin(selling_price: int, cost_price: int, cost_items: list) -> d
 STATUS_ORDER = {"losing": 0, "close": 1, "winning": 2}
 
 
-def _filter_relevant(rankings: list, excluded_ids: set[str]) -> list:
+def _filter_relevant(rankings: list[KeywordRanking], excluded_ids: set[str]) -> list[KeywordRanking]:
     """is_relevant=True + 블랙리스트(naver_product_id) 제외 필터."""
     return [
         r for r in rankings
@@ -60,7 +60,7 @@ def _filter_relevant(rankings: list, excluded_ids: set[str]) -> list:
     ]
 
 
-def _find_lowest(relevant_rankings: list) -> tuple[int | None, str | None]:
+def _find_lowest(relevant_rankings: list[KeywordRanking]) -> tuple[int | None, str | None]:
     """배송비 포함 최저 총액 + 판매자 반환."""
     if not relevant_rankings:
         return None, None
@@ -83,7 +83,7 @@ def _is_my_exact_product(ranking, product_naver_id: str | None) -> bool:
     return ranking.is_my_store
 
 
-def _calc_my_rank(latest_rankings: list, product_naver_id: str | None) -> int | None:
+def _calc_my_rank(latest_rankings: list[KeywordRanking], product_naver_id: str | None) -> int | None:
     """최신 rankings에서 내 상품 순위 추출."""
     my_rankings = [
         r for r in latest_rankings
@@ -92,7 +92,7 @@ def _calc_my_rank(latest_rankings: list, product_naver_id: str | None) -> int | 
     return min(r.rank for r in my_rankings) if my_rankings else None
 
 
-def _calc_last_crawled(active_keywords: list):
+def _calc_last_crawled(active_keywords: list[SearchKeyword]):
     """활성 키워드 중 가장 최근 크롤링 시각."""
     last_crawled = None
     for kw in active_keywords:
@@ -232,6 +232,7 @@ async def _fetch_rank_change(
     db: AsyncSession,
     keyword_ids: list[int],
     product_naver_id: str | None,
+    since=None,
 ) -> int | None:
     """내 상품의 최근 2회 크롤링 순위 변동 계산."""
     if not keyword_ids:
@@ -246,6 +247,8 @@ async def _fetch_rank_change(
         )
         .where(KeywordRanking.keyword_id.in_(keyword_ids))
     )
+    if since is not None:
+        query = query.where(KeywordRanking.crawled_at >= since)
 
     if product_naver_id:
         query = query.where(KeywordRanking.naver_product_id == product_naver_id)
@@ -284,6 +287,7 @@ async def _fetch_rank_change(
 async def _fetch_rank_change_batch(
     db: AsyncSession,
     all_keyword_ids: list[int],
+    since=None,
 ) -> dict[int, list]:
     """전체 keyword_ids에 대한 내 상품 rank 원시 데이터를 1회 쿼리로 수집.
 
@@ -302,8 +306,10 @@ async def _fetch_rank_change_batch(
             KeywordRanking.is_my_store,
         )
         .where(KeywordRanking.keyword_id.in_(all_keyword_ids))
-        .order_by(KeywordRanking.crawled_at.desc())
     )
+    if since is not None:
+        query = query.where(KeywordRanking.crawled_at >= since)
+    query = query.order_by(KeywordRanking.crawled_at.desc())
     result = await db.execute(query)
     rows = result.all()
 
@@ -399,7 +405,7 @@ async def get_product_list_items(
 
     # 배치 쿼리: sparkline 원시 데이터 + rank_change 원시 데이터 (각 1회)
     sparkline_raw = await _fetch_sparkline_data_batch(db, all_keyword_ids, seven_days_ago)
-    rank_change_raw = await _fetch_rank_change_batch(db, all_keyword_ids)
+    rank_change_raw = await _fetch_rank_change_batch(db, all_keyword_ids, since=seven_days_ago)
 
     items = []
     for product in products:
@@ -522,10 +528,9 @@ async def get_product_detail(
     price_gap, price_gap_pct = _calc_price_gap(product.selling_price, lowest_price)
     status = calculate_status(product.selling_price, lowest_price)
 
-    rank_change = await _fetch_rank_change(db, kw_ids, product_naver_id)
-    last_crawled = _calc_last_crawled(active_keywords)
-
     seven_days_ago = utcnow() - timedelta(days=7)
+    rank_change = await _fetch_rank_change(db, kw_ids, product_naver_id, since=seven_days_ago)
+    last_crawled = _calc_last_crawled(active_keywords)
     sparkline = await _fetch_sparkline_data(
         db, kw_ids, seven_days_ago, excluded_ids,
     )
