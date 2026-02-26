@@ -8,7 +8,7 @@ from app.core.logging import setup_logging
 setup_logging()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select, text
+from sqlalchemy import case, func, select, text
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -60,7 +60,9 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/health")
 async def health_check():
+    from datetime import timedelta
     from app.scheduler.setup import scheduler
+    from app.core.utils import utcnow
 
     checks = {}
     status = "healthy"
@@ -76,9 +78,30 @@ async def health_check():
             )
             last_crawl = result.scalar_one_or_none()
             checks["last_crawl_at"] = last_crawl.isoformat() if last_crawl else None
+
+            # 최근 24시간 크롤링 메트릭스
+            since_24h = utcnow() - timedelta(hours=24)
+            metrics_result = await session.execute(
+                select(
+                    func.count(CrawlLog.id),
+                    func.sum(case((CrawlLog.status == "success", 1), else_=0)),
+                    func.avg(CrawlLog.duration_ms),
+                ).where(CrawlLog.created_at >= since_24h)
+            )
+            row = metrics_result.one()
+            total = row[0] or 0
+            success = row[1] or 0
+            checks["crawl_metrics_24h"] = {
+                "total": total,
+                "success": success,
+                "failed": total - success,
+                "success_rate": round(success / total * 100, 1) if total > 0 else 0,
+                "avg_duration_ms": round(row[2]) if row[2] else None,
+            }
     except Exception as e:
         checks["database"] = checks.get("database", f"error: {e}")
         checks.setdefault("last_crawl_at", None)
+        checks.setdefault("crawl_metrics_24h", None)
         status = "unhealthy"
 
     checks["scheduler"] = "running" if scheduler.running else "stopped"
