@@ -197,6 +197,15 @@ export function KeywordRankingList({
     return " · 무료배송";
   };
 
+  const handleRequestIncludeOverride = (item: {
+    naver_product_id: string | null;
+    product_name: string;
+  }) => {
+    toast.info(
+      `자동필터 예외 복원 API 준비 후 활성화됩니다: ${item.product_name}`
+    );
+  };
+
   const requestExclude = (item: {
     naver_product_id: string;
     product_name: string;
@@ -377,6 +386,11 @@ export function KeywordRankingList({
                         전체 {kw.rankings.length}개 · 관련 {kw.rankings.filter((r) => r.is_relevant).length}개 ·
                         제외/필터 {kw.rankings.filter((r) => !r.is_relevant).length}개
                       </div>
+                      {kw.rankings.some((r) => !r.is_relevant) && (
+                        <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                          자동필터 제외 항목은 현재 최저총액/경쟁요약 계산에서 제외됩니다.
+                        </div>
+                      )}
                       {sortMode === "price" && (
                         <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
                           배송비 포함 총액 기준으로 정렬합니다.
@@ -497,16 +511,39 @@ export function KeywordRankingList({
                           </div>
                           {renderBrandMaker(item.brand, item.maker)}
                           {!item.is_relevant && !item.is_my_store && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {inferredFilterReasons.map((reason) => (
-                                <span
-                                  key={`${item.id}-${reason}`}
-                                  className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                                  title="검색 정확도 설정 기준 추정 사유"
+                            <div className="mt-1 space-y-1">
+                              <div className="flex flex-wrap gap-1">
+                                {inferredFilterReasons.map((reason) => (
+                                  <span
+                                    key={`${item.id}-${reason}`}
+                                    className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                    title="검색 정확도 설정 기준 추정 사유"
+                                  >
+                                    {reason}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                <a
+                                  href="#basic-info"
+                                  className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                 >
-                                  {reason}
-                                </span>
-                              ))}
+                                  정확도 설정 조정
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRequestIncludeOverride({
+                                      naver_product_id: item.naver_product_id,
+                                      product_name: item.product_name,
+                                    })
+                                  }
+                                  className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-500 hover:bg-blue-500/15"
+                                  title="백엔드 예외복원 API 준비 후 활성화 예정"
+                                >
+                                  다시 포함(준비중)
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -581,16 +618,39 @@ export function KeywordRankingList({
                         </div>
                         {renderBrandMaker(item.brand, item.maker)}
                         {!item.is_relevant && !item.is_my_store && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {inferredFilterReasons.map((reason) => (
-                              <span
-                                key={`${item.id}-${reason}`}
-                                className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
-                                title="검색 정확도 설정 기준 추정 사유"
+                          <div className="mt-1 space-y-1">
+                            <div className="flex flex-wrap gap-1">
+                              {inferredFilterReasons.map((reason) => (
+                                <span
+                                  key={`${item.id}-${reason}`}
+                                  className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+                                  title="검색 정확도 설정 기준 추정 사유"
+                                >
+                                  {reason}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              <a
+                                href="#basic-info"
+                                className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[10px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                               >
-                                {reason}
-                              </span>
-                            ))}
+                                정확도 설정 조정
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRequestIncludeOverride({
+                                    naver_product_id: item.naver_product_id,
+                                    product_name: item.product_name,
+                                  })
+                                }
+                                className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1 text-[10px] font-medium text-blue-500 hover:bg-blue-500/15"
+                                title="백엔드 예외복원 API 준비 후 활성화 예정"
+                              >
+                                다시 포함(준비중)
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
