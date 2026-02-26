@@ -27,12 +27,28 @@ class CostPresetCreate(BaseModel):
     items: list[CostItemCreate]
 
 
+class CostPresetUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    items: list[CostItemCreate] | None = None
+
+
+class CostPresetApplyRequest(BaseModel):
+    product_ids: list[int] = Field(..., min_length=1, max_length=100)
+
+
+class CostPresetApplyResponse(BaseModel):
+    applied: int
+    skipped: int
+    skipped_ids: list[int] = []
+
+
 class CostPresetResponse(BaseModel):
     id: int
     user_id: int
     name: str
     items: list[dict]
     created_at: datetime
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

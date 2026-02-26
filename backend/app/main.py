@@ -44,6 +44,17 @@ async def apply_schema_changes(session):
         ("keyword_rankings", "shipping_fee_type", "VARCHAR(20)", "'unknown'"),
         ("products", "price_filter_min_pct", "INTEGER", None),
         ("products", "price_filter_max_pct", "INTEGER", None),
+        # 상품 DB화 - 제품 속성 필드
+        ("products", "brand", "VARCHAR(100)", None),
+        ("products", "maker", "VARCHAR(100)", None),
+        ("products", "series", "VARCHAR(100)", None),
+        ("products", "capacity", "VARCHAR(50)", None),
+        ("products", "color", "VARCHAR(50)", None),
+        ("products", "material", "VARCHAR(50)", None),
+        ("products", "product_attributes", "JSONB", None),
+        # 비용 프리셋 복수 적용
+        ("products", "cost_preset_id", "INTEGER", None),
+        ("cost_presets", "updated_at", "TIMESTAMP", "NOW()"),
     ]
     try:
         if is_sqlite:
@@ -61,6 +72,26 @@ async def apply_schema_changes(session):
                 await session.execute(text(
                     f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}{default_clause}"
                 ))
+        # FK 제약 추가 (PostgreSQL만)
+        if not is_sqlite:
+            fk_statements = [
+                """DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'fk_products_cost_preset_id'
+                    ) THEN
+                        ALTER TABLE products
+                        ADD CONSTRAINT fk_products_cost_preset_id
+                        FOREIGN KEY (cost_preset_id) REFERENCES cost_presets(id)
+                        ON DELETE SET NULL;
+                    END IF;
+                END $$""",
+            ]
+            for stmt in fk_statements:
+                try:
+                    await session.execute(text(stmt))
+                except Exception:
+                    pass
+
         # 인덱스 추가
         index_statements = [
             "CREATE INDEX IF NOT EXISTS ix_keyword_rankings_naver_product_id ON keyword_rankings (naver_product_id)",

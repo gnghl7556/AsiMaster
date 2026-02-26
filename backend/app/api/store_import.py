@@ -93,6 +93,8 @@ async def import_store_products(
             spec_keywords=item.spec_keywords if item.spec_keywords else None,
             price_filter_min_pct=item.price_filter_min_pct,
             price_filter_max_pct=item.price_filter_max_pct,
+            brand=item.brand or None,
+            maker=item.maker or None,
         )
         db.add(product)
         await db.flush()

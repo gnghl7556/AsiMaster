@@ -85,12 +85,15 @@ npm run dev
 - `GET /api/v1/users/{user_id}/store/products?store_url=...` - 스마트스토어 상품 미리보기 (스크래핑)
 - `POST /api/v1/users/{user_id}/store/import` - 선택한 상품 일괄 등록
 - `GET /api/v1/naver-categories` - 크롤링 데이터 기반 네이버 카테고리 트리
+- `PUT /api/v1/cost-presets/{id}` - 비용 프리셋 수정
+- `POST /api/v1/cost-presets/{id}/apply` - 복수 상품에 프리셋 적용
 
 ## 핵심 모델 관계
 User → Products → SearchKeywords → KeywordRankings
                                   → CrawlLogs
                → ExcludedProducts (블랙리스트)
 User → Alerts, AlertSettings
+User → CostPresets → Product.cost_preset_id (참조)
 Product → CostItems
 
 ## 현재 완료된 기능
@@ -111,6 +114,8 @@ Product → CostItems
 15. 네이버 카테고리 트리 API (크롤링 데이터 기반 계층 구조)
 16. SEO 키워드 엔진 (토큰 분류 + 가중치 기반 키워드 추천 API)
 17. 배송비 포함 가격 비교 (스마트스토어 배송비 스크래핑 + 총액 기준 최저가)
+18. 상품 DB화 (모델명 기반 제품 속성 구조화: brand, maker, series, capacity, color, material, product_attributes)
+19. 비용 프리셋 복수 적용 (프리셋 수정 + 복수 상품 일괄 적용 + cost_preset_id 추적)
 
 ## 디자인 시스템
 - Glassmorphism (`glass-card` 클래스)
@@ -332,3 +337,51 @@ Product → CostItems
 - `shipping_fee: int` 유지 → 기존 프론트 정상 동작
 - `shipping_fee_type` 새 필드 → 기존 프론트가 무시해도 OK
 - 기존 DB 데이터: default `"unknown"` 자동 적용
+
+### 2026-02-26: 상품 DB화 (모델명 기반 제품 속성 구조화)
+
+**Product 모델 확장 (7개 필드):**
+- `brand` (VARCHAR(100), nullable): 브랜드명
+- `maker` (VARCHAR(100), nullable): 제조사명
+- `series` (VARCHAR(100), nullable): 시리즈/라인명
+- `capacity` (VARCHAR(50), nullable): 용량/규격
+- `color` (VARCHAR(50), nullable): 색상
+- `material` (VARCHAR(50), nullable): 소재
+- `product_attributes` (JSONB, nullable): 추가 비정형 속성 (key-value)
+
+**스키마 변경:**
+- `ProductCreate`, `ProductUpdate`에 7개 필드 추가 (모두 Optional)
+- `ProductResponse`, `ProductDetail`에 7개 필드 추가
+- `ProductListItem`에 `model_code`, `brand` 필드 추가
+- `StoreImportItem`에 `brand`, `maker` 필드 추가 (import 시 자동 저장)
+
+**하위호환:**
+- 모든 필드 nullable, 기본값 NULL → 기존 상품 데이터 영향 없음
+
+### 2026-02-26: 비용 프리셋 복수 적용
+
+**Product 모델 확장:**
+- `cost_preset_id` (INTEGER, FK → cost_presets.id, ON DELETE SET NULL, nullable): 적용된 프리셋 참조
+
+**CostPreset 모델 확장:**
+- `updated_at` (TIMESTAMP, server_default NOW(), onupdate): 수정 시각
+
+**새 API:**
+- `PUT /api/v1/cost-presets/{preset_id}` — 프리셋 수정
+  - Request: `{ name?: str, items?: [{name, type, value, sort_order}] }`
+  - Response: `CostPresetResponse` (updated_at 포함)
+  - 부분 수정 지원 (name만 또는 items만)
+
+- `POST /api/v1/cost-presets/{preset_id}/apply` — 복수 상품에 프리셋 적용
+  - Request: `{ product_ids: [1, 2, 3] }` (최소 1개, 최대 100개)
+  - Response: `{ applied: 3, skipped: 0, skipped_ids: [] }`
+  - 각 상품의 cost_items를 프리셋 items로 전체 교체 + cost_preset_id 갱신
+  - 프리셋 소유자(user_id)의 상품만 적용, 타 유저 상품은 스킵
+
+**기존 API 변경:**
+- `PUT /products/{product_id}/costs`: 수동 수정 시 `cost_preset_id`를 NULL로 리셋
+- `DELETE /cost-presets/{preset_id}`: 참조 상품의 `cost_preset_id`를 NULL로 처리
+
+**스키마 변경:**
+- `CostPresetResponse`에 `updated_at` 필드 추가
+- `ProductResponse`, `ProductDetail`, `ProductListItem`에 `cost_preset_id` 필드 추가

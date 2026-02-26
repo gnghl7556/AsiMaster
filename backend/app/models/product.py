@@ -28,6 +28,19 @@ class Product(Base):
     spec_keywords: Mapped[list | None] = mapped_column(JSON, default=list)
     price_filter_min_pct: Mapped[int | None] = mapped_column(Integer)
     price_filter_max_pct: Mapped[int | None] = mapped_column(Integer)
+    # 제품 속성 필드
+    brand: Mapped[str | None] = mapped_column(String(100))
+    maker: Mapped[str | None] = mapped_column(String(100))
+    series: Mapped[str | None] = mapped_column(String(100))
+    capacity: Mapped[str | None] = mapped_column(String(50))
+    color: Mapped[str | None] = mapped_column(String(50))
+    material: Mapped[str | None] = mapped_column(String(50))
+    product_attributes: Mapped[dict | None] = mapped_column(JSON)
+    # 비용 프리셋 참조
+    cost_preset_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("cost_presets.id", ondelete="SET NULL"),
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

@@ -26,6 +26,9 @@ class StoreImportItem(BaseModel):
     spec_keywords: list[str] | None = None
     price_filter_min_pct: int | None = Field(None, ge=0, le=100)
     price_filter_max_pct: int | None = Field(None, ge=100)
+    # 제품 속성
+    brand: str | None = Field(None, max_length=100)
+    maker: str | None = Field(None, max_length=100)
 
 
 class StoreImportRequest(BaseModel):
