@@ -27,6 +27,17 @@ export const STATUS_CONFIG: Record<
   },
 };
 
+export function getDisplayStatus(
+  status: ProductStatus,
+  priceGap?: number | null
+): ProductStatus {
+  // 사용자 행동 기준: 1원이라도 비싸면 사실상 '밀림'으로 간주
+  if (status === "close" && priceGap != null && priceGap < 0) {
+    return "losing";
+  }
+  return status;
+}
+
 export const SORT_OPTIONS = [
   { value: "urgency" as const, label: "긴급도 우선" },
   { value: "margin" as const, label: "마진 위험순" },

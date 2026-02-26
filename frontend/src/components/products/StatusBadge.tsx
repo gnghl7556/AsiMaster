@@ -1,17 +1,24 @@
 "use client";
 
-import { STATUS_CONFIG } from "@/lib/utils/constants";
+import { STATUS_CONFIG, getDisplayStatus } from "@/lib/utils/constants";
 import type { ProductStatus } from "@/types";
 import { cn } from "@/lib/utils/cn";
 
 interface StatusBadgeProps {
   status: ProductStatus;
+  priceGap?: number | null;
   size?: "sm" | "md";
 }
 
-export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status];
-  const neonClass = status === "winning" ? "neon-green" : status === "close" ? "neon-yellow" : "neon-red";
+export function StatusBadge({ status, priceGap = null, size = "md" }: StatusBadgeProps) {
+  const displayStatus = getDisplayStatus(status, priceGap);
+  const config = STATUS_CONFIG[displayStatus];
+  const neonClass =
+    displayStatus === "winning"
+      ? "neon-green"
+      : displayStatus === "close"
+      ? "neon-yellow"
+      : "neon-red";
 
   return (
     <span

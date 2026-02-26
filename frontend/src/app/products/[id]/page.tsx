@@ -660,7 +660,7 @@ export default function ProductDetailPage({
             )}
           </div>
         </div>
-        <StatusBadge status={product.status} />
+        <StatusBadge status={product.status} priceGap={product.price_gap} />
       </div>
 
       {/* 상품 기본 정보 */}

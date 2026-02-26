@@ -47,12 +47,14 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   if (!data) return null;
 
   const activeProducts = products.filter((p) => !p.is_price_locked);
-  const normalProductsCount = data.status_counts.winning + data.status_counts.close;
+  const isPriceLosing = (p: (typeof activeProducts)[number]) =>
+    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
+  const normalProductsCount = activeProducts.filter((p) => !isPriceLosing(p)).length;
   const samePriceCount = products.filter(
     (p) => !p.is_price_locked && p.price_gap === 0
   ).length;
   const losingProducts = products.filter(
-    (p) => !p.is_price_locked && p.status === "losing"
+    (p) => !p.is_price_locked && (p.price_gap != null ? p.price_gap < 0 : p.status === "losing")
   );
   const samePriceProducts = activeProducts.filter((p) => p.price_gap === 0);
 
@@ -72,14 +74,14 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
       label: "정상",
       value: normalProductsCount,
       time: latestDetectedAt(
-        activeProducts.filter((p) => p.status === "winning" || p.status === "close")
+        activeProducts.filter((p) => !isPriceLosing(p))
       ),
       icon: ShieldCheck,
       color: "text-emerald-500",
     },
     {
       label: "밀림",
-      value: data.status_counts.losing,
+      value: losingProducts.length,
       time: latestDetectedAt(losingProducts),
       icon: TrendingDown,
       color: "text-red-500",

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
-import { STATUS_CONFIG } from "@/lib/utils/constants";
+import { STATUS_CONFIG, getDisplayStatus } from "@/lib/utils/constants";
 import { StatusBadge } from "./StatusBadge";
 import { PriceGap } from "./PriceGap";
 import { MarginBar } from "./MarginBar";
@@ -17,7 +17,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const config = STATUS_CONFIG[product.status];
+  const displayStatus = getDisplayStatus(product.status, product.price_gap);
+  const config = STATUS_CONFIG[displayStatus];
   const rankChange = product.rank_change;
   const rankChangeLabel =
     rankChange == null
@@ -67,7 +68,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="flex items-center justify-between gap-3 lg:hidden">
           {/* 좌: 상태 + 상품명 */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <StatusBadge status={product.status} />
+            <StatusBadge status={product.status} priceGap={product.price_gap} />
             <div className="min-w-0">
               <h3 className="font-medium truncate">{product.name}</h3>
               {product.brand && (
@@ -101,7 +102,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Desktop layout with fixed columns */}
         <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_120px_140px_130px_130px_150px] lg:items-center lg:gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <StatusBadge status={product.status} />
+            <StatusBadge status={product.status} priceGap={product.price_gap} />
             <div className="min-w-0">
               <h3 className="font-medium truncate">{product.name}</h3>
               {product.brand && (

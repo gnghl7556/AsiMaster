@@ -32,15 +32,17 @@ function buildQueue(
   options: { includeSameTotal: boolean; sortMode: QueueSortMode }
 ): QueueItem[] {
   const active = products.filter((p) => !p.is_price_locked);
+  const isPriceLosing = (p: ProductListItem) =>
+    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
   const queue = active
     .filter(
       (p) =>
-        p.status === "losing" ||
+        isPriceLosing(p) ||
         (options.includeSameTotal && p.price_gap === 0)
     )
     .map((p): QueueItem => ({
       ...p,
-      issueType: p.status === "losing" ? "losing" : "same_price",
+      issueType: isPriceLosing(p) ? "losing" : "same_price",
     }));
 
   return queue.sort((a, b) => {

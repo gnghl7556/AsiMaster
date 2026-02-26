@@ -3,7 +3,7 @@
 import { formatGap, formatPercent } from "@/lib/utils/format";
 import type { ProductStatus } from "@/types";
 import { cn } from "@/lib/utils/cn";
-import { STATUS_CONFIG } from "@/lib/utils/constants";
+import { STATUS_CONFIG, getDisplayStatus } from "@/lib/utils/constants";
 
 interface PriceGapProps {
   gap: number | null;
@@ -13,7 +13,7 @@ interface PriceGapProps {
 }
 
 export function PriceGap({ gap, gapPercent, status, size = "lg" }: PriceGapProps) {
-  const config = STATUS_CONFIG[status];
+  const config = STATUS_CONFIG[getDisplayStatus(status, gap)];
 
   if (gap == null) {
     return (

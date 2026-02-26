@@ -10,9 +10,11 @@ interface SummaryBarProps {
 export function SummaryBar({ products, scopeLabel = "관리 중" }: SummaryBarProps) {
   const active = products.filter((p) => !p.is_price_locked);
   const locked = products.filter((p) => p.is_price_locked);
-  const winning = active.filter((p) => p.status === "winning").length;
-  const close = active.filter((p) => p.status === "close").length;
-  const losing = active.filter((p) => p.status === "losing").length;
+  const isPriceLosing = (p: ProductListItem) =>
+    p.price_gap != null ? p.price_gap < 0 : p.status === "losing";
+  const winning = active.filter((p) => !isPriceLosing(p) && p.status === "winning").length;
+  const close = active.filter((p) => !isPriceLosing(p) && p.status === "close").length;
+  const losing = active.filter((p) => isPriceLosing(p)).length;
 
   return (
     <div className="flex items-center gap-3 rounded-lg bg-[var(--muted)] px-4 py-2 text-sm">
