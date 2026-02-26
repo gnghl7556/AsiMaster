@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.cost import CostItemCalculated
 from app.schemas.search_keyword import KeywordWithRankings
 
 
@@ -112,7 +113,7 @@ class MarginDetail(BaseModel):
     selling_price: int
     cost_price: int
     total_costs: int
-    cost_items: list[dict]
+    cost_items: list[CostItemCalculated]
     net_margin: int
     margin_percent: float
 

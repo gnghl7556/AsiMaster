@@ -145,6 +145,29 @@ Product → CostItems
 - **API 명세 기록**: Claude가 백엔드 API를 추가/수정하면, 반드시 이 문서(CLAUDE.md)의 API 엔드포인트 섹션에 변경된 Request/Response 구조를 명확히 기록한다.
 - Codex는 이 문서에 기록된 최신 API 명세를 바탕으로 프론트엔드 연동 작업을 수행한다.
 
+### OpenAPI → TypeScript 타입 자동 동기화
+백엔드 Pydantic 스키마 → `openapi.json` → 프론트엔드 TypeScript 타입 자동 생성 파이프라인:
+
+**Claude Code (백엔드 변경 후):**
+```bash
+cd backend && ./venv/bin/python3 -m scripts.export_openapi
+# → 프로젝트 루트 openapi.json 갱신
+# → openapi.json을 백엔드 변경과 함께 커밋
+```
+
+**Codex (프론트엔드):**
+```bash
+cd frontend && npm run generate-types
+# → src/types/api.generated.ts 자동 생성
+# → src/types/index.ts (re-export 레이어)에서 타입 매핑
+```
+
+**파일 구조:**
+- `backend/scripts/export_openapi.py` — OpenAPI spec 내보내기 스크립트
+- `openapi.json` (프로젝트 루트) — 공유 API 명세 (git 커밋)
+- `frontend/src/types/api.generated.ts` — 자동 생성 타입 (openapi-typescript)
+- `frontend/src/types/index.ts` — re-export 레이어 (안정 타입명 유지)
+
 ## API 변경 이력
 
 ### 2026-02-21: 상품 naver_product_id 매칭 + 자기 상품 자동 제외

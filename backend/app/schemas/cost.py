@@ -42,11 +42,18 @@ class CostPresetApplyResponse(BaseModel):
     skipped_ids: list[int] = []
 
 
+class CostItemCalculated(BaseModel):
+    name: str
+    type: str
+    value: float
+    calculated: int
+
+
 class CostPresetResponse(BaseModel):
     id: int
     user_id: int
     name: str
-    items: list[dict]
+    items: list[CostItemCreate]
     created_at: datetime
     updated_at: datetime | None = None
 
@@ -57,7 +64,7 @@ class MarginResult(BaseModel):
     selling_price: int
     cost_price: int
     total_costs: int
-    cost_items: list[dict]
+    cost_items: list[CostItemCalculated]
     net_margin: int
     margin_percent: float
 
