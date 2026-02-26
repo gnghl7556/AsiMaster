@@ -95,7 +95,9 @@ export function ProductList({ hideMeta = false }: Props) {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       toast.success(
         `${result.applied}개 상품에 프리셋 적용 완료${
-          result.skipped > 0 ? ` (${result.skipped}개 스킵)` : ""
+          result.skipped > 0
+            ? ` (${result.skipped}개 스킵${result.skipped_reason ? `: ${result.skipped_reason}` : ""})`
+            : ""
         }`
       );
       setShowPresetApplyModal(false);

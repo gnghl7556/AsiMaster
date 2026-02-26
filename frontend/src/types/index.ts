@@ -11,7 +11,7 @@ export type SortOption = "urgency" | "margin" | "rank_drop" | "category";
 export type User = Schema<"UserResponse">;
 
 export type Product = Override<
-  Schema<"ProductResponse">,
+  Omit<Schema<"ProductResponse">, "cost_preset_id">,
   {
     brand: string | null;
     maker: string | null;
@@ -20,16 +20,16 @@ export type Product = Override<
     color: string | null;
     material: string | null;
     product_attributes: Record<string, string> | null;
-    cost_preset_id: number | null;
+    cost_preset_ids: number[];
   }
 >;
 
 export type ProductListItem = Override<
-  Schema<"ProductListItem">,
+  Omit<Schema<"ProductListItem">, "cost_preset_id">,
   {
     model_code: string | null;
     brand: string | null;
-    cost_preset_id: number | null;
+    cost_preset_ids: number[];
     status: ProductStatus;
   }
 >;
@@ -117,7 +117,7 @@ export type CompetitorSummary = Override<
 >;
 
 export type ProductDetail = Override<
-  Schema<"ProductDetail">,
+  Omit<Schema<"ProductDetail">, "cost_preset_id">,
   {
     brand: string | null;
     maker: string | null;
@@ -126,7 +126,7 @@ export type ProductDetail = Override<
     color: string | null;
     material: string | null;
     product_attributes: Record<string, string> | null;
-    cost_preset_id: number | null;
+    cost_preset_ids: number[];
     status: ProductStatus;
     competitors: CompetitorSummary[];
     keywords: KeywordDetail[];

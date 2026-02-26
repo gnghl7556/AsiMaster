@@ -35,7 +35,7 @@ import { useCrawlProduct } from "@/lib/hooks/useCrawl";
 import { formatPrice, timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { parseSpecKeywordsInput } from "@/lib/utils/productMatching";
-import type { CostItemInput } from "@/lib/api/costs";
+import type { CostItemInput, ProductCostItem } from "@/lib/api/costs";
 import type {
   ProductDetail,
   MarginDetail as MarginDetailType,
@@ -256,6 +256,31 @@ export default function ProductDetailPage({
     },
     onError: () => toast.error("비용 항목 저장에 실패했습니다"),
   });
+  const applyCostPresetMutation = useMutation({
+    mutationFn: (presetId: number) => costsApi.applyPreset(presetId, [productId]),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["product-cost-items", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setSelectedCostPresetId(null);
+      toast.success(
+        result.applied > 0
+          ? `프리셋 적용 완료${result.skipped > 0 ? ` (${result.skipped}개 스킵${result.skipped_reason ? `: ${result.skipped_reason}` : ""})` : ""}`
+          : `적용되지 않았습니다${result.skipped_reason ? `: ${result.skipped_reason}` : ""}`
+      );
+    },
+    onError: () => toast.error("프리셋 적용에 실패했습니다"),
+  });
+  const detachCostPresetMutation = useMutation({
+    mutationFn: (presetId: number) => costsApi.detachPreset(presetId, [productId]),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["product-cost-items", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success(result.detached > 0 ? "프리셋을 해제했습니다" : "해제할 프리셋 항목이 없습니다");
+    },
+    onError: () => toast.error("프리셋 해제에 실패했습니다"),
+  });
 
   // 마진 시뮬레이션
   const [simPrice, setSimPrice] = useState("");
@@ -347,11 +372,13 @@ export default function ProductDetailPage({
   }, [product]);
 
   useEffect(() => {
-    const mapped: CostItemInput[] = costItems.map((item) => ({
-      name: item.name ?? "",
-      type: (item.type === "fixed" ? "fixed" : "percent") as "fixed" | "percent",
-      value: Number(item.value ?? 0),
-    }));
+    const mapped: CostItemInput[] = costItems
+      .filter((item) => item.source_preset_id == null)
+      .map((item) => ({
+        name: item.name ?? "",
+        type: (item.type === "fixed" ? "fixed" : "percent") as "fixed" | "percent",
+        value: Number(item.value ?? 0),
+      }));
     setEditableCostItems(mapped.length > 0 ? mapped : [{ name: "", type: "percent", value: 0 }]);
   }, [costItems]);
 
@@ -455,11 +482,13 @@ export default function ProductDetailPage({
     isCategoryChanged ||
     isProductAttributesChanged;
   const isExposureTopButPriceLosing = product.my_rank === 1 && product.status === "losing";
-  const normalizedFetchedCostItems = costItems.map((item) => ({
-    name: item.name.trim(),
-    type: item.type === "fixed" ? "fixed" : "percent",
-    value: Number(item.value ?? 0),
-  }));
+  const normalizedFetchedCostItems = costItems
+    .filter((item) => item.source_preset_id == null)
+    .map((item) => ({
+      name: item.name.trim(),
+      type: item.type === "fixed" ? "fixed" : "percent",
+      value: Number(item.value ?? 0),
+    }));
   const normalizedEditableCostItems = editableCostItems
     .map((item) => ({
       name: item.name.trim(),
@@ -576,22 +605,20 @@ export default function ProductDetailPage({
     product.series && `시리즈 ${product.series}`,
     product.capacity && `규격 ${product.capacity}`,
   ].filter(Boolean) as string[];
-  const currentCostPresetName =
-    product.cost_preset_id != null
-      ? costPresets.find((preset) => preset.id === product.cost_preset_id)?.name ?? null
-      : null;
+  const currentCostPresetNames = (product.cost_preset_ids ?? [])
+    .map((id) => costPresets.find((preset) => preset.id === id)?.name)
+    .filter(Boolean) as string[];
+  const presetCostItems = costItems.filter(
+    (item) => item.source_preset_id != null
+  ) as ProductCostItem[];
 
   const handleApplyCostPreset = () => {
     if (!selectedCostPresetId) return;
-    const preset = costPresets.find((p) => p.id === selectedCostPresetId);
-    if (!preset) return;
-    const nextItems: CostItemInput[] = (preset.items ?? []).map((item) => ({
-      name: item.name ?? "",
-      type: (item.type === "fixed" ? "fixed" : "percent") as "fixed" | "percent",
-      value: Number(item.value ?? 0),
-    }));
-    setEditableCostItems(nextItems.length > 0 ? nextItems : [{ name: "", type: "percent", value: 0 }]);
-    toast.success(`"${preset.name}" 프리셋을 적용했습니다. 저장하면 반영됩니다.`);
+    if ((product.cost_preset_ids ?? []).includes(selectedCostPresetId)) {
+      toast.info("이미 적용된 프리셋입니다");
+      return;
+    }
+    applyCostPresetMutation.mutate(selectedCostPresetId);
   };
 
   const handleSaveCostItems = () => {
@@ -1254,8 +1281,12 @@ export default function ProductDetailPage({
             selectedCostPresetId={selectedCostPresetId}
             setSelectedCostPresetId={setSelectedCostPresetId}
             onApplyCostPreset={handleApplyCostPreset}
-            isApplyingCostPreset={false}
-            currentCostPresetName={currentCostPresetName}
+            isApplyingCostPreset={applyCostPresetMutation.isPending}
+            appliedCostPresetIds={product.cost_preset_ids ?? []}
+            currentCostPresetNames={currentCostPresetNames}
+            presetCostItems={presetCostItems}
+            onDetachCostPreset={(presetId) => detachCostPresetMutation.mutate(presetId)}
+            detachingPresetId={detachCostPresetMutation.isPending ? (detachCostPresetMutation.variables ?? null) : null}
           />
         </div>
       )}

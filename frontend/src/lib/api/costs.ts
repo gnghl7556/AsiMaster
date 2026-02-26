@@ -19,6 +19,7 @@ export interface CostPreset {
 export interface ProductCostItem {
   id: number;
   product_id: number;
+  source_preset_id: number | null;
   name: string;
   type: "percent" | "fixed";
   value: number;
@@ -64,8 +65,16 @@ export const costsApi = {
 
   applyPreset: (presetId: number, productIds: number[]) =>
     apiClient
-      .post<{ applied: number; skipped: number; skipped_ids: number[] }>(
+      .post<{ applied: number; skipped: number; skipped_ids: number[]; skipped_reason: string | null }>(
         `/cost-presets/${presetId}/apply`,
+        { product_ids: productIds }
+      )
+      .then((r) => r.data),
+
+  detachPreset: (presetId: number, productIds: number[]) =>
+    apiClient
+      .post<{ detached: number; skipped: number }>(
+        `/cost-presets/${presetId}/detach`,
         { product_ids: productIds }
       )
       .then((r) => r.data),

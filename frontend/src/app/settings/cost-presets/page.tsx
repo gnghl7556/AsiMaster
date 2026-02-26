@@ -80,7 +80,9 @@ export default function CostPresetsPage() {
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       toast.success(
         `${result.applied}개 상품에 프리셋 적용 완료${
-          result.skipped > 0 ? ` (${result.skipped}개 스킵)` : ""
+          result.skipped > 0
+            ? ` (${result.skipped}개 스킵${result.skipped_reason ? `: ${result.skipped_reason}` : ""})`
+            : ""
         }`
       );
       setApplyTarget(null);
@@ -304,7 +306,8 @@ export default function CostPresetsPage() {
                       <div className="truncate text-sm font-medium">{product.name}</div>
                       <div className="truncate text-xs text-[var(--muted-foreground)]">
                         {product.category || "카테고리 미설정"}
-                        {product.cost_preset_id != null && ` · 프리셋 적용됨(#${product.cost_preset_id})`}
+                        {(product.cost_preset_ids?.length ?? 0) > 0 &&
+                          ` · 프리셋 ${product.cost_preset_ids.length}개 적용됨`}
                       </div>
                     </div>
                   </button>

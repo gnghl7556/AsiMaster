@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, Trash2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MarginDetail as MarginDetailType } from "@/types";
 import { formatPrice, formatPercent } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
-import type { CostItemInput, CostPreset } from "@/lib/api/costs";
+import type { CostItemInput, CostPreset, ProductCostItem } from "@/lib/api/costs";
 import { CostItemEditor } from "@/components/settings/CostItemEditor";
 
 interface Props {
@@ -34,7 +34,11 @@ interface Props {
   setSelectedCostPresetId: (value: number | null) => void;
   onApplyCostPreset: () => void;
   isApplyingCostPreset: boolean;
-  currentCostPresetName?: string | null;
+  appliedCostPresetIds?: number[];
+  currentCostPresetNames?: string[];
+  presetCostItems?: ProductCostItem[];
+  onDetachCostPreset?: (presetId: number) => void;
+  detachingPresetId?: number | null;
 }
 
 export function MarginDetail({
@@ -62,7 +66,11 @@ export function MarginDetail({
   setSelectedCostPresetId,
   onApplyCostPreset,
   isApplyingCostPreset,
-  currentCostPresetName = null,
+  appliedCostPresetIds = [],
+  currentCostPresetNames = [],
+  presetCostItems = [],
+  onDetachCostPreset,
+  detachingPresetId = null,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -183,8 +191,13 @@ export function MarginDetail({
                   >
                     <option value="">비용 프리셋 선택</option>
                     {costPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
+                      <option
+                        key={preset.id}
+                        value={preset.id}
+                        disabled={appliedCostPresetIds.includes(preset.id)}
+                      >
                         {preset.name}
+                        {appliedCostPresetIds.includes(preset.id) ? " (적용됨)" : ""}
                       </option>
                     ))}
                   </select>
@@ -201,15 +214,82 @@ export function MarginDetail({
                     )}
                   </button>
                 </div>
-                {currentCostPresetName && (
-                  <div className="mt-2">
-                    <span className="inline-flex items-center rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-500">
-                      프리셋: {currentCostPresetName}
-                    </span>
+                {currentCostPresetNames.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="text-[11px] text-[var(--muted-foreground)]">적용된 프리셋</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {appliedCostPresetIds.map((presetId) => {
+                        const presetName =
+                          costPresets.find((preset) => preset.id === presetId)?.name ??
+                          `프리셋 #${presetId}`;
+                        return (
+                          <span
+                            key={presetId}
+                            className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-500"
+                          >
+                            {presetName}
+                            {onDetachCostPreset && (
+                              <button
+                                type="button"
+                                onClick={() => onDetachCostPreset(presetId)}
+                                disabled={detachingPresetId === presetId}
+                                className="rounded-full p-0.5 hover:bg-blue-500/15 disabled:opacity-50"
+                                title="프리셋 해제"
+                              >
+                                {detachingPresetId === presetId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <X className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {presetCostItems.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)]/50 p-2.5">
+                    <div className="mb-2 text-[11px] font-medium text-[var(--muted-foreground)]">
+                      프리셋에서 적용된 비용 항목 (읽기 전용)
+                    </div>
+                    <div className="space-y-1.5">
+                      {presetCostItems.map((item) => {
+                        const sourceName =
+                          item.source_preset_id != null
+                            ? costPresets.find((preset) => preset.id === item.source_preset_id)?.name ??
+                              `프리셋 #${item.source_preset_id}`
+                            : "프리셋";
+                        return (
+                          <div
+                            key={`preset-${item.id}`}
+                            className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-medium">{item.name}</span>
+                                <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
+                                  {sourceName}
+                                </span>
+                                <span className="text-[10px] text-[var(--muted-foreground)]">
+                                  {item.type === "percent" ? `${item.value}%` : `${formatPrice(item.value)}원`}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-[var(--muted-foreground)]">프리셋 항목</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
                 <div className="mt-3 space-y-2">
+                  <div className="text-[11px] text-[var(--muted-foreground)]">
+                    수동 비용 항목 (편집/삭제 가능)
+                  </div>
                   {costItemsEditor.map((item, i) => (
                     <div key={`${item.name}-${i}`} className="flex items-center gap-2">
                       <CostItemEditor item={item} onChange={(updated) => onChangeCostItem(i, updated)} />
