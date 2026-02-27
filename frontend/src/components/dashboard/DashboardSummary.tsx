@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils/cn";
 interface SummaryCard {
   label: string;
   value: number | null;
-  time: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
 }
@@ -56,40 +55,22 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const losingProducts = products.filter(
     (p) => !p.is_price_locked && (p.price_gap != null ? p.price_gap > 0 : p.status === "losing")
   );
-  const samePriceProducts = activeProducts.filter((p) => p.price_gap === 0);
-
-  const mayBeTruncated = products.length >= DASHBOARD_SCAN_LIMIT;
-
-  const latestDetectedAt = (items: typeof activeProducts) => {
-    const latest = items
-      .map((item) => item.last_crawled_at)
-      .filter(Boolean)
-      .sort()
-      .pop();
-    return latest ? timeAgo(latest) : "기록 없음";
-  };
-
   const cards: SummaryCard[] = [
     {
       label: "정상",
       value: normalProductsCount,
-      time: latestDetectedAt(
-        activeProducts.filter((p) => !isPriceLosing(p))
-      ),
       icon: ShieldCheck,
       color: "text-emerald-500",
     },
     {
       label: "밀림",
       value: losingProducts.length,
-      time: latestDetectedAt(losingProducts),
       icon: TrendingDown,
       color: "text-red-500",
     },
     {
       label: "동일총액",
       value: samePriceCount,
-      time: latestDetectedAt(samePriceProducts),
       icon: Minus,
       color: "text-amber-500",
     },
@@ -122,9 +103,6 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
                   "-"
                 )}
               </div>
-              <div className="mt-2 text-[11px] text-[var(--muted-foreground)]">
-                {card.time}
-              </div>
             </motion.div>
           ))}
         </div>
@@ -146,11 +124,6 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
       {data.last_crawled_at && (
         <div className="mt-2 text-right text-xs text-[var(--muted-foreground)]">
           {timeAgo(data.last_crawled_at)}
-        </div>
-      )}
-      {mayBeTruncated && (
-        <div className="mt-1 text-right text-[11px] text-amber-500">
-          동일총액/감지 시각 일부는 최대 {DASHBOARD_SCAN_LIMIT}개 상품 기준
         </div>
       )}
     </div>

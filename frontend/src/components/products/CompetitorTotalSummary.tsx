@@ -92,9 +92,6 @@ export function CompetitorTotalSummary({
             </span>
           )}
         </div>
-        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-          배송비 포함 총액 기준입니다. 노출 순위와 다를 수 있습니다.
-        </p>
       </div>
       <div className="space-y-2">
         {visibleRows.map((item, idx) => (

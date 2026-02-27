@@ -167,12 +167,7 @@ export function ActionQueue() {
   return (
     <section className="glass-card p-4">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold">지금 조치가 필요한 상품</h2>
-          <p className="text-xs text-[var(--muted-foreground)]">
-            {includeSameTotal ? "밀림/동일 총액 상품 우선 표시" : "밀림 상품만 표시"}
-          </p>
-        </div>
+        <h2 className="text-lg font-bold">지금 조치가 필요한 상품</h2>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-500">
             밀림 {queueLosingCount}
@@ -249,11 +244,6 @@ export function ActionQueue() {
         <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)]/60 text-center">
           <RefreshCw className="mb-2 h-6 w-6 text-[var(--muted-foreground)]" />
           <p className="text-sm font-medium">조치 필요 상품이 없습니다</p>
-          <p className="text-xs text-[var(--muted-foreground)]">
-            {includeSameTotal
-              ? "현재 밀림/동일 총액 상태의 상품이 없습니다"
-              : "현재 밀림 상태의 상품이 없습니다"}
-          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -437,33 +427,24 @@ export function ActionQueue() {
                     </button>
                   </div>
                 </div>
-                <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-2 sm:hidden">
-                    <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
-                    <span className="truncate text-[11px] text-[var(--muted-foreground)]">
-                      {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-[11px] text-[var(--muted-foreground)]">
+                    {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
+                  </span>
+                  {getCrawlFreshness(product.last_crawled_at) !== "fresh" && (
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                        getCrawlFreshness(product.last_crawled_at) === "old"
+                          ? "bg-rose-500/10 text-rose-500"
+                          : "bg-amber-500/10 text-amber-500"
+                      )}
+                    >
+                      {getCrawlFreshness(product.last_crawled_at) === "old"
+                        ? "수집 오래됨"
+                        : "수집 지연"}
                     </span>
-                  </div>
-                  <ArrowRight className="hidden h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5 sm:block" />
-                  <div className="ml-auto flex flex-col items-end gap-1 sm:ml-0">
-                    <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:block">
-                      {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
-                    </span>
-                    {getCrawlFreshness(product.last_crawled_at) !== "fresh" && (
-                      <span
-                        className={cn(
-                          "rounded px-1.5 py-0.5 text-[10px] font-medium",
-                          getCrawlFreshness(product.last_crawled_at) === "old"
-                            ? "bg-rose-500/10 text-rose-500"
-                            : "bg-amber-500/10 text-amber-500"
-                        )}
-                      >
-                        {getCrawlFreshness(product.last_crawled_at) === "old"
-                          ? "수집 오래됨"
-                          : "수집 지연"}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </Link>
@@ -487,12 +468,7 @@ export function ActionQueue() {
 
       <div className="mt-4 border-t border-[var(--border)] pt-4">
         <div className="mb-2 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold">가격고정 상품</h3>
-            <p className="text-[11px] text-[var(--muted-foreground)]">
-              조치 큐에서는 제외되며, 필요 시 여기서 해제할 수 있습니다
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold">가격고정 상품</h3>
           <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] font-medium">
             {lockedProducts.length}개
           </span>
@@ -513,10 +489,6 @@ export function ActionQueue() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-500/10 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                        <Lock className="h-3 w-3" />
-                        가격고정
-                      </span>
                       {product.my_rank && (
                         <span className="text-[11px] text-[var(--muted-foreground)]">
                           노출 {product.my_rank}위
@@ -560,9 +532,7 @@ export function ActionQueue() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-end">
-                    <ArrowRight className="h-4 w-4 text-[var(--muted-foreground)] transition-transform group-hover:translate-x-0.5" />
-                    <div className="flex flex-col items-end gap-1">
+                  <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="text-[11px] text-[var(--muted-foreground)]">
                         {product.last_crawled_at ? timeAgo(product.last_crawled_at) : "-"}
                       </span>
@@ -580,7 +550,6 @@ export function ActionQueue() {
                             : "수집 지연"}
                         </span>
                       )}
-                    </div>
                   </div>
                 </div>
               </Link>

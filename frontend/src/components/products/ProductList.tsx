@@ -212,9 +212,6 @@ export function ProductList({ hideMeta = false }: Props) {
                 현재 페이지 전체 선택
               </button>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  {selectedIds.size}개 선택됨
-                </span>
                 <button
                   type="button"
                   onClick={() => setShowPresetApplyModal(true)}

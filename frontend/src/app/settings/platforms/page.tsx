@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Store, Loader2, Check, Timer, Trash2 } from "lucide-react";
+import { Store, Loader2, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/lib/api/client";
 import { usersApi } from "@/lib/api/users";
@@ -100,7 +100,7 @@ export default function NaverStoreSettingsPage() {
                 <Store className="h-5 w-5 text-emerald-500" />
               </div>
               <div>
-                <h3 className="font-medium">네이버 스토어명 (mallName)</h3>
+                <h3 className="font-medium">네이버 스토어명</h3>
                 <p className="text-sm text-[var(--muted-foreground)]">
                   네이버 쇼핑에서 검색했을 때 표시되는 스토어명을 입력하세요
                 </p>
@@ -116,16 +116,6 @@ export default function NaverStoreSettingsPage() {
               maxLength={200}
             />
 
-            <div className="mt-3 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-sm text-blue-600 dark:text-blue-400">
-              스토어명을 등록하면 키워드 검색 결과에서 내 스토어의 순위를 자동으로 트래킹합니다. 네이버 쇼핑에서 내 상품을 검색하면 표시되는 판매자명(mallName)을 정확하게 입력해주세요.
-            </div>
-
-            {user?.naver_store_name && (
-              <div className="mt-3 flex items-center gap-1.5 text-sm text-emerald-500">
-                <Check className="h-4 w-4" />
-                현재 설정: {user.naver_store_name}
-              </div>
-            )}
             <form onSubmit={handleStoreSave}>
               <button
                 type="submit"
@@ -169,10 +159,6 @@ export default function NaverStoreSettingsPage() {
                   {preset.label}
                 </button>
               ))}
-            </div>
-
-            <div className="mt-3 text-sm text-[var(--muted-foreground)]">
-              현재 설정: {user?.crawl_interval_min === 0 ? "중지" : `${user?.crawl_interval_min}분`}
             </div>
 
             <button
