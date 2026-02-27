@@ -131,6 +131,7 @@ class CompetitorSummary(BaseModel):
     maker: str | None = None
     shipping_fee: int = 0
     shipping_fee_type: str = "unknown"
+    is_shipping_override: bool = False
 
 
 class ExcludeProductRequest(BaseModel):

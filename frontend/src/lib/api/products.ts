@@ -5,6 +5,7 @@ import type {
   SortOption,
   ExcludedProduct,
   IncludedOverride,
+  ShippingOverride,
   StoreProduct,
   StoreImportResult,
   NaverCategoryTree,
@@ -99,6 +100,27 @@ export const productsApi = {
 
   removeIncludedOverride: (productId: number, naverProductId: string) =>
     apiClient.delete(`/products/${productId}/included/${naverProductId}`),
+
+  getShippingOverrides: (productId: number) =>
+    apiClient
+      .get<ShippingOverride[]>(`/products/${productId}/shipping-overrides`)
+      .then((r) => r.data),
+
+  addShippingOverride: (
+    productId: number,
+    data: { naver_product_id: string; shipping_fee: number; naver_product_name?: string; mall_name?: string }
+  ) =>
+    apiClient
+      .post<ShippingOverride>(`/products/${productId}/shipping-overrides`, data)
+      .then((r) => r.data),
+
+  updateShippingOverride: (productId: number, naverProductId: string, shipping_fee: number) =>
+    apiClient
+      .patch<ShippingOverride>(`/products/${productId}/shipping-overrides/${naverProductId}`, { shipping_fee })
+      .then((r) => r.data),
+
+  removeShippingOverride: (productId: number, naverProductId: string) =>
+    apiClient.delete(`/products/${productId}/shipping-overrides/${naverProductId}`),
 
   previewStoreProducts: (userId: number, storeUrl: string) =>
     apiClient

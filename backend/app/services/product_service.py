@@ -9,6 +9,7 @@ from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
+from app.models.shipping_override import ShippingOverride
 from app.core.utils import utcnow
 from app.services.cost_service import get_applied_preset_ids, get_applied_preset_ids_batch
 
@@ -516,6 +517,12 @@ async def get_product_detail(
     excluded_rows = ex_result.scalars().all()
     excluded_ids = {ep.naver_product_id for ep in excluded_rows}
 
+    # 배송비 오버라이드 조회
+    ship_result = await db.execute(
+        select(ShippingOverride).where(ShippingOverride.product_id == product_id)
+    )
+    shipping_override_ids = {so.naver_product_id for so in ship_result.scalars().all()}
+
     # DB 쿼리: 최신 rankings
     latest_by_kw = await _fetch_latest_rankings(db, kw_ids)
 
@@ -560,6 +567,7 @@ async def get_product_detail(
             "maker": r.maker,
             "shipping_fee": r.shipping_fee or 0,
             "shipping_fee_type": r.shipping_fee_type or "unknown",
+            "is_shipping_override": bool(r.naver_product_id and r.naver_product_id in shipping_override_ids),
         })
 
     # 키워드별 최신 순위
@@ -603,6 +611,7 @@ async def get_product_detail(
                     "category4": r.category4,
                     "shipping_fee": r.shipping_fee or 0,
                     "shipping_fee_type": r.shipping_fee_type or "unknown",
+                    "is_shipping_override": bool(r.naver_product_id and r.naver_product_id in shipping_override_ids),
                     "crawled_at": r.crawled_at,
                 }
                 for r in kw_latest

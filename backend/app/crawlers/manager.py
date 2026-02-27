@@ -14,6 +14,7 @@ from app.models.included_override import IncludedOverride
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
+from app.models.shipping_override import ShippingOverride
 from app.models.user import User
 from app.core.utils import utcnow
 from app.services.alert_service import check_and_create_alerts
@@ -116,6 +117,7 @@ class CrawlManager:
         excluded_ids: set[str] | None = None,
         my_product_ids: set[str] | None = None,
         included_override_ids: set[str] | None = None,
+        shipping_override_map: dict[str, int] | None = None,
     ) -> None:
         """크롤링 결과를 DB에 저장 (순차 호출)."""
         log = CrawlLog(
@@ -173,6 +175,17 @@ class CrawlManager:
                         )
                         product.selling_price = item.price
 
+                # 배송비 오버라이드 적용
+                actual_shipping_fee = item.shipping_fee
+                actual_shipping_fee_type = item.shipping_fee_type
+                if (
+                    shipping_override_map
+                    and item.naver_product_id
+                    and item.naver_product_id in shipping_override_map
+                ):
+                    actual_shipping_fee = shipping_override_map[item.naver_product_id]
+                    actual_shipping_fee_type = "paid"
+
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,
                     rank=item.rank,
@@ -193,8 +206,8 @@ class CrawlManager:
                     category2=item.category2,
                     category3=item.category3,
                     category4=item.category4,
-                    shipping_fee=item.shipping_fee,
-                    shipping_fee_type=item.shipping_fee_type,
+                    shipping_fee=actual_shipping_fee,
+                    shipping_fee_type=actual_shipping_fee_type,
                 )
                 db.add(ranking)
 
@@ -245,6 +258,15 @@ class CrawlManager:
         )
         included_override_ids = {io.naver_product_id for io in included_result.scalars().all()}
 
+        # 배송비 오버라이드 조회
+        shipping_result = await db.execute(
+            select(ShippingOverride).where(ShippingOverride.product_id == product_id)
+        )
+        shipping_override_map = {
+            so.naver_product_id: so.shipping_fee
+            for so in shipping_result.scalars().all()
+        }
+
         # 유저의 모든 등록 상품 naver_product_id 수집 (내 스토어 다른 제품 제외용)
         all_products_result = await db.execute(
             select(Product.naver_product_id).where(
@@ -281,6 +303,7 @@ class CrawlManager:
                     product=product, excluded_ids=excluded_ids,
                     my_product_ids=my_product_ids,
                     included_override_ids=included_override_ids,
+                    shipping_override_map=shipping_override_map,
                 )
             except Exception as e:
                 logger.error(f"키워드 '{kw.keyword}' 저장 실패: {e}")
@@ -338,6 +361,14 @@ class CrawlManager:
         for io in inc_result.scalars().all():
             included_ids_by_product[io.product_id].add(io.naver_product_id)
 
+        # 상품별 배송비 오버라이드 조회 (배치 쿼리)
+        shipping_override_by_product: dict[int, dict[str, int]] = {pid: {} for pid in product_ids}
+        ship_result = await db.execute(
+            select(ShippingOverride).where(ShippingOverride.product_id.in_(product_ids))
+        )
+        for so in ship_result.scalars().all():
+            shipping_override_by_product[so.product_id][so.naver_product_id] = so.shipping_fee
+
         # 상품 객체 캐시 (배치 쿼리)
         prod_result = await db.execute(
             select(Product).where(Product.id.in_(product_ids))
@@ -389,12 +420,14 @@ class CrawlManager:
                 product = products_cache.get(kw.product_id)
                 excluded_ids = excluded_ids_by_product.get(kw.product_id, set())
                 included_ids = included_ids_by_product.get(kw.product_id, set())
+                shipping_map = shipping_override_by_product.get(kw.product_id, {})
                 try:
                     await self._save_keyword_result(
                         db, kw, crawl_result, naver_store_name, duration_ms,
                         product=product, excluded_ids=excluded_ids,
                         my_product_ids=my_product_ids,
                         included_override_ids=included_ids,
+                        shipping_override_map=shipping_map,
                     )
                 except Exception as e:
                     logger.error(f"키워드 '{kw.keyword}' 저장 실패: {e}")

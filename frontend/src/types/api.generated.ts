@@ -677,6 +677,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/shipping-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Shipping Overrides */
+        get: operations["get_shipping_overrides_api_v1_products__product_id__shipping_overrides_get"];
+        put?: never;
+        /** Add Shipping Override */
+        post: operations["add_shipping_override_api_v1_products__product_id__shipping_overrides_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/shipping-overrides/{naver_product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Shipping Override */
+        delete: operations["remove_shipping_override_api_v1_products__product_id__shipping_overrides__naver_product_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Shipping Override */
+        patch: operations["update_shipping_override_api_v1_products__product_id__shipping_overrides__naver_product_id__patch"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -796,6 +832,11 @@ export interface components {
              * @default unknown
              */
             shipping_fee_type: string;
+            /**
+             * Is Shipping Override
+             * @default false
+             */
+            is_shipping_override: boolean;
         };
         /** CostItemCalculated */
         CostItemCalculated: {
@@ -1566,10 +1607,49 @@ export interface components {
              */
             shipping_fee_type: string;
             /**
+             * Is Shipping Override
+             * @default false
+             */
+            is_shipping_override: boolean;
+            /**
              * Crawled At
              * Format: date-time
              */
             crawled_at: string;
+        };
+        /** ShippingOverrideRequest */
+        ShippingOverrideRequest: {
+            /** Naver Product Id */
+            naver_product_id: string;
+            /** Shipping Fee */
+            shipping_fee: number;
+            /** Naver Product Name */
+            naver_product_name?: string | null;
+            /** Mall Name */
+            mall_name?: string | null;
+        };
+        /** ShippingOverrideResponse */
+        ShippingOverrideResponse: {
+            /** Id */
+            id: number;
+            /** Naver Product Id */
+            naver_product_id: string;
+            /** Shipping Fee */
+            shipping_fee: number;
+            /** Naver Product Name */
+            naver_product_name: string | null;
+            /** Mall Name */
+            mall_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ShippingOverrideUpdateRequest */
+        ShippingOverrideUpdateRequest: {
+            /** Shipping Fee */
+            shipping_fee: number;
         };
         /** StatusCounts */
         StatusCounts: {
@@ -3364,6 +3444,138 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_shipping_overrides_api_v1_products__product_id__shipping_overrides_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingOverrideResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_shipping_override_api_v1_products__product_id__shipping_overrides_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingOverrideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingOverrideResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_shipping_override_api_v1_products__product_id__shipping_overrides__naver_product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: number;
+                naver_product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_shipping_override_api_v1_products__product_id__shipping_overrides__naver_product_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: number;
+                naver_product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingOverrideUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingOverrideResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -45,3 +45,4 @@ class Product(Base):
     cost_items: Mapped[list["CostItem"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     excluded_products: Mapped[list["ExcludedProduct"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     included_overrides: Mapped[list["IncludedOverride"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    shipping_overrides: Mapped[list["ShippingOverride"]] = relationship(back_populates="product", cascade="all, delete-orphan")

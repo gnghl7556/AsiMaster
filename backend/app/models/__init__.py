@@ -4,6 +4,7 @@ from app.models.crawl_log import CrawlLog
 from app.models.excluded_product import ExcludedProduct
 from app.models.included_override import IncludedOverride
 from app.models.keyword_ranking import KeywordRanking
+from app.models.shipping_override import ShippingOverride
 from app.models.product import Product
 from app.models.push_subscription import PushSubscription
 from app.models.search_keyword import SearchKeyword
@@ -22,4 +23,5 @@ __all__ = [
     "PushSubscription",
     "ExcludedProduct",
     "IncludedOverride",
+    "ShippingOverride",
 ]

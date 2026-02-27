@@ -42,6 +42,7 @@ export function CompetitorTotalSummary({
         maker: myBestRow.maker,
         shipping_fee: myBestRow.shipping_fee,
         shipping_fee_type: myBestRow.shipping_fee_type,
+        is_shipping_override: myBestRow.is_shipping_override ?? false,
       }
     : null;
 

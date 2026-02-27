@@ -4,6 +4,7 @@ from app.api.alerts import router as alerts_router
 from app.api.categories import router as categories_router
 from app.api.costs import router as costs_router
 from app.api.included_overrides import router as included_overrides_router
+from app.api.shipping_overrides import router as shipping_overrides_router
 from app.api.crawl import router as crawl_router
 from app.api.dashboard import router as dashboard_router
 from app.api.keywords import router as keywords_router
@@ -28,3 +29,4 @@ api_router.include_router(push_router)
 api_router.include_router(store_import_router)
 api_router.include_router(categories_router)
 api_router.include_router(included_overrides_router)
+api_router.include_router(shipping_overrides_router)

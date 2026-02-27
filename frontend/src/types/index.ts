@@ -50,6 +50,7 @@ export type RankingItem = Override<
 
 export type ExcludedProduct = Schema<"ExcludedProductResponse">;
 export type IncludedOverride = Schema<"IncludedOverrideResponse">;
+export type ShippingOverride = Schema<"ShippingOverrideResponse">;
 export type StoreProduct = Schema<"StoreProductItem">;
 export type StoreImportCreatedProduct = Schema<"CreatedProductMapping">;
 export type StoreImportResult = Override<
