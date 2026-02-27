@@ -630,7 +630,7 @@ export default function ProductDetailPage({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 isolate">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
         <Link
@@ -1143,7 +1143,7 @@ export default function ProductDetailPage({
       </div>
 
       {/* 액션 바 */}
-      <div className="sticky top-14 z-20 -mx-1 rounded-xl border border-[var(--border)] bg-[var(--background)]/85 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--background)]/70">
+      <div className="sticky top-0 z-30 -mx-1 rounded-xl border border-[var(--border)] bg-[var(--background)] px-1 py-2 isolate">
         <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => crawlMutation.mutate(productId)}
@@ -1317,7 +1317,7 @@ export default function ProductDetailPage({
       />
 
       {/* 키워드별 경쟁사 순위 */}
-      <div>
+      <div className="relative z-0">
         <h2 className="text-lg font-bold mb-3">키워드별 경쟁사 순위</h2>
         <KeywordRankingList
           keywords={product.keywords}
