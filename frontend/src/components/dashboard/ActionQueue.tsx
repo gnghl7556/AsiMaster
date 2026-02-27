@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Equal, Lock, Loader2, RefreshCw, Unlock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -83,7 +82,6 @@ function getCrawlFreshness(lastCrawledAt: string | null): "fresh" | "stale" | "o
 }
 
 export function ActionQueue() {
-  const router = useRouter();
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
   const { data: products = [], isLoading } = useProductList({
@@ -135,11 +133,6 @@ export function ActionQueue() {
     }
   };
 
-  const navigateToProductAnchor = (e: MouseEvent, productId: number, anchor?: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push(anchor ? `/products/${productId}#${anchor}` : `/products/${productId}`);
-  };
 
   if (isLoading) {
     return (
@@ -442,21 +435,6 @@ export function ActionQueue() {
                       )}
                       {product.is_price_locked ? "고정해제" : "가격고정"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => navigateToProductAnchor(e, product.id, "basic-info")}
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-                    >
-                      상세
-                      <ArrowRight className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => navigateToProductAnchor(e, product.id, "profitability")}
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500"
-                    >
-                      가격수정
-                    </button>
                   </div>
                 </div>
                 <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end sm:justify-between">
@@ -579,13 +557,6 @@ export function ActionQueue() {
                           <Unlock className="h-3 w-3" />
                         )}
                         고정해제
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => navigateToProductAnchor(e, product.id, "profitability")}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[11px] text-[var(--muted-foreground)] transition-colors hover:text-emerald-500"
-                      >
-                        가격수정
                       </button>
                     </div>
                   </div>
