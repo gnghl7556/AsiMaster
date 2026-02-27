@@ -164,6 +164,15 @@ class CrawlManager:
                 else:
                     is_relevant, relevance_reason = _check_relevance(item, product)
 
+                # 내 상품의 최신 판매가 자동 갱신
+                if is_my_product and product and item.price > 0:
+                    if product.selling_price != item.price:
+                        logger.info(
+                            "판매가 자동 갱신: product_id=%d '%s' %d → %d",
+                            product.id, product.name, product.selling_price, item.price,
+                        )
+                        product.selling_price = item.price
+
                 ranking = KeywordRanking(
                     keyword_id=keyword.id,
                     rank=item.rank,
