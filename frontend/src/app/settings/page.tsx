@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Store, DollarSign, Download } from "lucide-react";
+import { Store, DollarSign, Download, Bell } from "lucide-react";
 
 const SETTINGS_ITEMS = [
   {
@@ -21,6 +21,12 @@ const SETTINGS_ITEMS = [
     icon: Download,
     label: "상품 불러오기",
     description: "스마트스토어에서 판매 중인 상품을 자동으로 불러옵니다",
+  },
+  {
+    href: "/settings/notifications",
+    icon: Bell,
+    label: "알림 설정",
+    description: "푸시 알림 구독 및 알림 방식을 설정합니다",
   },
 ];
 

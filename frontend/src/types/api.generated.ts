@@ -211,7 +211,10 @@ export interface paths {
         };
         /** Get Cost Items */
         get: operations["get_cost_items_api_v1_products__product_id__costs_get"];
-        /** Save Cost Items */
+        /**
+         * Save Cost Items
+         * @description 수동 비용 항목 저장. 프리셋에서 온 항목은 유지하고, 수동 항목만 교체.
+         */
         put: operations["save_cost_items_api_v1_products__product_id__costs_put"];
         post?: never;
         delete?: never;
@@ -265,8 +268,31 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply Cost Preset */
+        /**
+         * Apply Cost Preset
+         * @description 프리셋을 상품에 중첩 적용. 동일 프리셋 중복 적용은 스킵.
+         */
         post: operations["apply_cost_preset_api_v1_cost_presets__preset_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cost-presets/{preset_id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach Cost Preset
+         * @description 프리셋 해제. 해당 프리셋에서 온 비용 항목만 제거.
+         */
+        post: operations["detach_cost_preset_api_v1_cost_presets__preset_id__detach_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -802,6 +828,8 @@ export interface components {
             id: number;
             /** Product Id */
             product_id: number;
+            /** Source Preset Id */
+            source_preset_id?: number | null;
             /** Name */
             name: string;
             /** Type */
@@ -832,6 +860,8 @@ export interface components {
              * @default []
              */
             skipped_ids: number[];
+            /** Skipped Reason */
+            skipped_reason?: string | null;
         };
         /** CostPresetCreate */
         CostPresetCreate: {
@@ -839,6 +869,18 @@ export interface components {
             name: string;
             /** Items */
             items: components["schemas"]["CostItemCreate"][];
+        };
+        /** CostPresetDetachRequest */
+        CostPresetDetachRequest: {
+            /** Product Ids */
+            product_ids: number[];
+        };
+        /** CostPresetDetachResponse */
+        CostPresetDetachResponse: {
+            /** Detached */
+            detached: number;
+            /** Skipped */
+            skipped: number;
         };
         /** CostPresetResponse */
         CostPresetResponse: {
@@ -1255,8 +1297,11 @@ export interface components {
             product_attributes?: {
                 [key: string]: unknown;
             } | null;
-            /** Cost Preset Id */
-            cost_preset_id?: number | null;
+            /**
+             * Cost Preset Ids
+             * @default []
+             */
+            cost_preset_ids: number[];
             /** Is Price Locked */
             is_price_locked: boolean;
             /** Price Lock Reason */
@@ -1309,8 +1354,11 @@ export interface components {
             model_code?: string | null;
             /** Brand */
             brand?: string | null;
-            /** Cost Preset Id */
-            cost_preset_id?: number | null;
+            /**
+             * Cost Preset Ids
+             * @default []
+             */
+            cost_preset_ids: number[];
             /** Status */
             status: string;
             /** Lowest Price */
@@ -1378,8 +1426,11 @@ export interface components {
             product_attributes?: {
                 [key: string]: unknown;
             } | null;
-            /** Cost Preset Id */
-            cost_preset_id?: number | null;
+            /**
+             * Cost Preset Ids
+             * @default []
+             */
+            cost_preset_ids: number[];
             /** Is Price Locked */
             is_price_locked: boolean;
             /** Price Lock Reason */
@@ -2530,6 +2581,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CostPresetApplyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detach_cost_preset_api_v1_cost_presets__preset_id__detach_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostPresetDetachRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostPresetDetachResponse"];
                 };
             };
             /** @description Validation Error */
