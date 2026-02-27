@@ -527,8 +527,8 @@ export function KeywordRankingList({
                           item.is_my_store && "ring-1 ring-inset ring-blue-500/20",
                           !item.is_relevant &&
                             (showIncludeControls
-                              ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/10"
-                              : "opacity-50")
+                              ? "ring-1 ring-inset ring-amber-500/10"
+                              : "text-[var(--muted-foreground)]")
                         )}
                         style={{
                           transform: hasActions
