@@ -22,8 +22,12 @@ dist/
 .idea/
 *.swp
 *.swo
-.claude/
 .obsidian/
+
+# Claude Code (로컬 전용 파일만 제외, .claude/ 자체는 팀 공유)
+.claude/settings.local.json
+.claude/statsig/
+.claude/todos/
 
 # OS
 .DS_Store

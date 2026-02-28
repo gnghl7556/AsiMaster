@@ -188,12 +188,43 @@ Product → CostItems → CostItem.source_preset_id (프리셋 출처, 중첩 �
 ## AI 에이전트 협업 가이드
 
 ### 역할 분담
-- **Claude Code**: `backend/` 폴더 전담. FastAPI, DB 모델링, 비즈니스 로직, 크롤링 엔진 구축 담당. (`frontend/` 폴더는 절대 수정하지 않음)
-- **Codex (Editor AI)**: `frontend/` 폴더 전담. Next.js 화면 구현, 컴포넌트 리팩토링 및 API 연동 담당.
+- **Claude Code (Backend)**: `backend/` 폴더 전담. FastAPI, DB 모델링, 비즈니스 로직, 크롤링 엔진 구축 담당. (`frontend/` 폴더는 절대 수정하지 않음)
+- **Claude Code (Frontend)**: `frontend/` 폴더 전담. Next.js 화면 구현, 컴포넌트 리팩토링 및 API 연동 담당. (`backend/` 폴더는 절대 수정하지 않음)
+
+### Claude Code 팀 모드
+이 프로젝트는 Claude Code Agent Teams를 지원합니다 (`.claude/settings.json`에서 활성화됨).
+
+**팀 구성 예시:**
+```
+Backend Teammate: backend/ 전담
+  - API 엔드포인트 구현, DB 모델링, 크롤링 로직
+  - 완료 후: pytest 실행 + openapi.json 내보내기
+
+Frontend Teammate: frontend/ 전담
+  - UI 컴포넌트 구현, API 연동, 상태 관리
+  - 완료 후: typecheck + lint 실행
+```
+
+**팀 작업 시 규칙:**
+1. 각 팀원은 자기 scope 파일만 수정 (`.claude/rules/` 참조)
+2. Backend 팀원이 API 변경 후 `openapi.json` 커밋 → Frontend 팀원이 타입 생성
+3. 공유 파일 (`CLAUDE.md`, `openapi.json`)은 충돌 방지를 위해 한 번에 한 팀원만 수정
+4. 각 팀원은 작업 완료 후 반드시 검증 명령어 실행 (테스트, 린트 등)
+
+**검증 명령어:**
+```bash
+# Backend
+cd backend && python -m pytest tests/ -v
+cd backend && python -m scripts.export_openapi
+
+# Frontend
+cd frontend && npm run typecheck
+cd frontend && npm run lint
+```
 
 ### 작업 동기화 규칙
-- **API 명세 기록**: Claude가 백엔드 API를 추가/수정하면, 반드시 이 문서(CLAUDE.md)의 API 엔드포인트 섹션에 변경된 Request/Response 구조를 명확히 기록한다.
-- Codex는 이 문서에 기록된 최신 API 명세를 바탕으로 프론트엔드 연동 작업을 수행한다.
+- **API 명세 기록**: Backend 팀원이 API를 추가/수정하면, 반드시 이 문서(CLAUDE.md)의 API 엔드포인트 섹션에 변경된 Request/Response 구조를 명확히 기록한다.
+- Frontend 팀원은 이 문서에 기록된 최신 API 명세를 바탕으로 프론트엔드 연동 작업을 수행한다.
 
 ### OpenAPI → TypeScript 타입 자동 동기화
 백엔드 Pydantic 스키마 → `openapi.json` → 프론트엔드 TypeScript 타입 자동 생성 파이프라인:
