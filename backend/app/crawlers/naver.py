@@ -198,7 +198,18 @@ class NaverCrawler(BaseCrawler):
                     item.shipping_fee, item.shipping_fee_type = cache[npid]
                     return
                 async with sem:
-                    fee, fee_type = await _fetch_shipping_fee(self._client, item.product_url)
+                    try:
+                        fee, fee_type = await asyncio.wait_for(
+                            _fetch_shipping_fee(self._client, item.product_url),
+                            timeout=settings.CRAWL_SHIPPING_INDIVIDUAL_TIMEOUT,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "배송비 스크래핑 개별 타임아웃(%ds): url=%s",
+                            settings.CRAWL_SHIPPING_INDIVIDUAL_TIMEOUT,
+                            item.product_url,
+                        )
+                        fee, fee_type = 0, "error"
                     item.shipping_fee = fee
                     item.shipping_fee_type = fee_type
                     # paid/free만 캐시 저장 (error/unknown은 다음 키워드에서 재시도)

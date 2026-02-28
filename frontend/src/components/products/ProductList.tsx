@@ -9,8 +9,8 @@ import { useProductList } from "@/lib/hooks/useProducts";
 import { productsApi } from "@/lib/api/products";
 import { costsApi } from "@/lib/api/costs";
 import { useUserStore } from "@/stores/useUserStore";
-import { useProductStore } from "@/stores/useProductStore";
 import { SortDropdown } from "./SortDropdown";
+import type { SortOption } from "@/types";
 import { SummaryBar } from "./SummaryBar";
 import { ProductCard } from "./ProductCard";
 import { PriceLockSection } from "./PriceLockSection";
@@ -24,14 +24,14 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 export function ProductList({ hideMeta = false }: Props) {
   const userId = useUserStore((s) => s.currentUserId);
-  const sortBy = useProductStore((s) => s.sortBy);
-  const category = useProductStore((s) => s.category);
-  const search = useProductStore((s) => s.search);
+  const [sortBy, setSortBy] = useState<SortOption>("urgency");
+  const [category] = useState<string | null>(null);
+  const [search] = useState("");
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
   const { data: products, isLoading, isFetching } = useProductList(
-    hideMeta ? undefined : { page, limit: pageSize }
+    hideMeta ? undefined : { page, limit: pageSize, sortBy, category, search }
   );
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -186,7 +186,7 @@ export function ProductList({ hideMeta = false }: Props) {
           {/* 상단: 정렬 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <SortDropdown />
+              <SortDropdown sortBy={sortBy} setSortBy={setSortBy} />
               <button
                 type="button"
                 onClick={handleToggleMode}

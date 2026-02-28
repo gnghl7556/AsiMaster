@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useProductStore } from "@/stores/useProductStore";
 import { SORT_OPTIONS } from "@/lib/utils/constants";
+import type { SortOption } from "@/types";
 
-export function SortDropdown() {
-  const { sortBy, setSortBy } = useProductStore();
+interface SortDropdownProps {
+  sortBy: SortOption;
+  setSortBy: (sort: SortOption) => void;
+}
+
+export function SortDropdown({ sortBy, setSortBy }: SortDropdownProps) {
   const [open, setOpen] = useState(false);
   const currentLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label;
 
