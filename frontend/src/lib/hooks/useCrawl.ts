@@ -42,10 +42,17 @@ export function useCrawlProduct() {
           old ? { ...old, last_crawled_at: now } : old
       );
 
+      // Invalidate the product list (status/price may change after crawl)
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product-detail"] });
-      queryClient.invalidateQueries({ queryKey: ["keywords"] });
-      queryClient.invalidateQueries({ queryKey: ["price-snapshot"] });
+      // Only invalidate the specific product's detail, keywords, and price snapshot
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return key[0] === "product-detail" && key[2] === productId;
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ["keywords", productId] });
+      queryClient.invalidateQueries({ queryKey: ["price-snapshot", productId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("크롤링이 완료되었습니다");
     },

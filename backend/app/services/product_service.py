@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -182,10 +182,11 @@ async def _fetch_sparkline_data_batch(
     all_keyword_ids: list[int],
     since,
 ) -> dict[int, list]:
-    """전체 keyword_ids에 대한 sparkline 원시 데이터를 1회 쿼리로 수집.
+    """전체 keyword_ids에 대한 sparkline 데이터를 1회 쿼리로 수집.
 
-    Returns: {keyword_id: [(day, price + shipping_fee, naver_product_id, mall_name)]}
-    상품별 블랙리스트가 다르므로 원시 데이터만 수집, Python에서 필터링.
+    Returns: {keyword_id: [(day, total_price, naver_product_id)]}
+    DB 레벨에서 (keyword_id, day, naver_product_id)별 MIN 집계로 데이터 전송량 감소.
+    상품별 개별 블랙리스트는 Python에서 필터링.
     """
     if not all_keyword_ids:
         return {}
@@ -194,14 +195,18 @@ async def _fetch_sparkline_data_batch(
         select(
             KeywordRanking.keyword_id,
             func.date(KeywordRanking.crawled_at).label("day"),
-            (KeywordRanking.price + func.coalesce(KeywordRanking.shipping_fee, 0)).label("total_price"),
+            func.min(KeywordRanking.price + func.coalesce(KeywordRanking.shipping_fee, 0)).label("total_price"),
             KeywordRanking.naver_product_id,
-            KeywordRanking.mall_name,
         )
         .where(
             KeywordRanking.keyword_id.in_(all_keyword_ids),
             KeywordRanking.crawled_at >= since,
             KeywordRanking.is_relevant == True,
+        )
+        .group_by(
+            KeywordRanking.keyword_id,
+            func.date(KeywordRanking.crawled_at),
+            KeywordRanking.naver_product_id,
         )
     )
     result = await db.execute(query)
@@ -291,11 +296,12 @@ async def _fetch_rank_change_batch(
     db: AsyncSession,
     all_keyword_ids: list[int],
     since=None,
+    product_naver_ids: set[str] | None = None,
 ) -> dict[int, list]:
     """전체 keyword_ids에 대한 내 상품 rank 원시 데이터를 1회 쿼리로 수집.
 
     Returns: {keyword_id: [(rank, crawled_at, naver_product_id, is_my_store)]}
-    상품별 naver_product_id가 다르므로 원시 데이터만 수집, Python에서 필터링.
+    DB 레벨에서 is_my_store 또는 product_naver_ids로 필터링하여 데이터 전송량 감소.
     """
     if not all_keyword_ids:
         return {}
@@ -312,6 +318,19 @@ async def _fetch_rank_change_batch(
     )
     if since is not None:
         query = query.where(KeywordRanking.crawled_at >= since)
+
+    # DB 레벨 필터: 내 상품(is_my_store) 또는 알려진 naver_product_id만 조회
+    naver_id_filter = product_naver_ids - {None, ""} if product_naver_ids else set()
+    if naver_id_filter:
+        query = query.where(
+            or_(
+                KeywordRanking.is_my_store == True,
+                KeywordRanking.naver_product_id.in_(naver_id_filter),
+            )
+        )
+    else:
+        query = query.where(KeywordRanking.is_my_store == True)
+
     query = query.order_by(KeywordRanking.crawled_at.desc())
     result = await db.execute(query)
     rows = result.all()
@@ -406,9 +425,18 @@ async def get_product_list_items(
     now = utcnow()
     seven_days_ago = now - timedelta(days=settings.SPARKLINE_DAYS)
 
-    # 배치 쿼리: sparkline 원시 데이터 + rank_change 원시 데이터 (각 1회)
+    # 상품별 naver_product_id 수집 (rank_change 배치 쿼리 DB 필터용)
+    product_naver_ids: set[str] = {
+        p.naver_product_id for p in products
+        if p.naver_product_id
+    }
+
+    # 배치 쿼리: sparkline 집계 데이터 + rank_change 원시 데이터 (각 1회)
     sparkline_raw = await _fetch_sparkline_data_batch(db, all_keyword_ids, seven_days_ago)
-    rank_change_raw = await _fetch_rank_change_batch(db, all_keyword_ids, since=seven_days_ago)
+    rank_change_raw = await _fetch_rank_change_batch(
+        db, all_keyword_ids, since=seven_days_ago,
+        product_naver_ids=product_naver_ids,
+    )
 
     # 배치 쿼리: 적용된 프리셋 ID 목록
     preset_ids_map = await get_applied_preset_ids_batch(db, product_ids)

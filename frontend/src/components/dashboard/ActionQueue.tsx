@@ -97,13 +97,43 @@ export function ActionQueue() {
   const toggleLockMutation = useMutation({
     mutationFn: (params: { productId: number; nextLocked: boolean }) =>
       productsApi.togglePriceLock(userId!, params.productId, params.nextLocked),
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+
+      // Snapshot the previous products data for rollback
+      const previousProducts = queryClient.getQueriesData<ProductListItem[]>({
+        queryKey: ["products"],
+      });
+
+      // Optimistically update the product's is_price_locked in all product list caches
+      queryClient.setQueriesData<ProductListItem[]>(
+        { queryKey: ["products"] },
+        (old) =>
+          old?.map((item) =>
+            item.id === variables.productId
+              ? { ...item, is_price_locked: variables.nextLocked }
+              : item
+          )
+      );
+
+      return { previousProducts };
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product-detail"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(variables.nextLocked ? "가격고정 설정" : "가격고정 해제");
     },
-    onError: () => toast.error("가격고정 변경에 실패했습니다"),
+    onError: (_err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousProducts) {
+        for (const [queryKey, data] of context.previousProducts) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+      toast.error("가격고정 변경에 실패했습니다");
+    },
     onSettled: () => setPendingLockProductId(null),
   });
 
