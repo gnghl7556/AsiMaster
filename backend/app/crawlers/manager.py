@@ -167,7 +167,14 @@ class CrawlManager:
                     is_relevant, relevance_reason = _check_relevance(item, product)
 
                 # 내 상품의 최신 판매가 자동 갱신
-                if is_my_product and product and item.price > 0:
+                # is_my_product는 유저의 모든 등록 상품을 의미하므로,
+                # 현재 크롤링 중인 상품 자체인지 별도로 체크해야 함
+                is_this_product = (
+                    product
+                    and product.naver_product_id
+                    and item.naver_product_id == product.naver_product_id
+                )
+                if is_this_product and item.price > 0:
                     if product.selling_price != item.price:
                         logger.info(
                             "판매가 자동 갱신: product_id=%d '%s' %d → %d",
