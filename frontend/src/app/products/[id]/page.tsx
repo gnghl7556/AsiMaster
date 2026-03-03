@@ -1323,6 +1323,7 @@ export default function ProductDetailPage({
           keywords={product.keywords}
           myPrice={product.selling_price}
           productId={productId}
+          myProductNaverId={product.naver_product_id}
           productModelCode={product.model_code}
           productSpecKeywords={product.spec_keywords}
           priceFilterMinPct={product.price_filter_min_pct}

@@ -13,6 +13,7 @@ interface Props {
   keywords: KeywordDetail[];
   myPrice: number;
   productId: number;
+  myProductNaverId?: string | null;
   productModelCode?: string | null;
   productSpecKeywords?: string[] | null;
   priceFilterMinPct?: number | null;
@@ -27,6 +28,7 @@ export function KeywordRankingList({
   keywords,
   myPrice,
   productId,
+  myProductNaverId = null,
   productModelCode = null,
   productSpecKeywords = null,
   priceFilterMinPct = null,
@@ -227,8 +229,18 @@ export function KeywordRankingList({
     );
   };
 
+  const isMyExactProduct = (item: KeywordDetail["rankings"][number]) =>
+    item.is_my_store &&
+    Boolean(myProductNaverId) &&
+    item.naver_product_id === myProductNaverId;
+
   const inferFilterReasons = (item: KeywordDetail["rankings"][number]) => {
-    if (item.is_my_store || item.is_relevant) return [] as string[];
+    if (isMyExactProduct(item) || item.is_relevant) return [] as string[];
+    if (item.is_my_store && !item.is_relevant) {
+      if (item.relevance_reason === "manual_blacklist") return ["수동 제외"];
+      if (item.relevance_reason === "my_product") return ["내 스토어 (다른 상품)"];
+      return [];
+    }
     const reasons: string[] = [];
     const totalPrice = item.price + (item.shipping_fee || 0);
 
@@ -257,7 +269,9 @@ export function KeywordRankingList({
   };
 
   const getRelevanceReasonLabels = (item: KeywordDetail["rankings"][number]) => {
-    if (item.is_my_store) return [] as string[];
+    if (isMyExactProduct(item)) return [] as string[];
+    if (item.is_my_store && !item.is_relevant && item.relevance_reason === "manual_blacklist") return ["수동 제외"];
+    if (item.is_my_store && !item.is_relevant && item.relevance_reason === "my_product") return ["내 스토어 (다른 상품)"];
     if (item.is_included_override) return ["수동 포함 예외"];
     if (item.is_relevant) return [] as string[];
     const reasonMap: Record<string, string> = {
@@ -285,7 +299,7 @@ export function KeywordRankingList({
 
   const canShowShippingButton = (item: KeywordDetail["rankings"][number]) => {
     return (
-      !item.is_my_store &&
+      !isMyExactProduct(item) &&
       Boolean(item.naver_product_id) &&
       (item.is_shipping_override ||
         item.shipping_fee_type === "unknown" ||
@@ -336,7 +350,7 @@ export function KeywordRankingList({
           kw.rankings
             .filter(
               (item) =>
-                !item.is_my_store &&
+                !isMyExactProduct(item) &&
                 !!item.naver_product_id &&
                 item.naver_product_id === targetProductId
             )
@@ -527,7 +541,7 @@ export function KeywordRankingList({
                 const diffFromMe = totalPrice - myPrice;
                 const itemKey = getItemKey(kw.id, item.id);
                 const canOpenLink = Boolean(item.product_url);
-                const canBan = !item.is_my_store && Boolean(item.naver_product_id);
+                const canBan = !isMyExactProduct(item) && Boolean(item.naver_product_id);
                 const actionCount = Number(canOpenLink) + Number(canBan);
                 const actionWidth = actionCount * MOBILE_ACTION_SLOT_WIDTH;
                 const hasActions = actionCount > 0;
@@ -536,7 +550,7 @@ export function KeywordRankingList({
                   : 0;
                 const relevanceReasonLabels = getRelevanceReasonLabels(item);
                 const showIncludeControls =
-                  !item.is_my_store &&
+                  !isMyExactProduct(item) &&
                   Boolean(item.naver_product_id) &&
                   (!item.is_relevant || item.is_included_override);
                 const includeActionPending =
@@ -868,7 +882,7 @@ export function KeywordRankingList({
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       )}
-                      {!item.is_my_store && item.naver_product_id && (
+                      {!isMyExactProduct(item) && item.naver_product_id && (
                         <button
                           onClick={() =>
                             requestExclude({
