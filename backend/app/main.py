@@ -8,9 +8,11 @@ from slowapi.errors import RateLimitExceeded
 from app.core.logging import setup_logging
 
 setup_logging()
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import case, func, select, text
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -54,12 +56,34 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# API Key 인증 제외 경로
+_AUTH_EXEMPT_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """API Key 전역 인증 미들웨어.
+    API_KEY 미설정 시 모든 요청 통과 (하위호환).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if settings.API_KEY and request.url.path not in _AUTH_EXEMPT_PATHS:
+            api_key = request.headers.get("X-API-Key")
+            if api_key != settings.API_KEY:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing API key"},
+                )
+        return await call_next(request)
+
+
+app.add_middleware(ApiKeyMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

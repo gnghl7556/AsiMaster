@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     SPARKLINE_DAYS: int = 7
     MAX_KEYWORDS_PER_PRODUCT: int = 5
 
+    # 인증: 빈 문자열이면 인증 비활성화 (하위호환)
+    API_KEY: str = ""
+
     LOG_FORMAT: str = "json"  # "json" | "text"
     LOG_LEVEL: str = "INFO"
 

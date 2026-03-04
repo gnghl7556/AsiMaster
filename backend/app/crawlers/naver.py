@@ -1,8 +1,10 @@
 import asyncio
+import ipaddress
 import json
 import logging
 import random
 import re
+import socket
 from collections import Counter
 from urllib.parse import urlparse
 
@@ -14,6 +16,44 @@ from app.crawlers.base import BaseCrawler, KeywordCrawlResult, RankingItem
 logger = logging.getLogger(__name__)
 
 _SMARTSTORE_HOSTS = {"smartstore.naver.com", "m.smartstore.naver.com", "brand.naver.com"}
+
+# SSRF 차단 대상 내부 IP 대역
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+]
+
+
+def _is_safe_url(url: str) -> bool:
+    """URL이 안전한지 검증 (SSRF 방어).
+
+    - 호스트가 스마트스토어 화이트리스트에 포함되는지 확인
+    - DNS 해석 결과가 내부 IP 대역이 아닌지 확인
+    """
+    parsed = urlparse(str(url))
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    # 호스트 화이트리스트 검증
+    if hostname not in _SMARTSTORE_HOSTS:
+        return False
+
+    # DNS 해석 후 내부 IP 대역 차단
+    try:
+        addr_infos = socket.getaddrinfo(hostname, None)
+        for _, _, _, _, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            for network in _BLOCKED_NETWORKS:
+                if ip in network:
+                    return False
+    except (socket.gaierror, ValueError):
+        return False
+
+    return True
 
 
 async def _fetch_shipping_fee_once(
@@ -33,6 +73,15 @@ async def _fetch_shipping_fee_once(
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)",
             "Accept": "text/html",
         }, follow_redirects=True, timeout=settings.CRAWL_SHIPPING_TIMEOUT)
+
+        # 리다이렉트 후 최종 URL SSRF 검증
+        final_url = str(resp.url)
+        if not _is_safe_url(final_url):
+            logger.warning(
+                "배송비 스크래핑 SSRF 차단: url=%s final_url=%s",
+                product_url, final_url,
+            )
+            return 0, "error"
 
         if resp.status_code != 200:
             logger.warning(

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.cost import CostItemCalculated
 from app.schemas.search_keyword import KeywordWithRankings
@@ -8,10 +8,10 @@ from app.schemas.search_keyword import KeywordWithRankings
 
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    category: str | None = None
+    category: str | None = Field(None, max_length=100)
     cost_price: int = Field(..., ge=0)
     selling_price: int = Field(..., ge=0)
-    image_url: str | None = None
+    image_url: str | None = Field(None, max_length=500)
     naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
@@ -25,14 +25,35 @@ class ProductCreate(BaseModel):
     color: str | None = Field(None, max_length=50)
     material: str | None = Field(None, max_length=50)
     product_attributes: dict | None = None
+
+    @field_validator("spec_keywords")
+    @classmethod
+    def validate_spec_keywords(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("spec_keywords는 최대 20개까지 허용됩니다")
+        for item in v:
+            if len(item) > 50:
+                raise ValueError("spec_keywords 각 항목은 최대 50자까지 허용됩니다")
+        return v
+
+    @field_validator("product_attributes")
+    @classmethod
+    def validate_product_attributes(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("product_attributes는 최대 20개 키까지 허용됩니다")
+        return v
 
 
 class ProductUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
-    category: str | None = None
+    category: str | None = Field(None, max_length=100)
     cost_price: int | None = Field(None, ge=0)
     selling_price: int | None = Field(None, ge=0)
-    image_url: str | None = None
+    image_url: str | None = Field(None, max_length=500)
     naver_product_id: str | None = Field(None, max_length=50)
     model_code: str | None = Field(None, max_length=100)
     spec_keywords: list[str] | None = None
@@ -46,6 +67,27 @@ class ProductUpdate(BaseModel):
     color: str | None = Field(None, max_length=50)
     material: str | None = Field(None, max_length=50)
     product_attributes: dict | None = None
+
+    @field_validator("spec_keywords")
+    @classmethod
+    def validate_spec_keywords(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("spec_keywords는 최대 20개까지 허용됩니다")
+        for item in v:
+            if len(item) > 50:
+                raise ValueError("spec_keywords 각 항목은 최대 50자까지 허용됩니다")
+        return v
+
+    @field_validator("product_attributes")
+    @classmethod
+    def validate_product_attributes(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("product_attributes는 최대 20개 키까지 허용됩니다")
+        return v
 
 
 class PriceLockUpdate(BaseModel):
@@ -151,7 +193,7 @@ class ExcludedProductResponse(BaseModel):
 
 
 class BulkDeleteRequest(BaseModel):
-    product_ids: list[int] = Field(..., min_length=1)
+    product_ids: list[int] = Field(..., min_length=1, max_length=100)
 
 
 class BulkDeleteResult(BaseModel):

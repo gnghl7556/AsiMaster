@@ -69,14 +69,16 @@ class CrawlManager:
         self._product_locks: dict[int, asyncio.Lock] = {}
 
     def _get_user_lock(self, user_id: int) -> asyncio.Lock:
-        if user_id not in self._user_locks:
-            self._user_locks[user_id] = asyncio.Lock()
-        return self._user_locks[user_id]
+        return self._user_locks.setdefault(user_id, asyncio.Lock())
 
     def _get_product_lock(self, product_id: int) -> asyncio.Lock:
-        if product_id not in self._product_locks:
-            self._product_locks[product_id] = asyncio.Lock()
-        return self._product_locks[product_id]
+        return self._product_locks.setdefault(product_id, asyncio.Lock())
+
+    def _cleanup_lock(self, locks_dict: dict[int, asyncio.Lock], key: int) -> None:
+        """사용 완료된 Lock을 딕셔너리에서 제거 (메모리 누적 방지)."""
+        lock = locks_dict.get(key)
+        if lock and not lock.locked():
+            locks_dict.pop(key, None)
 
     def is_user_crawling(self, user_id: int) -> bool:
         lock = self._user_locks.get(user_id)
@@ -230,8 +232,11 @@ class CrawlManager:
         lock = self._get_product_lock(product_id)
         if lock.locked():
             raise CrawlAlreadyRunningError(f"상품 {product_id} 크롤링이 이미 진행 중입니다.")
-        async with lock:
-            return await self._crawl_product_impl(db, product_id)
+        try:
+            async with lock:
+                return await self._crawl_product_impl(db, product_id)
+        finally:
+            self._cleanup_lock(self._product_locks, product_id)
 
     async def _crawl_product_impl(self, db: AsyncSession, product_id: int) -> list[KeywordCrawlResult]:
         crawler.clear_shipping_cache()
@@ -327,8 +332,11 @@ class CrawlManager:
         lock = self._get_user_lock(user_id)
         if lock.locked():
             raise CrawlAlreadyRunningError(f"유저 {user_id} 크롤링이 이미 진행 중입니다.")
-        async with lock:
-            return await self._crawl_user_all_impl(db, user_id)
+        try:
+            async with lock:
+                return await self._crawl_user_all_impl(db, user_id)
+        finally:
+            self._cleanup_lock(self._user_locks, user_id)
 
     async def _crawl_user_all_impl(self, db: AsyncSession, user_id: int) -> dict:
         crawler.clear_shipping_cache()
