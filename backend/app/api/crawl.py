@@ -64,19 +64,23 @@ async def get_crawl_status(user_id: int, db: AsyncSession = Depends(get_db)):
     )
     total = total_q.scalar_one()
 
-    # 최근 24시간 성공/실패
+    # 최근 24시간 성공/실패 (해당 유저의 상품만)
     since = utcnow() - timedelta(hours=24)
     log_q = await db.execute(
         select(CrawlLog.status, func.count())
-        .where(CrawlLog.created_at >= since)
+        .join(SearchKeyword, CrawlLog.keyword_id == SearchKeyword.id)
+        .join(Product, SearchKeyword.product_id == Product.id)
+        .where(Product.user_id == user_id, CrawlLog.created_at >= since)
         .group_by(CrawlLog.status)
     )
     status_counts = dict(log_q.all())
 
-    # 평균 크롤링 소요 시간
+    # 평균 크롤링 소요 시간 (해당 유저의 상품만)
     avg_q = await db.execute(
         select(func.avg(CrawlLog.duration_ms))
-        .where(CrawlLog.created_at >= since, CrawlLog.status == "success")
+        .join(SearchKeyword, CrawlLog.keyword_id == SearchKeyword.id)
+        .join(Product, SearchKeyword.product_id == Product.id)
+        .where(Product.user_id == user_id, CrawlLog.created_at >= since, CrawlLog.status == "success")
     )
     avg_duration = avg_q.scalar_one_or_none()
 

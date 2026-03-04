@@ -32,7 +32,7 @@ async def get_dashboard_summary(db: AsyncSession, user_id: int) -> dict:
     products = result.scalars().unique().all()
 
     if not products:
-        return _empty_summary(db, user_id)
+        return await _empty_summary(db, user_id)
 
     # 키워드 ID 수집
     all_keyword_ids: list[int] = []
