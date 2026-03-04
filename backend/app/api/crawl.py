@@ -1,10 +1,11 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.core.rate_limit import limiter
 from app.core.utils import utcnow
 from app.crawlers.manager import shared_manager as manager, CrawlAlreadyRunningError
 from app.models.crawl_log import CrawlLog
@@ -16,7 +17,8 @@ router = APIRouter(prefix="/crawl", tags=["crawl"])
 
 
 @router.post("/product/{product_id}", response_model=list[CrawlKeywordResult])
-async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def crawl_product(request: Request, product_id: int, db: AsyncSession = Depends(get_db)):
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(404, "상품을 찾을 수 없습니다.")
@@ -38,7 +40,8 @@ async def crawl_product(product_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/user/{user_id}", response_model=CrawlBatchResult)
-async def crawl_user(user_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def crawl_user(request: Request, user_id: int, db: AsyncSession = Depends(get_db)):
     try:
         result = await manager.crawl_user_all(db, user_id)
     except CrawlAlreadyRunningError:

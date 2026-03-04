@@ -130,13 +130,18 @@ async def check_rank_drop(
     if not keyword_ids:
         return
 
-    # 최근 7일 내 내 스토어 rankings만 조회
+    # 최근 7일 내 내 상품 rankings만 조회
+    # naver_product_id가 있으면 정확한 상품 매칭, 없으면 is_my_store fallback
     since = utcnow() - timedelta(days=settings.SPARKLINE_DAYS)
+    if product.naver_product_id:
+        my_filter = KeywordRanking.naver_product_id == product.naver_product_id
+    else:
+        my_filter = KeywordRanking.is_my_store == True
     result = await db.execute(
         select(KeywordRanking)
         .where(
             KeywordRanking.keyword_id.in_(keyword_ids),
-            KeywordRanking.is_my_store == True,
+            my_filter,
             KeywordRanking.crawled_at >= since,
         )
         .order_by(KeywordRanking.crawled_at.desc())

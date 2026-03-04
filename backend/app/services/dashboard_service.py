@@ -104,9 +104,12 @@ async def get_dashboard_summary(db: AsyncSession, user_id: int) -> dict:
     )
     unread_alerts = unread_result.scalar() or 0
 
-    # 크롤링 성공률 (최근 100건)
+    # 크롤링 성공률 (해당 유저의 최근 100건)
     log_result = await db.execute(
         select(CrawlLog.status)
+        .join(SearchKeyword, CrawlLog.keyword_id == SearchKeyword.id)
+        .join(Product, SearchKeyword.product_id == Product.id)
+        .where(Product.user_id == user_id)
         .order_by(CrawlLog.created_at.desc())
         .limit(100)
     )

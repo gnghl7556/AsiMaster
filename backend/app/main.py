@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 import logging
 
 import sentry_sdk
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.logging import setup_logging
 
@@ -13,6 +15,7 @@ from sqlalchemy import case, func, select, text
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import async_session, engine, Base
+from app.core.rate_limit import limiter
 from app.models import *  # noqa: F401, F403 - ensure all models are registered
 from app.scheduler.setup import init_scheduler, shutdown_scheduler
 
@@ -47,6 +50,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate Limiting (크롤링 API 남용 방지)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -58,11 +65,44 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
+async def _get_crawl_metrics(session) -> dict:
+    """최근 24시간 크롤링 메트릭스 조회."""
+    from datetime import timedelta
+    from app.core.utils import utcnow
+    from app.models.crawl_log import CrawlLog
+
+    result = await session.execute(
+        select(func.max(CrawlLog.created_at))
+    )
+    last_crawl = result.scalar_one_or_none()
+
+    since_24h = utcnow() - timedelta(hours=24)
+    metrics_result = await session.execute(
+        select(
+            func.count(CrawlLog.id),
+            func.sum(case((CrawlLog.status == "success", 1), else_=0)),
+            func.avg(CrawlLog.duration_ms),
+        ).where(CrawlLog.created_at >= since_24h)
+    )
+    row = metrics_result.one()
+    total = row[0] or 0
+    success = row[1] or 0
+
+    return {
+        "last_crawl_at": last_crawl.isoformat() if last_crawl else None,
+        "crawl_metrics_24h": {
+            "total": total,
+            "success": success,
+            "failed": total - success,
+            "success_rate": round(success / total * 100, 1) if total > 0 else 0,
+            "avg_duration_ms": round(row[2]) if row[2] else None,
+        },
+    }
+
+
 @app.get("/health")
 async def health_check():
-    from datetime import timedelta
     from app.scheduler.setup import scheduler
-    from app.core.utils import utcnow
 
     checks = {}
     status = "healthy"
@@ -71,35 +111,12 @@ async def health_check():
         async with async_session() as session:
             await session.execute(text("SELECT 1"))
             checks["database"] = "ok"
-
-            from app.models.crawl_log import CrawlLog
-            result = await session.execute(
-                select(func.max(CrawlLog.created_at))
-            )
-            last_crawl = result.scalar_one_or_none()
-            checks["last_crawl_at"] = last_crawl.isoformat() if last_crawl else None
-
-            # 최근 24시간 크롤링 메트릭스
-            since_24h = utcnow() - timedelta(hours=24)
-            metrics_result = await session.execute(
-                select(
-                    func.count(CrawlLog.id),
-                    func.sum(case((CrawlLog.status == "success", 1), else_=0)),
-                    func.avg(CrawlLog.duration_ms),
-                ).where(CrawlLog.created_at >= since_24h)
-            )
-            row = metrics_result.one()
-            total = row[0] or 0
-            success = row[1] or 0
-            checks["crawl_metrics_24h"] = {
-                "total": total,
-                "success": success,
-                "failed": total - success,
-                "success_rate": round(success / total * 100, 1) if total > 0 else 0,
-                "avg_duration_ms": round(row[2]) if row[2] else None,
-            }
+            metrics = await _get_crawl_metrics(session)
+            checks["last_crawl_at"] = metrics["last_crawl_at"]
+            checks["crawl_metrics_24h"] = metrics["crawl_metrics_24h"]
     except Exception as e:
-        checks["database"] = checks.get("database", f"error: {e}")
+        logger.error("Health check DB 오류: %s", e)
+        checks["database"] = checks.get("database", "database unavailable")
         checks.setdefault("last_crawl_at", None)
         checks.setdefault("crawl_metrics_24h", None)
         status = "unhealthy"
