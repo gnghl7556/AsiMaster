@@ -32,28 +32,33 @@ if settings.SENTRY_DSN:
     )
 
 
-async def _run_migrations():
-    """Alembic 마이그레이션 자동 실행 (별도 스레드에서 asyncio.run 충돌 방지)."""
-    import asyncio
-    from alembic.config import Config
-    from alembic import command
-    import os
-
-    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
-    logger.info("Alembic 마이그레이션 완료")
+async def _ensure_columns():
+    """누락된 컬럼을 안전하게 추가 (Alembic 마이그레이션 보완)."""
+    _PENDING_COLUMNS = [
+        ("users", "password_hash", "VARCHAR(200)"),
+    ]
+    async with engine.begin() as conn:
+        for table, column, col_type in _PENDING_COLUMNS:
+            exists = await conn.execute(text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :table AND column_name = :column"
+            ), {"table": table, "column": column})
+            if not exists.scalar():
+                await conn.execute(text(
+                    f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}'
+                ))
+                logger.info("컬럼 추가: %s.%s (%s)", table, column, col_type)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Alembic 마이그레이션 실행 (새 컬럼/테이블 자동 적용)
+    # 누락된 컬럼 추가 + 새 테이블 생성
     try:
-        await _run_migrations()
+        await _ensure_columns()
     except Exception as e:
-        logger.warning("Alembic 마이그레이션 실패, fallback으로 create_all 실행: %s", e)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        logger.warning("컬럼 추가 실패: %s", e)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     init_scheduler()
     yield
