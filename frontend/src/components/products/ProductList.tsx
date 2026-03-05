@@ -10,6 +10,7 @@ import { productsApi } from "@/lib/api/products";
 import { costsApi } from "@/lib/api/costs";
 import { useUserStore } from "@/stores/useUserStore";
 import { useProductStore } from "@/stores/useProductStore";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SortDropdown } from "./SortDropdown";
 import { SummaryBar } from "./SummaryBar";
 import { ProductCard } from "./ProductCard";
@@ -318,40 +319,23 @@ export function ProductList({ hideMeta = false }: Props) {
         />
       </div>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
-            <h3 className="text-lg font-bold">상품 복수 삭제</h3>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              선택한 <strong>{selectedIds.size}개</strong> 상품을 삭제하시겠습니까?
-              <br />
-              이 작업은 되돌릴 수 없습니다.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
-                disabled={bulkDeleteMutation.isPending || selectedIds.size === 0}
-                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
-                {bulkDeleteMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onConfirm={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+        onCancel={() => setShowDeleteConfirm(false)}
+        title="상품 복수 삭제"
+        message={
+          <>
+            선택한 <strong>{selectedIds.size}개</strong> 상품을 삭제하시겠습니까?
+            <br />
+            이 작업은 되돌릴 수 없습니다.
+          </>
+        }
+        confirmText="삭제"
+        variant="danger"
+        isPending={bulkDeleteMutation.isPending}
+        confirmIcon={<Trash2 className="h-4 w-4" />}
+      />
 
       {showPresetApplyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

@@ -17,21 +17,12 @@ logger = logging.getLogger(__name__)
 
 _SMARTSTORE_HOSTS = {"smartstore.naver.com", "m.smartstore.naver.com", "brand.naver.com"}
 
-# SSRF 차단 대상 내부 IP 대역
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),
-]
 
-
-def _is_safe_url(url: str) -> bool:
+async def _is_safe_url(url: str) -> bool:
     """URL이 안전한지 검증 (SSRF 방어).
 
     - 호스트가 스마트스토어 화이트리스트에 포함되는지 확인
-    - DNS 해석 결과가 내부 IP 대역이 아닌지 확인
+    - 비동기 DNS 해석 결과가 내부/사설 IP가 아닌지 확인 (IPv4+IPv6)
     """
     parsed = urlparse(str(url))
     hostname = parsed.hostname
@@ -42,14 +33,15 @@ def _is_safe_url(url: str) -> bool:
     if hostname not in _SMARTSTORE_HOSTS:
         return False
 
-    # DNS 해석 후 내부 IP 대역 차단
+    # 비동기 DNS 해석 후 내부 IP 대역 차단
     try:
-        addr_infos = socket.getaddrinfo(hostname, None)
+        loop = asyncio.get_event_loop()
+        addr_infos = await loop.getaddrinfo(hostname, None)
         for _, _, _, _, sockaddr in addr_infos:
             ip = ipaddress.ip_address(sockaddr[0])
-            for network in _BLOCKED_NETWORKS:
-                if ip in network:
-                    return False
+            # IPv4/IPv6 사설·예약 대역 통합 검증
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return False
     except (socket.gaierror, ValueError):
         return False
 
@@ -76,7 +68,7 @@ async def _fetch_shipping_fee_once(
 
         # 리다이렉트 후 최종 URL SSRF 검증
         final_url = str(resp.url)
-        if not _is_safe_url(final_url):
+        if not await _is_safe_url(final_url):
             logger.warning(
                 "배송비 스크래핑 SSRF 차단: url=%s final_url=%s",
                 product_url, final_url,

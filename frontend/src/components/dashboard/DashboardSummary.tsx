@@ -3,7 +3,6 @@
 import { TrendingDown, Minus, RefreshCw, Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDashboard } from "@/lib/hooks/useDashboard";
-import { useProductList } from "@/lib/hooks/useProducts";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { timeAgo } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -20,15 +19,8 @@ interface Props {
   isRefreshing: boolean;
 }
 
-const DASHBOARD_SCAN_LIMIT = 500;
-
 export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
   const { data, isLoading } = useDashboard();
-  const { data: products = [] } = useProductList({
-    page: 1,
-    limit: DASHBOARD_SCAN_LIMIT,
-    ignoreStoreFilters: true,
-  });
 
   if (isLoading) {
     return (
@@ -45,32 +37,23 @@ export function DashboardSummary({ onRefresh, isRefreshing }: Props) {
 
   if (!data) return null;
 
-  const activeProducts = products.filter((p) => !p.is_price_locked);
-  const isPriceLosing = (p: (typeof activeProducts)[number]) =>
-    p.price_gap != null ? p.price_gap > 0 : p.status === "losing";
-  const normalProductsCount = activeProducts.filter((p) => !isPriceLosing(p)).length;
-  const samePriceCount = products.filter(
-    (p) => !p.is_price_locked && p.price_gap === 0
-  ).length;
-  const losingProducts = products.filter(
-    (p) => !p.is_price_locked && (p.price_gap != null ? p.price_gap > 0 : p.status === "losing")
-  );
+  const { winning, close, losing } = data.status_counts;
   const cards: SummaryCard[] = [
     {
       label: "정상",
-      value: normalProductsCount,
+      value: winning + close,
       icon: ShieldCheck,
       color: "text-emerald-500",
     },
     {
       label: "밀림",
-      value: losingProducts.length,
+      value: losing,
       icon: TrendingDown,
       color: "text-red-500",
     },
     {
       label: "동일총액",
-      value: samePriceCount,
+      value: close,
       icon: Minus,
       color: "text-amber-500",
     },

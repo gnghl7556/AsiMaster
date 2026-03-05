@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import apiClient from "@/lib/api/client";
 import { usersApi } from "@/lib/api/users";
 import { useUserStore } from "@/stores/useUserStore";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { User } from "@/types";
 
 export default function NaverStoreSettingsPage() {
@@ -190,40 +191,23 @@ export default function NaverStoreSettingsPage() {
             </button>
           </div>
 
-          {showDeleteConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
-                <h3 className="text-lg font-bold">사업장 삭제</h3>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-                  <br />
-                  <strong>{user?.name}</strong>
-                </p>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteBusinessMutation.mutate()}
-                    disabled={deleteBusinessMutation.isPending}
-                    className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {deleteBusinessMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                    삭제
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmDialog
+            isOpen={showDeleteConfirm}
+            onConfirm={() => deleteBusinessMutation.mutate()}
+            onCancel={() => setShowDeleteConfirm(false)}
+            title="사업장 삭제"
+            message={
+              <>
+                정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                <br />
+                <strong>{user?.name}</strong>
+              </>
+            }
+            confirmText="삭제"
+            variant="danger"
+            isPending={deleteBusinessMutation.isPending}
+            confirmIcon={<Trash2 className="h-4 w-4" />}
+          />
         </div>
       )}
     </div>

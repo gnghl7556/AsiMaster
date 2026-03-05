@@ -8,6 +8,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { CostPresetForm } from "@/components/settings/CostPresetForm";
 import { costsApi, type CostPreset } from "@/lib/api/costs";
 import { productsApi } from "@/lib/api/products";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function CostPresetsPage() {
   const userId = useUserStore((s) => s.currentUserId);
@@ -180,43 +181,23 @@ export default function CostPresetsPage() {
         )}
       </div>
 
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="glass-card mx-4 w-full max-w-sm p-6 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold">비용 프리셋 삭제</h3>
-              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                <strong>{deleteTarget.name}</strong> 프리셋을 삭제하시겠습니까?
-                <br />
-                이미 상품에 적용된 비용 항목은 유지됩니다.
-              </p>
-            </div>
-            <div className="flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleteMutation.isPending}
-                className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                disabled={deleteMutation.isPending}
-                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
-              >
-                {deleteMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+        title="비용 프리셋 삭제"
+        message={
+          <>
+            <strong>{deleteTarget?.name}</strong> 프리셋을 삭제하시겠습니까?
+            <br />
+            이미 상품에 적용된 비용 항목은 유지됩니다.
+          </>
+        }
+        confirmText="삭제"
+        variant="danger"
+        isPending={deleteMutation.isPending}
+        confirmIcon={<Trash2 className="h-4 w-4" />}
+      />
 
       {applyTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

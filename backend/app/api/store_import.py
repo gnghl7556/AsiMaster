@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.core.rate_limit import limiter
 from app.crawlers.store_scraper import fetch_store_products, suggest_keywords
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -18,7 +19,9 @@ router = APIRouter(tags=["store-import"])
 
 
 @router.get("/users/{user_id}/store/products", response_model=list[StoreProductItem])
+@limiter.limit("5/minute")
 async def preview_store_products(
+    request: Request,
     user_id: int,
     store_url: str = Query(..., max_length=500, description="스마트스토어 URL (예: https://smartstore.naver.com/asmt)"),
     db: AsyncSession = Depends(get_db),
@@ -51,7 +54,9 @@ async def preview_store_products(
 
 
 @router.post("/users/{user_id}/store/import", response_model=StoreImportResult)
+@limiter.limit("5/minute")
 async def import_store_products(
+    request: Request,
     user_id: int,
     data: StoreImportRequest,
     db: AsyncSession = Depends(get_db),

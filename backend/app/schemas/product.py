@@ -1,9 +1,38 @@
+import json
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.cost import CostItemCalculated
 from app.schemas.search_keyword import KeywordWithRankings
+
+
+# --- 공통 Validator 함수 ---
+
+def _validate_spec_keywords(v: list[str] | None) -> list[str] | None:
+    if v is None:
+        return v
+    if len(v) > 20:
+        raise ValueError("spec_keywords는 최대 20개까지 허용됩니다")
+    for item in v:
+        if len(item) > 50:
+            raise ValueError("spec_keywords 각 항목은 최대 50자까지 허용됩니다")
+    return v
+
+
+def _validate_product_attributes(v: dict | None) -> dict | None:
+    if v is None:
+        return v
+    if len(v) > 20:
+        raise ValueError("product_attributes는 최대 20개 키까지 허용됩니다")
+    # value 타입 검증: str | int | float | bool만 허용
+    for key, val in v.items():
+        if not isinstance(val, (str, int, float, bool)):
+            raise ValueError(f"product_attributes['{key}']의 값은 str, int, float, bool만 허용됩니다")
+    # 전체 JSON 크기 제한 (10KB)
+    if len(json.dumps(v, ensure_ascii=False).encode("utf-8")) > 10240:
+        raise ValueError("product_attributes 전체 크기가 10KB를 초과합니다")
+    return v
 
 
 class ProductCreate(BaseModel):
@@ -26,26 +55,8 @@ class ProductCreate(BaseModel):
     material: str | None = Field(None, max_length=50)
     product_attributes: dict | None = None
 
-    @field_validator("spec_keywords")
-    @classmethod
-    def validate_spec_keywords(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        if len(v) > 20:
-            raise ValueError("spec_keywords는 최대 20개까지 허용됩니다")
-        for item in v:
-            if len(item) > 50:
-                raise ValueError("spec_keywords 각 항목은 최대 50자까지 허용됩니다")
-        return v
-
-    @field_validator("product_attributes")
-    @classmethod
-    def validate_product_attributes(cls, v: dict | None) -> dict | None:
-        if v is None:
-            return v
-        if len(v) > 20:
-            raise ValueError("product_attributes는 최대 20개 키까지 허용됩니다")
-        return v
+    _validate_spec_kw = field_validator("spec_keywords")(_validate_spec_keywords)
+    _validate_prod_attr = field_validator("product_attributes")(_validate_product_attributes)
 
 
 class ProductUpdate(BaseModel):
@@ -68,26 +79,8 @@ class ProductUpdate(BaseModel):
     material: str | None = Field(None, max_length=50)
     product_attributes: dict | None = None
 
-    @field_validator("spec_keywords")
-    @classmethod
-    def validate_spec_keywords(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        if len(v) > 20:
-            raise ValueError("spec_keywords는 최대 20개까지 허용됩니다")
-        for item in v:
-            if len(item) > 50:
-                raise ValueError("spec_keywords 각 항목은 최대 50자까지 허용됩니다")
-        return v
-
-    @field_validator("product_attributes")
-    @classmethod
-    def validate_product_attributes(cls, v: dict | None) -> dict | None:
-        if v is None:
-            return v
-        if len(v) > 20:
-            raise ValueError("product_attributes는 최대 20개 키까지 허용됩니다")
-        return v
+    _validate_spec_kw = field_validator("spec_keywords")(_validate_spec_keywords)
+    _validate_prod_attr = field_validator("product_attributes")(_validate_product_attributes)
 
 
 class PriceLockUpdate(BaseModel):
