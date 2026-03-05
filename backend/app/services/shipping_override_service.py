@@ -1,7 +1,7 @@
-from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DuplicateError, NotFoundError
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
@@ -11,7 +11,7 @@ from app.models.shipping_override import ShippingOverride
 async def get_shipping_overrides(db: AsyncSession, product_id: int) -> list:
     product = await db.get(Product, product_id)
     if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+        raise NotFoundError("상품을 찾을 수 없습니다.")
     result = await db.execute(
         select(ShippingOverride)
         .where(ShippingOverride.product_id == product_id)
@@ -30,7 +30,7 @@ async def add_shipping_override(
 ) -> ShippingOverride:
     product = await db.get(Product, product_id)
     if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+        raise NotFoundError("상품을 찾을 수 없습니다.")
     # 중복 체크
     existing = await db.execute(
         select(ShippingOverride).where(
@@ -39,7 +39,7 @@ async def add_shipping_override(
         )
     )
     if existing.scalars().first():
-        raise HTTPException(409, "이미 배송비가 설정된 상품입니다.")
+        raise DuplicateError("이미 배송비가 설정된 상품입니다.")
     override = ShippingOverride(
         product_id=product_id,
         naver_product_id=naver_product_id,
@@ -69,7 +69,7 @@ async def update_shipping_override(
     )
     override = result.scalars().first()
     if not override:
-        raise HTTPException(404, "배송비 오버라이드를 찾을 수 없습니다.")
+        raise NotFoundError("배송비 오버라이드를 찾을 수 없습니다.")
     override.shipping_fee = shipping_fee
     # 기존 rankings 즉시 반영
     await _update_rankings_shipping(db, product_id, naver_product_id, shipping_fee)
@@ -89,7 +89,7 @@ async def remove_shipping_override(
     )
     override = result.scalars().first()
     if not override:
-        raise HTTPException(404, "배송비 오버라이드를 찾을 수 없습니다.")
+        raise NotFoundError("배송비 오버라이드를 찾을 수 없습니다.")
     await db.delete(override)
     # 삭제 시 rankings는 다음 크롤링에서 원본 배송비로 복원됨
 

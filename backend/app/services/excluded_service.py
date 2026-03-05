@@ -1,7 +1,7 @@
-from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DuplicateError, NotFoundError
 from app.models.excluded_product import ExcludedProduct
 from app.models.keyword_ranking import KeywordRanking
 from app.models.product import Product
@@ -11,7 +11,7 @@ from app.models.search_keyword import SearchKeyword
 async def get_excluded_list(db: AsyncSession, product_id: int) -> list:
     product = await db.get(Product, product_id)
     if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+        raise NotFoundError("상품을 찾을 수 없습니다.")
     result = await db.execute(
         select(ExcludedProduct)
         .where(ExcludedProduct.product_id == product_id)
@@ -29,7 +29,7 @@ async def add_excluded(
 ) -> ExcludedProduct:
     product = await db.get(Product, product_id)
     if not product:
-        raise HTTPException(404, "상품을 찾을 수 없습니다.")
+        raise NotFoundError("상품을 찾을 수 없습니다.")
     # 중복 체크
     existing = await db.execute(
         select(ExcludedProduct).where(
@@ -38,7 +38,7 @@ async def add_excluded(
         )
     )
     if existing.scalars().first():
-        raise HTTPException(409, "이미 제외된 상품입니다.")
+        raise DuplicateError("이미 제외된 상품입니다.")
     excluded = ExcludedProduct(
         product_id=product_id,
         naver_product_id=naver_product_id,
@@ -76,7 +76,7 @@ async def remove_excluded(
     )
     excluded = result.scalars().first()
     if not excluded:
-        raise HTTPException(404, "제외 목록에 없는 상품입니다.")
+        raise NotFoundError("제외 목록에 없는 상품입니다.")
     await db.delete(excluded)
     # 기존 랭킹에서 해당 naver_product_id를 is_relevant=True로 복원
     keyword_ids_result = await db.execute(

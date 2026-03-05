@@ -17,6 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import async_session, engine, Base
+from app.core.exceptions import AppError, DuplicateError, NotFoundError
 from app.core.rate_limit import limiter
 from app.models import *  # noqa: F401, F403 - ensure all models are registered
 from app.scheduler.setup import init_scheduler, shutdown_scheduler
@@ -87,6 +88,22 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+# 커스텀 예외 → HTTP 응답 전역 핸들러
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(DuplicateError)
+async def duplicate_handler(request: Request, exc: DuplicateError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 async def _get_crawl_metrics(session) -> dict:
