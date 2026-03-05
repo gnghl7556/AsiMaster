@@ -32,11 +32,28 @@ if settings.SENTRY_DSN:
     )
 
 
+async def _run_migrations():
+    """Alembic 마이그레이션 자동 실행 (별도 스레드에서 asyncio.run 충돌 방지)."""
+    import asyncio
+    from alembic.config import Config
+    from alembic import command
+    import os
+
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+    logger.info("Alembic 마이그레이션 완료")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 새 테이블 생성 (Alembic이 관리하지 않는 초기 생성용 fallback)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Alembic 마이그레이션 실행 (새 컬럼/테이블 자동 적용)
+    try:
+        await _run_migrations()
+    except Exception as e:
+        logger.warning("Alembic 마이그레이션 실패, fallback으로 create_all 실행: %s", e)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
     init_scheduler()
     yield
