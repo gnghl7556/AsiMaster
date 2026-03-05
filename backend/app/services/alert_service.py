@@ -19,58 +19,81 @@ from app.core.utils import utcnow
 logger = logging.getLogger(__name__)
 
 
-async def _is_alert_enabled(db: AsyncSession, user_id: int, alert_type: str) -> tuple[bool, float | None]:
-    result = await db.execute(
+async def _batch_prefetch(
+    db: AsyncSession, user_id: int, product: Product, keywords: list[SearchKeyword],
+) -> dict:
+    """알림 체크에 필요한 데이터를 배치 쿼리로 한꺼번에 조회."""
+    keyword_ids = [kw.id for kw in keywords]
+    now = utcnow()
+    dedup_since = now - timedelta(hours=settings.ALERT_DEDUP_HOURS)
+
+    # 1) 알림 설정 2건 한 번에 조회
+    settings_result = await db.execute(
         select(AlertSetting).where(
             AlertSetting.user_id == user_id,
-            AlertSetting.alert_type == alert_type,
+            AlertSetting.alert_type.in_(["price_undercut", "rank_drop"]),
         )
     )
-    setting = result.scalar_one_or_none()
-    if setting is None:
-        return True, None
-    return setting.is_enabled, float(setting.threshold) if setting.threshold else None
+    alert_settings: dict[str, AlertSetting] = {}
+    for s in settings_result.scalars().all():
+        alert_settings[s.alert_type] = s
 
-
-async def _has_recent_unread(
-    db: AsyncSession, user_id: int, product_id: int, alert_type: str, hours: int | None = None,
-) -> bool:
-    """최근 N시간 내 동일 조건의 읽지 않은 알림이 있는지 확인."""
-    if hours is None:
-        hours = settings.ALERT_DEDUP_HOURS
-    result = await db.execute(
-        select(Alert.id).where(
+    # 2) 최근 미읽음 알림 2건 한 번에 조회 (중복 방지)
+    recent_alerts_result = await db.execute(
+        select(Alert.type).where(
             Alert.user_id == user_id,
-            Alert.product_id == product_id,
-            Alert.type == alert_type,
+            Alert.product_id == product.id,
+            Alert.type.in_(["price_undercut", "rank_drop"]),
             Alert.is_read == False,
-            Alert.created_at > utcnow() - timedelta(hours=hours),
-        ).limit(1)
+            Alert.created_at > dedup_since,
+        )
     )
-    return result.scalar_one_or_none() is not None
+    recent_alert_types = set(recent_alerts_result.scalars().all())
 
-
-async def check_price_undercut(
-    db: AsyncSession, product: Product, keywords: list[SearchKeyword]
-):
-    """최저가 이탈: 전체 키워드 결과 최저가 < 내 판매가."""
-    enabled, _ = await _is_alert_enabled(db, product.user_id, "price_undercut")
-    if not enabled:
-        return
-
-    keyword_ids = [kw.id for kw in keywords]
-    if not keyword_ids:
-        return
-
-    # 블랙리스트 조회
+    # 3) 블랙리스트 조회
     ex_result = await db.execute(
         select(ExcludedProduct).where(ExcludedProduct.product_id == product.id)
     )
     excluded_ids = {ep.naver_product_id for ep in ex_result.scalars().all()}
 
-    # 최신 크롤링 rankings만 조회 (product_service 배치 함수 재사용)
-    latest_by_kw = await _fetch_latest_rankings(db, keyword_ids)
+    # 4) 최신 rankings 조회 (keyword_ids 일괄)
+    latest_by_kw = await _fetch_latest_rankings(db, keyword_ids) if keyword_ids else {}
 
+    return {
+        "keyword_ids": keyword_ids,
+        "alert_settings": alert_settings,
+        "recent_alert_types": recent_alert_types,
+        "excluded_ids": excluded_ids,
+        "latest_by_kw": latest_by_kw,
+    }
+
+
+def _is_alert_enabled_from_cache(
+    alert_settings: dict[str, AlertSetting], alert_type: str,
+) -> tuple[bool, float | None]:
+    setting = alert_settings.get(alert_type)
+    if setting is None:
+        return True, None
+    return setting.is_enabled, float(setting.threshold) if setting.threshold else None
+
+
+async def _check_price_undercut(
+    db: AsyncSession, product: Product, keywords: list[SearchKeyword],
+    prefetched: dict,
+):
+    """최저가 이탈: 전체 키워드 결과 최저가 < 내 판매가."""
+    enabled, _ = _is_alert_enabled_from_cache(prefetched["alert_settings"], "price_undercut")
+    if not enabled:
+        return
+
+    keyword_ids = prefetched["keyword_ids"]
+    if not keyword_ids:
+        return
+
+    excluded_ids = prefetched["excluded_ids"]
+    latest_by_kw = prefetched["latest_by_kw"]
+
+    # 최신 크롤링 rankings 중 relevant + 블랙리스트 제외
     all_latest: list[KeywordRanking] = []
     for kw_id in keyword_ids:
         for r in latest_by_kw.get(kw_id, []):
@@ -91,7 +114,7 @@ async def check_price_undercut(
     gap = product.selling_price - lowest_total
     gap_percent = (gap / product.selling_price) * 100 if product.selling_price > 0 else 0
 
-    if await _has_recent_unread(db, product.user_id, product.id, "price_undercut"):
+    if "price_undercut" in prefetched["recent_alert_types"]:
         return
 
     title = f"{product.name} - 최저가 이탈"
@@ -115,23 +138,23 @@ async def check_price_undercut(
     await send_push_to_user(db, product.user_id, title, message, {"type": "price_undercut", "product_id": product.id})
 
 
-async def check_rank_drop(
-    db: AsyncSession, product: Product, keywords: list[SearchKeyword], naver_store_name: str | None
+async def _check_rank_drop(
+    db: AsyncSession, product: Product, keywords: list[SearchKeyword],
+    naver_store_name: str | None, prefetched: dict,
 ):
     """내 순위 하락 감지."""
     if not naver_store_name:
         return
 
-    enabled, threshold = await _is_alert_enabled(db, product.user_id, "rank_drop")
+    enabled, threshold = _is_alert_enabled_from_cache(prefetched["alert_settings"], "rank_drop")
     if not enabled:
         return
 
-    keyword_ids = [kw.id for kw in keywords]
+    keyword_ids = prefetched["keyword_ids"]
     if not keyword_ids:
         return
 
     # 최근 7일 내 내 상품 rankings만 조회
-    # naver_product_id가 있으면 정확한 상품 매칭, 없으면 is_my_store fallback
     since = utcnow() - timedelta(days=settings.SPARKLINE_DAYS)
     if product.naver_product_id:
         my_filter = KeywordRanking.naver_product_id == product.naver_product_id
@@ -177,7 +200,7 @@ async def check_rank_drop(
         prev_rank = min(prev_ranks)
 
         if current_rank > prev_rank:
-            if await _has_recent_unread(db, product.user_id, product.id, "rank_drop"):
+            if "rank_drop" in prefetched["recent_alert_types"]:
                 continue
 
             kw = kw_map.get(kw_id)
@@ -207,6 +230,11 @@ async def check_and_create_alerts(
     keywords: list[SearchKeyword],
     naver_store_name: str | None,
 ):
-    """크롤링 완료 후 호출 - 모든 알림 조건 체크."""
-    await check_price_undercut(db, product, keywords)
-    await check_rank_drop(db, product, keywords, naver_store_name)
+    """크롤링 완료 후 호출 - 모든 알림 조건 체크.
+
+    N+1 최적화: 알림 설정/중복 체크/블랙리스트/최신 rankings을
+    한 번에 배치 조회 후 개별 체크 함수에 전달.
+    """
+    prefetched = await _batch_prefetch(db, product.user_id, product, keywords)
+    await _check_price_undercut(db, product, keywords, prefetched)
+    await _check_rank_drop(db, product, keywords, naver_store_name, prefetched)

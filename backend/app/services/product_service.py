@@ -472,7 +472,7 @@ async def get_product_list_items(
             "last_crawled_at": last_crawled,
         })
 
-    # 정렬
+    # 정렬 — 계산 필드(status, margin, rank_change) 기반이므로 DB ORDER BY 불가, Python 정렬 유지
     if sort_by == "urgency":
         items.sort(key=lambda x: (
             STATUS_ORDER.get(x["status"], 3),
@@ -486,7 +486,7 @@ async def get_product_list_items(
     elif sort_by == "category":
         items.sort(key=lambda x: (x["category"] or "", STATUS_ORDER.get(x["status"], 3)))
 
-    # 페이지네이션
+    # 페이지네이션 (Python 슬라이싱)
     offset = (page - 1) * limit
     return items[offset:offset + limit]
 
