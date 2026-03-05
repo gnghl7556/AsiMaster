@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Store, Loader2, Timer, Trash2 } from "lucide-react";
+import { Store, Loader2, Timer, Trash2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/lib/api/client";
 import { usersApi } from "@/lib/api/users";
@@ -19,6 +19,8 @@ export default function NaverStoreSettingsPage() {
   const [storeName, setStoreName] = useState("");
   const [crawlInterval, setCrawlInterval] = useState(60);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["user", userId],
@@ -53,6 +55,29 @@ export default function NaverStoreSettingsPage() {
       toast.success("크롤링 주기가 저장되었습니다");
     },
     onError: () => toast.error("저장에 실패했습니다"),
+  });
+
+  const savePasswordMutation = useMutation({
+    mutationFn: (password: string) =>
+      usersApi.update(userId!, { password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setNewPassword("");
+      toast.success("비밀번호가 설정되었습니다");
+    },
+    onError: () => toast.error("비밀번호 설정에 실패했습니다"),
+  });
+
+  const removePasswordMutation = useMutation({
+    mutationFn: () =>
+      usersApi.update(userId!, { remove_password: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("비밀번호가 해제되었습니다");
+    },
+    onError: () => toast.error("비밀번호 해제에 실패했습니다"),
   });
 
   const deleteBusinessMutation = useMutation({
@@ -174,6 +199,79 @@ export default function NaverStoreSettingsPage() {
                 "크롤링 주기 저장"
               )}
             </button>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-lg bg-amber-500/10 p-2.5">
+                <Lock className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">비밀번호 설정</h3>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  {user?.has_password
+                    ? "비밀번호가 설정되어 있습니다. 변경하거나 해제할 수 있습니다."
+                    : "비밀번호를 설정하면 사업체 전환 시 인증이 필요합니다."}
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newPassword.trim().length >= 4) savePasswordMutation.mutate(newPassword.trim());
+              }}
+            >
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={user?.has_password ? "새 비밀번호 (4자 이상)" : "비밀번호 (4자 이상)"}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 pr-10 text-sm outline-none focus:border-blue-500 transition-colors"
+                  minLength={4}
+                  maxLength={100}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savePasswordMutation.isPending || newPassword.trim().length < 4}
+                  className="flex-1 rounded-lg bg-blue-500 py-3 text-sm font-medium text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  {savePasswordMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : user?.has_password ? (
+                    "비밀번호 변경"
+                  ) : (
+                    "비밀번호 설정"
+                  )}
+                </button>
+                {user?.has_password && (
+                  <button
+                    type="button"
+                    onClick={() => removePasswordMutation.mutate()}
+                    disabled={removePasswordMutation.isPending}
+                    className="rounded-lg border border-[var(--border)] px-4 py-3 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                  >
+                    {removePasswordMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "해제"
+                    )}
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
 
           <div className="glass-card border border-red-500/30 bg-red-500/5 p-6">

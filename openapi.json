@@ -194,6 +194,58 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/verify-password": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Verify Password",
+        "operationId": "verify_password_api_v1_users__user_id__verify_password_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordVerifyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{user_id}/products": {
       "get": {
         "tags": [
@@ -2793,6 +2845,7 @@
               "type": "integer"
             },
             "type": "array",
+            "maxItems": 100,
             "minItems": 1,
             "title": "Product Ids"
           }
@@ -4005,6 +4058,33 @@
         ],
         "title": "NaverCategoryTree"
       },
+      "PasswordVerifyRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "PasswordVerifyRequest"
+      },
+      "PasswordVerifyResponse": {
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "title": "Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verified"
+        ],
+        "title": "PasswordVerifyResponse"
+      },
       "PriceHistoryItem": {
         "properties": {
           "keyword_id": {
@@ -4133,7 +4213,8 @@
           "category": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -4154,7 +4235,8 @@
           "image_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -5155,7 +5237,8 @@
           "category": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -5190,7 +5273,8 @@
           "image_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -6034,6 +6118,19 @@
             "maxLength": 100,
             "minLength": 1,
             "title": "Name"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
           }
         },
         "type": "object",
@@ -6067,6 +6164,10 @@
             "type": "integer",
             "title": "Crawl Interval Min"
           },
+          "has_password": {
+            "type": "boolean",
+            "title": "Has Password"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6084,6 +6185,7 @@
           "name",
           "naver_store_name",
           "crawl_interval_min",
+          "has_password",
           "created_at",
           "updated_at"
         ],
@@ -6128,6 +6230,24 @@
               }
             ],
             "title": "Crawl Interval Min"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "remove_password": {
+            "type": "boolean",
+            "title": "Remove Password",
+            "default": false
           }
         },
         "type": "object",

@@ -1,12 +1,27 @@
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.user import (
+    PasswordVerifyRequest,
+    PasswordVerifyResponse,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
 
 @router.get("", response_model=list[UserResponse])
@@ -20,7 +35,10 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.name == data.name))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "이미 존재하는 사업체 이름입니다.")
-    user = User(name=data.name)
+    user = User(
+        name=data.name,
+        password_hash=_hash_password(data.password) if data.password else None,
+    )
     db.add(user)
     await db.flush()
     await db.refresh(user)
@@ -49,6 +67,10 @@ async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends
         user.naver_store_name = data.naver_store_name
     if data.crawl_interval_min is not None:
         user.crawl_interval_min = data.crawl_interval_min
+    if data.remove_password:
+        user.password_hash = None
+    elif data.password is not None:
+        user.password_hash = _hash_password(data.password)
     await db.flush()
     await db.refresh(user)
     return user
@@ -60,3 +82,14 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(404, "사업체를 찾을 수 없습니다.")
     await db.delete(user)
+
+
+@router.post("/{user_id}/verify-password", response_model=PasswordVerifyResponse)
+async def verify_password(user_id: int, data: PasswordVerifyRequest, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "사업체를 찾을 수 없습니다.")
+    if not user.password_hash:
+        return PasswordVerifyResponse(verified=True)
+    verified = _verify_password(data.password, user.password_hash)
+    return PasswordVerifyResponse(verified=verified)

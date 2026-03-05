@@ -15,7 +15,12 @@ class User(Base):
     naver_store_name: Mapped[str | None] = mapped_column(String(200))
     crawl_interval_min: Mapped[int] = mapped_column(default=settings.CRAWL_DEFAULT_INTERVAL_MIN)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    password_hash: Mapped[str | None] = mapped_column(String(200))
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None
 
     products: Mapped[list["Product"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     alerts: Mapped[list["Alert"]] = relationship(back_populates="user", cascade="all, delete-orphan")

@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/verify-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Password */
+        post: operations["verify_password_api_v1_users__user_id__verify_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/products": {
         parameters: {
             query?: never;
@@ -1208,6 +1225,16 @@ export interface components {
             /** Total Paths */
             total_paths: number;
         };
+        /** PasswordVerifyRequest */
+        PasswordVerifyRequest: {
+            /** Password */
+            password: string;
+        };
+        /** PasswordVerifyResponse */
+        PasswordVerifyResponse: {
+            /** Verified */
+            verified: boolean;
+        };
         /** PriceHistoryItem */
         PriceHistoryItem: {
             /** Keyword Id */
@@ -1777,6 +1804,8 @@ export interface components {
         UserCreate: {
             /** Name */
             name: string;
+            /** Password */
+            password?: string | null;
         };
         /** UserResponse */
         UserResponse: {
@@ -1788,6 +1817,8 @@ export interface components {
             naver_store_name: string | null;
             /** Crawl Interval Min */
             crawl_interval_min: number;
+            /** Has Password */
+            has_password: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1807,6 +1838,13 @@ export interface components {
             naver_store_name?: string | null;
             /** Crawl Interval Min */
             crawl_interval_min?: number | null;
+            /** Password */
+            password?: string | null;
+            /**
+             * Remove Password
+             * @default false
+             */
+            remove_password: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -1967,6 +2005,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_password_api_v1_users__user_id__verify_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordVerifyResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
