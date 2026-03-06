@@ -137,7 +137,7 @@ async def _check_price_undercut(
     )
     db.add(alert)
     await send_push_to_user(db, product.user_id, title, message, {"type": "price_undercut", "product_id": product.id})
-    await send_telegram_to_user(db, product.user_id, title, message)
+    await send_telegram_to_user(db, product.user_id, title, message, alert_type="price_undercut")
 
 
 async def _check_rank_drop(
@@ -224,7 +224,7 @@ async def _check_rank_drop(
             )
             db.add(alert)
             await send_push_to_user(db, product.user_id, title, message, {"type": "rank_drop", "product_id": product.id})
-            await send_telegram_to_user(db, product.user_id, title, message)
+            await send_telegram_to_user(db, product.user_id, title, message, alert_type="rank_drop")
 
 
 async def check_and_create_alerts(

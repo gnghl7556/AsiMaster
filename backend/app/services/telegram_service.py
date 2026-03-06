@@ -28,6 +28,16 @@ async def close_client():
         _client = None
 
 
+def _format_telegram_message(alert_type: str | None, title: str, message: str) -> str:
+    """알림 타입별 텔레그램 메시지 포맷팅 (HTML)."""
+    icons = {
+        "price_undercut": "\U0001f6a8",  # 🚨
+        "rank_drop": "\U0001f4c9",       # 📉
+    }
+    icon = icons.get(alert_type or "", "\U0001f514")  # 🔔 기본
+    return f"{icon} <b>{title}</b>\n\n{message}"
+
+
 async def send_telegram_message(chat_id: str, text: str) -> bool:
     """Telegram Bot API sendMessage 호출."""
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -50,7 +60,10 @@ async def send_telegram_message(chat_id: str, text: str) -> bool:
         return False
 
 
-async def send_telegram_to_user(db: AsyncSession, user_id: int, title: str, message: str) -> bool:
+async def send_telegram_to_user(
+    db: AsyncSession, user_id: int, title: str, message: str,
+    alert_type: str | None = None,
+) -> bool:
     """user_id로 chat_id 조회 후 텔레그램 전송."""
     if not settings.TELEGRAM_BOT_TOKEN:
         return False
@@ -60,5 +73,5 @@ async def send_telegram_to_user(db: AsyncSession, user_id: int, title: str, mess
     if not chat_id:
         return False
 
-    text = f"<b>{title}</b>\n{message}"
+    text = _format_telegram_message(alert_type, title, message)
     return await send_telegram_message(chat_id, text)

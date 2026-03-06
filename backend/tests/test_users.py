@@ -1,5 +1,7 @@
 """User CRUD API 테스트."""
 
+from unittest.mock import patch
+
 import pytest
 
 
@@ -121,3 +123,29 @@ async def test_telegram_chat_id(client):
     resp = await client.put(f"/api/v1/users/{user_id}", json={"telegram_chat_id": ""})
     assert resp.status_code == 200
     assert resp.json()["telegram_chat_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_telegram_test_no_chat_id(client):
+    """chat_id 미설정 상태에서 telegram-test 호출 → 400."""
+    resp = await client.post("/api/v1/users", json={"name": "텔레노챗"})
+    user_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/v1/users/{user_id}/telegram-test")
+    assert resp.status_code == 400
+    assert "chat_id" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_telegram_test_no_bot_token(client):
+    """BOT_TOKEN 미설정 환경에서 telegram-test 호출 → 400."""
+    resp = await client.post("/api/v1/users", json={"name": "텔레노토큰"})
+    user_id = resp.json()["id"]
+
+    # chat_id 설정
+    await client.put(f"/api/v1/users/{user_id}", json={"telegram_chat_id": "999"})
+
+    with patch("app.core.config.settings.TELEGRAM_BOT_TOKEN", ""):
+        resp = await client.post(f"/api/v1/users/{user_id}/telegram-test")
+    assert resp.status_code == 400
+    assert "TELEGRAM_BOT_TOKEN" in resp.json()["detail"]
