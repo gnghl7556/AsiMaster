@@ -32,3 +32,8 @@ class AlertSettingUpdate(BaseModel):
     alert_type: str
     is_enabled: bool
     threshold: float | None = None
+
+
+class AlertSettingPatch(BaseModel):
+    is_enabled: bool | None = None
+    threshold: float | None = None

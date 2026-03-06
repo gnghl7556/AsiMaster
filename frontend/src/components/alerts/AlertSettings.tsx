@@ -55,8 +55,8 @@ export function AlertSettings() {
   return (
     <div className="space-y-3">
       {settings.map((setting) => {
-        const info = TYPE_LABELS[setting.type] || {
-          label: setting.type,
+        const info = TYPE_LABELS[setting.alert_type] || {
+          label: setting.alert_type,
           description: "",
         };
         return (

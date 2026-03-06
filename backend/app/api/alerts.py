@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.models.alert import Alert, AlertSetting
-from app.schemas.alert import AlertResponse, AlertSettingResponse, AlertSettingUpdate
+from app.schemas.alert import AlertResponse, AlertSettingPatch, AlertSettingResponse, AlertSettingUpdate
 
 router = APIRouter(tags=["alerts"])
 
@@ -51,6 +51,22 @@ async def get_alert_settings(user_id: int, db: AsyncSession = Depends(get_db)):
         select(AlertSetting).where(AlertSetting.user_id == user_id)
     )
     return result.scalars().all()
+
+
+@router.patch("/alert-settings/{setting_id}", response_model=AlertSettingResponse)
+async def patch_alert_setting(
+    setting_id: int, data: AlertSettingPatch, db: AsyncSession = Depends(get_db),
+):
+    setting = await db.get(AlertSetting, setting_id)
+    if not setting:
+        raise HTTPException(404, "알림 설정을 찾을 수 없습니다.")
+    if data.is_enabled is not None:
+        setting.is_enabled = data.is_enabled
+    if data.threshold is not None:
+        setting.threshold = data.threshold
+    await db.flush()
+    await db.refresh(setting)
+    return setting
 
 
 @router.put("/users/{user_id}/alert-settings", response_model=list[AlertSettingResponse])

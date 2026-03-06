@@ -4,7 +4,7 @@ import apiClient from "./client";
 export interface AlertSetting {
   id: number;
   user_id: number;
-  type: string;
+  alert_type: string;
   is_enabled: boolean;
   threshold: number | null;
 }

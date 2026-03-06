@@ -85,7 +85,7 @@ export function usePushSubscription(userId: number | null) {
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         await apiClient.delete("/push/subscribe", {
-          data: { endpoint: sub.endpoint },
+          params: { endpoint: sub.endpoint },
         });
         await sub.unsubscribe();
       }
