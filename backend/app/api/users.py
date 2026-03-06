@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.models.alert import AlertSetting
 from app.models.user import User
 from app.schemas.user import (
     PasswordVerifyRequest,
@@ -41,6 +42,12 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db)):
     )
     db.add(user)
     await db.flush()
+
+    # 기본 알림 설정 자동 생성
+    for alert_type in ("price_undercut", "rank_drop"):
+        db.add(AlertSetting(user_id=user.id, alert_type=alert_type, is_enabled=True))
+    await db.flush()
+
     await db.refresh(user)
     return user
 

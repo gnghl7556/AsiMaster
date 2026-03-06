@@ -11,16 +11,19 @@ import { cn } from "@/lib/utils/cn";
 
 const ALERT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   price_undercut: { label: "최저 총액 이탈", color: "text-red-500" },
+  rank_drop: { label: "순위 하락", color: "text-amber-500" },
   new_competitor: { label: "신규 경쟁자", color: "text-amber-500" },
   price_surge: { label: "가격 급변동", color: "text-blue-500" },
 };
 
 type Tab = "list" | "settings";
+type ListFilter = "unread" | "all";
 
 export default function AlertsPage() {
   const userId = useUserStore((s) => s.currentUserId);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("list");
+  const [listFilter, setListFilter] = useState<ListFilter>("unread");
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ["alerts", userId],
@@ -39,6 +42,7 @@ export default function AlertsPage() {
   });
 
   const unreadAlerts = alerts.filter((a) => !a.is_read);
+  const displayAlerts = listFilter === "unread" ? unreadAlerts : alerts;
 
   if (!userId) {
     return <div className="py-20 text-center text-[var(--muted-foreground)]">사업체를 선택해주세요</div>;
@@ -47,7 +51,7 @@ export default function AlertsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* 헤더 + 탭 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">알림</h1>
         <div className="flex items-center gap-2">
           {tab === "list" && unreadAlerts.length > 0 && (
@@ -71,24 +75,47 @@ export default function AlertsPage() {
         </div>
       </div>
 
+      {/* 서브 필터 (list 탭일 때만) */}
+      {tab === "list" && (
+        <div className="flex gap-2 mb-4">
+          {(["unread", "all"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setListFilter(f)}
+              className={cn(
+                "px-3 py-1 rounded-full text-sm transition-colors",
+                listFilter === f
+                  ? "bg-blue-500 text-white"
+                  : "bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--border)]"
+              )}
+            >
+              {f === "unread" ? `미읽음${unreadAlerts.length > 0 ? ` (${unreadAlerts.length})` : ""}` : "전체"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 탭 콘텐츠 */}
       {tab === "settings" ? (
         <AlertSettings />
       ) : isLoading ? (
         <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16" />)}</div>
-      ) : unreadAlerts.length === 0 ? (
+      ) : displayAlerts.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-[var(--muted-foreground)]">
           <Bell className="h-12 w-12 mb-3 opacity-30" />
-          <p>새로운 알림이 없습니다</p>
+          <p>{listFilter === "unread" ? "새로운 알림이 없습니다" : "알림 이력이 없습니다"}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {unreadAlerts.map((alert) => {
+          {displayAlerts.map((alert) => {
             const typeConfig = ALERT_TYPE_LABELS[alert.type] || { label: alert.type, color: "" };
             return (
               <div
                 key={alert.id}
-                className="glass-card border-l-4 border-l-blue-500 p-4 transition-all"
+                className={cn(
+                  "glass-card border-l-4 p-4 transition-all",
+                  alert.is_read ? "border-l-[var(--border)] opacity-60" : "border-l-blue-500"
+                )}
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -103,12 +130,14 @@ export default function AlertsPage() {
                       {new Date(alert.created_at).toLocaleString("ko-KR")}
                     </span>
                   </div>
-                  <button
-                    onClick={() => markReadMutation.mutate(alert.id)}
-                    className="rounded-lg p-1 hover:bg-[var(--muted)]"
-                  >
-                    <Check className="h-4 w-4 text-[var(--muted-foreground)]" />
-                  </button>
+                  {!alert.is_read && (
+                    <button
+                      onClick={() => markReadMutation.mutate(alert.id)}
+                      className="rounded-lg p-1 hover:bg-[var(--muted)]"
+                    >
+                      <Check className="h-4 w-4 text-[var(--muted-foreground)]" />
+                    </button>
+                  )}
                 </div>
               </div>
             );

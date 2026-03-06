@@ -18,6 +18,15 @@ async def test_create_and_get_user(client):
     assert resp.status_code == 200
     assert resp.json()["name"] == "테스트 사업체"
 
+    # 기본 알림 설정 자동 생성 확인
+    resp = await client.get(f"/api/v1/users/{user_id}/alert-settings")
+    assert resp.status_code == 200
+    settings = resp.json()
+    assert len(settings) == 2
+    types = {s["alert_type"] for s in settings}
+    assert types == {"price_undercut", "rank_drop"}
+    assert all(s["is_enabled"] for s in settings)
+
 
 @pytest.mark.asyncio
 async def test_create_duplicate_user(client):
