@@ -10,6 +10,10 @@ const TYPE_LABELS: Record<string, { label: string; description: string }> = {
     label: "최저 총액 이탈",
     description: "배송비 포함 최저 총액 기준에서 밀릴 때",
   },
+  rank_drop: {
+    label: "순위 하락",
+    description: "내 상품 순위가 이전 크롤링 대비 하락할 때",
+  },
   new_competitor: {
     label: "신규 경쟁자",
     description: "새로운 판매자가 감지될 때",
