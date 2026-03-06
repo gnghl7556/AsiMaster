@@ -36,6 +36,7 @@ async def _ensure_columns():
     """누락된 컬럼을 안전하게 추가 (Alembic 마이그레이션 보완)."""
     _PENDING_COLUMNS = [
         ("users", "password_hash", "VARCHAR(200)"),
+        ("users", "telegram_chat_id", "VARCHAR(50)"),
     ]
     async with engine.begin() as conn:
         for table, column, col_type in _PENDING_COLUMNS:
@@ -68,6 +69,8 @@ async def lifespan(app: FastAPI):
     await crawler.close()
     from app.crawlers.store_scraper import close_client as close_scraper_client
     await close_scraper_client()
+    from app.services.telegram_service import close_client as close_telegram_client
+    await close_telegram_client()
 
 
 app = FastAPI(

@@ -71,6 +71,8 @@ async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends
         user.password_hash = None
     elif data.password is not None:
         user.password_hash = _hash_password(data.password)
+    if data.telegram_chat_id is not None:
+        user.telegram_chat_id = data.telegram_chat_id if data.telegram_chat_id else None
     await db.flush()
     await db.refresh(user)
     return user
@@ -82,6 +84,25 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(404, "사업체를 찾을 수 없습니다.")
     await db.delete(user)
+
+
+@router.post("/{user_id}/telegram-test")
+async def telegram_test(user_id: int, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "사업체를 찾을 수 없습니다.")
+    if not user.telegram_chat_id:
+        raise HTTPException(400, "텔레그램 chat_id가 설정되지 않았습니다.")
+
+    from app.services.telegram_service import send_telegram_message
+    from app.core.config import settings
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise HTTPException(400, "TELEGRAM_BOT_TOKEN이 설정되지 않았습니다.")
+
+    ok = await send_telegram_message(user.telegram_chat_id, f"AsiMaster 테스트 알림\n{user.name} 사업체에서 보낸 테스트 메시지입니다.")
+    if not ok:
+        raise HTTPException(500, "텔레그램 전송에 실패했습니다.")
+    return {"ok": True}
 
 
 @router.post("/{user_id}/verify-password", response_model=PasswordVerifyResponse)

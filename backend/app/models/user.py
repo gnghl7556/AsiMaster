@@ -16,6 +16,7 @@ class User(Base):
     crawl_interval_min: Mapped[int] = mapped_column(default=settings.CRAWL_DEFAULT_INTERVAL_MIN)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     password_hash: Mapped[str | None] = mapped_column(String(200))
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(50))
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     @property

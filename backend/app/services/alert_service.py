@@ -14,6 +14,7 @@ from app.models.product import Product
 from app.models.search_keyword import SearchKeyword
 from app.services.product_service import _fetch_latest_rankings
 from app.services.push_service import send_push_to_user
+from app.services.telegram_service import send_telegram_to_user
 from app.core.utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,7 @@ async def _check_price_undercut(
     )
     db.add(alert)
     await send_push_to_user(db, product.user_id, title, message, {"type": "price_undercut", "product_id": product.id})
+    await send_telegram_to_user(db, product.user_id, title, message)
 
 
 async def _check_rank_drop(
@@ -222,6 +224,7 @@ async def _check_rank_drop(
             )
             db.add(alert)
             await send_push_to_user(db, product.user_id, title, message, {"type": "rank_drop", "product_id": product.id})
+            await send_telegram_to_user(db, product.user_id, title, message)
 
 
 async def check_and_create_alerts(

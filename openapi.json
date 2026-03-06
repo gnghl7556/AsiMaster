@@ -194,6 +194,46 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/telegram-test": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Telegram Test",
+        "operationId": "telegram_test_api_v1_users__user_id__telegram_test_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{user_id}/verify-password": {
       "post": {
         "tags": [
@@ -6168,6 +6208,17 @@
             "type": "boolean",
             "title": "Has Password"
           },
+          "telegram_chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Chat Id"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6186,6 +6237,7 @@
           "naver_store_name",
           "crawl_interval_min",
           "has_password",
+          "telegram_chat_id",
           "created_at",
           "updated_at"
         ],
@@ -6248,6 +6300,18 @@
             "type": "boolean",
             "title": "Remove Password",
             "default": false
+          },
+          "telegram_chat_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Chat Id"
           }
         },
         "type": "object",

@@ -104,3 +104,20 @@ async def test_update_password_and_remove(client):
     # 비밀번호 제거
     resp = await client.put(f"/api/v1/users/{user_id}", json={"remove_password": True})
     assert resp.json()["has_password"] is False
+
+
+@pytest.mark.asyncio
+async def test_telegram_chat_id(client):
+    resp = await client.post("/api/v1/users", json={"name": "텔레그램테스트"})
+    user_id = resp.json()["id"]
+    assert resp.json()["telegram_chat_id"] is None
+
+    # chat_id 설정
+    resp = await client.put(f"/api/v1/users/{user_id}", json={"telegram_chat_id": "123456789"})
+    assert resp.status_code == 200
+    assert resp.json()["telegram_chat_id"] == "123456789"
+
+    # chat_id 해제 (빈 문자열)
+    resp = await client.put(f"/api/v1/users/{user_id}", json={"telegram_chat_id": ""})
+    assert resp.status_code == 200
+    assert resp.json()["telegram_chat_id"] is None

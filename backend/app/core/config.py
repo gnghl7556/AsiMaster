@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # 인증: 빈 문자열이면 인증 비활성화 (하위호환)
     API_KEY: str = ""
 
+    # 텔레그램: 빈 문자열이면 텔레그램 알림 비활성화 (하위호환)
+    TELEGRAM_BOT_TOKEN: str = ""
+
     LOG_FORMAT: str = "json"  # "json" | "text"
     LOG_LEVEL: str = "INFO"
 

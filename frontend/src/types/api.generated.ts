@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/telegram-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Telegram Test */
+        post: operations["telegram_test_api_v1_users__user_id__telegram_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/verify-password": {
         parameters: {
             query?: never;
@@ -1819,6 +1836,8 @@ export interface components {
             crawl_interval_min: number;
             /** Has Password */
             has_password: boolean;
+            /** Telegram Chat Id */
+            telegram_chat_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1845,6 +1864,8 @@ export interface components {
              * @default false
              */
             remove_password: boolean;
+            /** Telegram Chat Id */
+            telegram_chat_id?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2005,6 +2026,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_test_api_v1_users__user_id__telegram_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

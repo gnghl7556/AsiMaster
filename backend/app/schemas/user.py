@@ -14,6 +14,7 @@ class UserUpdate(BaseModel):
     crawl_interval_min: int | None = Field(None, ge=0, le=1440)
     password: str | None = Field(None, min_length=4, max_length=100)
     remove_password: bool = False
+    telegram_chat_id: str | None = Field(None, max_length=50)
 
 
 class UserResponse(BaseModel):
@@ -22,6 +23,7 @@ class UserResponse(BaseModel):
     naver_store_name: str | None
     crawl_interval_min: int
     has_password: bool
+    telegram_chat_id: str | None
     created_at: datetime
     updated_at: datetime
 

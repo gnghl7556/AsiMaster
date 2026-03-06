@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Store, Loader2, Timer, Trash2, Lock, Eye, EyeOff } from "lucide-react";
+import { Store, Loader2, Timer, Trash2, Lock, Eye, EyeOff, Send } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/lib/api/client";
 import { usersApi } from "@/lib/api/users";
@@ -21,6 +21,7 @@ export default function NaverStoreSettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [telegramChatId, setTelegramChatId] = useState("");
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["user", userId],
@@ -33,6 +34,7 @@ export default function NaverStoreSettingsPage() {
     if (!user) return;
     setStoreName(user.naver_store_name ?? "");
     setCrawlInterval(user.crawl_interval_min ?? 60);
+    setTelegramChatId(user.telegram_chat_id ?? "");
   }, [user]);
 
   const saveStoreMutation = useMutation({
@@ -78,6 +80,23 @@ export default function NaverStoreSettingsPage() {
       toast.success("비밀번호가 해제되었습니다");
     },
     onError: () => toast.error("비밀번호 해제에 실패했습니다"),
+  });
+
+  const saveTelegramMutation = useMutation({
+    mutationFn: (telegram_chat_id: string) =>
+      usersApi.update(userId!, { telegram_chat_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("텔레그램 설정이 저장되었습니다");
+    },
+    onError: () => toast.error("저장에 실패했습니다"),
+  });
+
+  const telegramTestMutation = useMutation({
+    mutationFn: () => usersApi.telegramTest(userId!),
+    onSuccess: () => toast.success("테스트 메시지를 전송했습니다"),
+    onError: () => toast.error("테스트 메시지 전송에 실패했습니다"),
   });
 
   const deleteBusinessMutation = useMutation({
@@ -272,6 +291,67 @@ export default function NaverStoreSettingsPage() {
                 )}
               </div>
             </form>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-lg bg-sky-500/10 p-2.5">
+                <Send className="h-5 w-5 text-sky-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">텔레그램 알림</h3>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  텔레그램 봇으로 최저가 이탈, 순위 하락 알림을 받을 수 있습니다
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-[var(--muted)]/50 p-3 mb-4 text-sm text-[var(--muted-foreground)]">
+              <p className="font-medium text-[var(--foreground)] mb-1">설정 방법</p>
+              <ol className="list-decimal list-inside space-y-0.5">
+                <li>텔레그램에서 봇을 검색하여 <code className="text-sky-500">/start</code> 전송</li>
+                <li>봇이 알려주는 Chat ID를 아래에 입력</li>
+                <li>테스트 메시지로 연결 확인</li>
+              </ol>
+            </div>
+
+            <input
+              type="text"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              placeholder="텔레그램 Chat ID"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm outline-none focus:border-sky-500 transition-colors"
+              maxLength={50}
+            />
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => saveTelegramMutation.mutate(telegramChatId.trim())}
+                disabled={saveTelegramMutation.isPending || telegramChatId === (user?.telegram_chat_id ?? "")}
+                className="flex-1 rounded-lg bg-sky-500 py-3 text-sm font-medium text-white hover:bg-sky-600 transition-colors disabled:opacity-50"
+              >
+                {saveTelegramMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  "Chat ID 저장"
+                )}
+              </button>
+              {user?.telegram_chat_id && (
+                <button
+                  type="button"
+                  onClick={() => telegramTestMutation.mutate()}
+                  disabled={telegramTestMutation.isPending}
+                  className="rounded-lg border border-[var(--border)] px-4 py-3 text-sm font-medium hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+                >
+                  {telegramTestMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "테스트"
+                  )}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="glass-card border border-red-500/30 bg-red-500/5 p-6">
